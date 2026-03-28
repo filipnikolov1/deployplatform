@@ -2,24 +2,30 @@ package com.filipnikolov.launchpad.docker;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.PullImageResultCallback;
-import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.HostConfig;
-import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
-import java.util.List;
+import java.util.Map;
 
 @Service
 public class DockerService {
 
     private final DockerClient dockerClient;
+    private final String traefikNetwork;
+    private final String traefikDomain;
 
-    public DockerService() {
-        String dockerSocket = "unix:///Users/filip/.orbstack/run/docker.sock";
+    public DockerService(
+            @Value("${docker.socket}") String dockerSocket,
+            @Value("${traefik.network}") String traefikNetwork,
+            @Value("${traefik.domain}") String traefikDomain) {
+
+        this.traefikNetwork = traefikNetwork;
+        this.traefikDomain = traefikDomain;
 
         DefaultDockerClientConfig config = DefaultDockerClientConfig
                 .createDefaultConfigBuilder()
@@ -33,7 +39,7 @@ public class DockerService {
         this.dockerClient = DockerClientImpl.getInstance(config, httpClient);
     }
 
-    public String pullAndRun(String imageName, String appName, int containerPort, int hostPort) throws InterruptedException {
+    public String pullAndRun(String imageName, String appName, int containerPort) throws InterruptedException {
         // Pull image from DockerHub
         dockerClient.pullImageCmd(imageName)
                 .exec(new PullImageResultCallback())
@@ -42,17 +48,17 @@ public class DockerService {
         // Stop and remove existing container if it exists
         stopAndRemoveContainer(appName);
 
-        // Configure port binding
-        ExposedPort exposed = ExposedPort.tcp(containerPort);
-        Ports portBindings = new Ports();
-        portBindings.bind(exposed, Ports.Binding.bindPort(hostPort));
-
-        // Create and start the container
+        // Create and start the container with Traefik labels
         String containerId = dockerClient.createContainerCmd(imageName)
                 .withName(appName)
-                .withExposedPorts(exposed)
+                .withLabels(Map.of(
+                        "traefik.enable", "true",
+                        "traefik.http.routers." + appName + ".rule", "Host(`" + appName + "." + traefikDomain + "`)",
+                        "traefik.http.routers." + appName + ".entrypoints", "web",
+                        "traefik.http.services." + appName + ".loadbalancer.server.port", String.valueOf(containerPort)
+                ))
                 .withHostConfig(HostConfig.newHostConfig()
-                        .withPortBindings(portBindings))
+                        .withNetworkMode(traefikNetwork))
                 .exec()
                 .getId();
 
@@ -64,9 +70,13 @@ public class DockerService {
     private void stopAndRemoveContainer(String containerName) {
         try {
             dockerClient.stopContainerCmd(containerName).exec();
+        } catch (Exception e) {
+            // Container not running or doesn't exist
+        }
+        try {
             dockerClient.removeContainerCmd(containerName).exec();
         } catch (Exception e) {
-            // Container didn't exist, that's fine
+            // Container doesn't exist
         }
     }
 }

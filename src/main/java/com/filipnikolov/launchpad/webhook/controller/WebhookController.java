@@ -63,7 +63,7 @@ public class WebhookController {
     @GetMapping("/test-docker")
     public ResponseEntity<String> testDocker() {
         try {
-            String containerId = dockerService.pullAndRun("nginx:latest", "test-nginx", 80, 8081);
+            String containerId = dockerService.pullAndRun("nginx:latest", "test-nginx", 80);
             return ResponseEntity.ok("Container started: " + containerId);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Failed: " + e.getMessage());
