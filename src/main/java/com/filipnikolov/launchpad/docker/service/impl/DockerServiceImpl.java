@@ -1,6 +1,9 @@
-package com.filipnikolov.launchpad.docker;
+package com.filipnikolov.launchpad.docker.service.impl;
 
+import com.filipnikolov.launchpad.docker.buildlog.service.BuildLogService;
+import com.filipnikolov.launchpad.docker.service.DockerService;
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.model.AuthConfig;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.PullResponseItem;
@@ -10,8 +13,6 @@ import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.github.dockerjava.api.async.ResultCallback;
-
 import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
@@ -19,7 +20,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 @Service
-public class DockerService {
+public class DockerServiceImpl implements DockerService {
 
     private final DockerClient dockerClient;
     private final BuildLogService buildLogService;
@@ -27,7 +28,7 @@ public class DockerService {
     private final String traefikDomain;
     private final AuthConfig authConfig;
 
-    public DockerService(
+    public DockerServiceImpl(
             BuildLogService buildLogService,
             @Value("${docker.socket}") String dockerSocket,
             @Value("${dockerhub.username}") String dockerhubUsername,
@@ -60,8 +61,8 @@ public class DockerService {
         this.dockerClient = DockerClientImpl.getInstance(config, httpClient);
     }
 
+    @Override
     public String pullAndRun(String imageName, String appName, int containerPort, Map<String, String> envVars) throws InterruptedException {
-        // Pull image from DockerHub (with auth if configured), streaming progress
         buildLogService.send(appName, "Pulling image: " + imageName);
 
         var pullCmd = dockerClient.pullImageCmd(imageName);
@@ -100,16 +101,13 @@ public class DockerService {
         });
         latch.await();
 
-        // Stop and remove existing container if it exists
         buildLogService.send(appName, "Stopping existing container...");
         stopAndRemoveContainer(appName);
 
-        // Build env var list for the container
         List<String> env = envVars.entrySet().stream()
                 .map(e -> e.getKey() + "=" + e.getValue())
                 .toList();
 
-        // Create and start the container with Traefik labels
         String containerId = dockerClient.createContainerCmd(imageName)
                 .withName(appName)
                 .withEnv(env)
@@ -133,7 +131,8 @@ public class DockerService {
         return containerId;
     }
 
-    private void stopAndRemoveContainer(String containerName) {
+    @Override
+    public void stopAndRemoveContainer(String containerName) {
         try {
             dockerClient.stopContainerCmd(containerName).exec();
         } catch (Exception e) {

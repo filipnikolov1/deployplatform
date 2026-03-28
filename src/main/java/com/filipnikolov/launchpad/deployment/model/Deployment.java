@@ -21,7 +21,8 @@ public class Deployment {
 
     private String imageName;
 
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private DeploymentStatus status;
 
     private LocalDateTime createdAt;
 
