@@ -27,7 +27,7 @@ public class DeploymentServiceImpl implements DeploymentService {
         deploymentRepository.save(deployment);
 
         try {
-            dockerService.pullAndRun(deployment.getImageName(), appName, 3000, 3000);
+            dockerService.pullAndRun(deployment.getImageName(), appName, 3000);
             deployment.setStatus("RUNNING");
         } catch (Exception e) {
             deployment.setStatus("FAILED");

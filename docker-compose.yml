@@ -1,4 +1,19 @@
 services:
+  traefik:
+    image: traefik:v3.3
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /Users/filip/.orbstack/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik
+
   postgres:
     image: postgres:16
     environment:
@@ -9,6 +24,10 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+networks:
+  traefik:
+    name: traefik
 
 volumes:
   postgres_data:
