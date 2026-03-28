@@ -2,6 +2,7 @@ package com.filipnikolov.launchpad.docker;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.PullImageResultCallback;
+import com.github.dockerjava.api.model.AuthConfig;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
@@ -18,14 +19,26 @@ public class DockerService {
     private final DockerClient dockerClient;
     private final String traefikNetwork;
     private final String traefikDomain;
+    private final AuthConfig authConfig;
 
     public DockerService(
             @Value("${docker.socket}") String dockerSocket,
+            @Value("${dockerhub.username}") String dockerhubUsername,
+            @Value("${dockerhub.token}") String dockerhubToken,
             @Value("${traefik.network}") String traefikNetwork,
             @Value("${traefik.domain}") String traefikDomain) {
 
         this.traefikNetwork = traefikNetwork;
         this.traefikDomain = traefikDomain;
+
+        if (!dockerhubUsername.isEmpty() && !dockerhubToken.isEmpty()) {
+            this.authConfig = new AuthConfig()
+                    .withUsername(dockerhubUsername)
+                    .withPassword(dockerhubToken)
+                    .withRegistryAddress("https://index.docker.io/v1/");
+        } else {
+            this.authConfig = null;
+        }
 
         DefaultDockerClientConfig config = DefaultDockerClientConfig
                 .createDefaultConfigBuilder()
@@ -40,9 +53,12 @@ public class DockerService {
     }
 
     public String pullAndRun(String imageName, String appName, int containerPort) throws InterruptedException {
-        // Pull image from DockerHub
-        dockerClient.pullImageCmd(imageName)
-                .exec(new PullImageResultCallback())
+        // Pull image from DockerHub (with auth if configured)
+        var pullCmd = dockerClient.pullImageCmd(imageName);
+        if (authConfig != null) {
+            pullCmd.withAuthConfig(authConfig);
+        }
+        pullCmd.exec(new PullImageResultCallback())
                 .awaitCompletion();
 
         // Stop and remove existing container if it exists
