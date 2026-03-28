@@ -1,34 +1,41 @@
 package com.filipnikolov.launchpad.docker;
 
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.PullImageResultCallback;
 import com.github.dockerjava.api.model.AuthConfig;
 import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.api.model.PullResponseItem;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.github.dockerjava.api.async.ResultCallback;
+
+import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 
 @Service
 public class DockerService {
 
     private final DockerClient dockerClient;
+    private final BuildLogService buildLogService;
     private final String traefikNetwork;
     private final String traefikDomain;
     private final AuthConfig authConfig;
 
     public DockerService(
+            BuildLogService buildLogService,
             @Value("${docker.socket}") String dockerSocket,
             @Value("${dockerhub.username}") String dockerhubUsername,
             @Value("${dockerhub.token}") String dockerhubToken,
             @Value("${traefik.network}") String traefikNetwork,
             @Value("${traefik.domain}") String traefikDomain) {
 
+        this.buildLogService = buildLogService;
         this.traefikNetwork = traefikNetwork;
         this.traefikDomain = traefikDomain;
 
@@ -54,15 +61,47 @@ public class DockerService {
     }
 
     public String pullAndRun(String imageName, String appName, int containerPort, Map<String, String> envVars) throws InterruptedException {
-        // Pull image from DockerHub (with auth if configured)
+        // Pull image from DockerHub (with auth if configured), streaming progress
+        buildLogService.send(appName, "Pulling image: " + imageName);
+
         var pullCmd = dockerClient.pullImageCmd(imageName);
         if (authConfig != null) {
             pullCmd.withAuthConfig(authConfig);
         }
-        pullCmd.exec(new PullImageResultCallback())
-                .awaitCompletion();
+
+        CountDownLatch latch = new CountDownLatch(1);
+        pullCmd.exec(new ResultCallback<PullResponseItem>() {
+            @Override
+            public void onStart(Closeable closeable) {}
+
+            @Override
+            public void onNext(PullResponseItem item) {
+                String status = item.getStatus();
+                if (status != null) {
+                    String progress = item.getProgress() != null ? " " + item.getProgress() : "";
+                    buildLogService.send(appName, status + progress);
+                }
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                buildLogService.send(appName, "Pull failed: " + throwable.getMessage());
+                latch.countDown();
+            }
+
+            @Override
+            public void onComplete() {
+                buildLogService.send(appName, "Pull complete");
+                latch.countDown();
+            }
+
+            @Override
+            public void close() {}
+        });
+        latch.await();
 
         // Stop and remove existing container if it exists
+        buildLogService.send(appName, "Stopping existing container...");
         stopAndRemoveContainer(appName);
 
         // Build env var list for the container
@@ -85,7 +124,11 @@ public class DockerService {
                 .exec()
                 .getId();
 
+        buildLogService.send(appName, "Starting container: " + containerId.substring(0, 12));
         dockerClient.startContainerCmd(containerId).exec();
+
+        buildLogService.send(appName, "Container running at " + appName + "." + traefikDomain);
+        buildLogService.complete(appName);
 
         return containerId;
     }
