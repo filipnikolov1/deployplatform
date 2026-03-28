@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -36,6 +37,7 @@ public class DeploymentServiceImpl implements DeploymentService {
 
         deployment.setRepoUrl(repoUrl);
         deployment.setImageName(imageName);
+        deployment.setContainerPort(containerPort);
         deployment.setStatus(DeploymentStatus.PENDING);
         deployment.setUpdatedAt(LocalDateTime.now());
         deploymentRepository.save(deployment);
@@ -51,6 +53,51 @@ public class DeploymentServiceImpl implements DeploymentService {
         }
 
         deployment.setUpdatedAt(LocalDateTime.now());
+        return deploymentRepository.save(deployment);
+    }
+
+    @Override
+    public List<Deployment> getAllDeployments() {
+        return deploymentRepository.findAll();
+    }
+
+    @Override
+    public Deployment getDeployment(String appName) {
+        return deploymentRepository.findByAppName(appName)
+                .orElseThrow(() -> new RuntimeException("Deployment not found: " + appName));
+    }
+
+    @Override
+    public Deployment restartDeployment(String appName) {
+        Deployment deployment = getDeployment(appName);
+
+        deployment.setStatus(DeploymentStatus.PENDING);
+        deployment.setUpdatedAt(LocalDateTime.now());
+        deploymentRepository.save(deployment);
+
+        try {
+            Map<String, String> envVars = envVarService.getEnvVars(appName);
+            dockerService.pullAndRun(deployment.getImageName(), appName, deployment.getContainerPort(), envVars);
+            deployment.setStatus(DeploymentStatus.RUNNING);
+            log.info("Restart successful: {}", appName);
+        } catch (Exception e) {
+            deployment.setStatus(DeploymentStatus.FAILED);
+            log.error("Restart failed for {}: {}", appName, e.getMessage(), e);
+        }
+
+        deployment.setUpdatedAt(LocalDateTime.now());
+        return deploymentRepository.save(deployment);
+    }
+
+    @Override
+    public Deployment stopDeployment(String appName) {
+        Deployment deployment = getDeployment(appName);
+
+        dockerService.stopAndRemoveContainer(appName);
+        deployment.setStatus(DeploymentStatus.STOPPED);
+        deployment.setUpdatedAt(LocalDateTime.now());
+        log.info("Stopped: {}", appName);
+
         return deploymentRepository.save(deployment);
     }
 }

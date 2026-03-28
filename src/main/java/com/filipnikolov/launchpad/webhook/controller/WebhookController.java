@@ -18,7 +18,8 @@ public class WebhookController {
 
     private final DeploymentService deploymentService;
     private final WebhookAuthService webhookAuthService;
-    private final ObjectMapper objectMapper;
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${dockerhub.registry:filipnikolov}")
     private String dockerhubRegistry;

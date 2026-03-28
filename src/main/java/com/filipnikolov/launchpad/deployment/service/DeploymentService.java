@@ -2,6 +2,8 @@ package com.filipnikolov.launchpad.deployment.service;
 
 import com.filipnikolov.launchpad.deployment.model.Deployment;
 
+import java.util.List;
+
 /**
  * Handles the full lifecycle of a deployment — from creating the record
  * to pulling the image and starting the container.
@@ -19,4 +21,37 @@ public interface DeploymentService {
      * @return the persisted Deployment with its final status (RUNNING or FAILED)
      */
     Deployment createDeployment(String appName, String repoUrl, String imageName, int containerPort);
+
+    /**
+     * Returns all deployments.
+     *
+     * @return list of all deployment records
+     */
+    List<Deployment> getAllDeployments();
+
+    /**
+     * Returns a single deployment by app name.
+     *
+     * @param appName the application name
+     * @return the deployment, or throws if not found
+     */
+    Deployment getDeployment(String appName);
+
+    /**
+     * Restarts an app by re-pulling its image and recreating the container
+     * with the latest stored env vars.
+     *
+     * @param appName the application name to restart
+     * @return the updated Deployment with its new status
+     */
+    Deployment restartDeployment(String appName);
+
+    /**
+     * Stops a running container and marks the deployment as STOPPED.
+     * The uptime monitor will not ping STOPPED apps.
+     *
+     * @param appName the application name to stop
+     * @return the updated Deployment
+     */
+    Deployment stopDeployment(String appName);
 }
