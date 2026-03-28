@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -52,7 +53,7 @@ public class DockerService {
         this.dockerClient = DockerClientImpl.getInstance(config, httpClient);
     }
 
-    public String pullAndRun(String imageName, String appName, int containerPort) throws InterruptedException {
+    public String pullAndRun(String imageName, String appName, int containerPort, Map<String, String> envVars) throws InterruptedException {
         // Pull image from DockerHub (with auth if configured)
         var pullCmd = dockerClient.pullImageCmd(imageName);
         if (authConfig != null) {
@@ -64,9 +65,15 @@ public class DockerService {
         // Stop and remove existing container if it exists
         stopAndRemoveContainer(appName);
 
+        // Build env var list for the container
+        List<String> env = envVars.entrySet().stream()
+                .map(e -> e.getKey() + "=" + e.getValue())
+                .toList();
+
         // Create and start the container with Traefik labels
         String containerId = dockerClient.createContainerCmd(imageName)
                 .withName(appName)
+                .withEnv(env)
                 .withLabels(Map.of(
                         "traefik.enable", "true",
                         "traefik.http.routers." + appName + ".rule", "Host(`" + appName + "." + traefikDomain + "`)",

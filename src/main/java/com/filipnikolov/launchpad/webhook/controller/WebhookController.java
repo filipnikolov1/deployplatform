@@ -17,6 +17,7 @@ public class WebhookController {
     private final DeploymentService deploymentService;
     private final WebhookAuthService webhookAuthService;
     private final DockerService dockerService;
+    private final com.filipnikolov.launchpad.envvar.service.EnvVarService envVarService;
 
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper =
             new com.fasterxml.jackson.databind.ObjectMapper();
@@ -63,7 +64,8 @@ public class WebhookController {
     @GetMapping("/test-docker")
     public ResponseEntity<String> testDocker() {
         try {
-            String containerId = dockerService.pullAndRun("nginx:latest", "test-nginx", 80);
+            Map<String, String> envVars = envVarService.getEnvVars("test-nginx");
+            String containerId = dockerService.pullAndRun("nginx:latest", "test-nginx", 80, envVars);
             return ResponseEntity.ok("Container started: " + containerId);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Failed: " + e.getMessage());
