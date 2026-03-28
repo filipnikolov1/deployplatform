@@ -132,6 +132,17 @@ public class DockerServiceImpl implements DockerService {
     }
 
     @Override
+    public boolean isContainerRunning(String containerName) {
+        try {
+            return Boolean.TRUE.equals(
+                    dockerClient.inspectContainerCmd(containerName).exec().getState().getRunning()
+            );
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
     public void stopAndRemoveContainer(String containerName) {
         try {
             dockerClient.stopContainerCmd(containerName).exec();

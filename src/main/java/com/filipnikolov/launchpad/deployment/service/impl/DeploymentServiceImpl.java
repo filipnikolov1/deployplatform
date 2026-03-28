@@ -6,6 +6,7 @@ import com.filipnikolov.launchpad.deployment.repository.DeploymentRepository;
 import com.filipnikolov.launchpad.deployment.service.DeploymentService;
 import com.filipnikolov.launchpad.docker.service.DockerService;
 import com.filipnikolov.launchpad.envvar.service.EnvVarService;
+import com.filipnikolov.launchpad.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +65,7 @@ public class DeploymentServiceImpl implements DeploymentService {
     @Override
     public Deployment getDeployment(String appName) {
         return deploymentRepository.findByAppName(appName)
-                .orElseThrow(() -> new RuntimeException("Deployment not found: " + appName));
+                .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
     }
 
     @Override

@@ -29,4 +29,12 @@ public interface DockerService {
      * @param containerName the name of the container to remove
      */
     void stopAndRemoveContainer(String containerName);
+
+    /**
+     * Checks if a container with the given name exists and is currently running.
+     *
+     * @param containerName the name of the container to inspect
+     * @return true if the container is in a running state, false otherwise
+     */
+    boolean isContainerRunning(String containerName);
 }

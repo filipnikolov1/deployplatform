@@ -62,8 +62,15 @@ public class WebhookController {
         }
 
         Map<String, Object> repo = (Map<String, Object>) payload.get("repository");
+        if (repo == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
         String repoUrl = (String) repo.get("clone_url");
         String appName = (String) repo.get("name");
+        if (appName == null || repoUrl == null) {
+            return ResponseEntity.badRequest().build();
+        }
 
         String imageName = dockerhubRegistry + "/" + appName + ":latest";
         deploymentService.createDeployment(appName, repoUrl, imageName, defaultContainerPort);

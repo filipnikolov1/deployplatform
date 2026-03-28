@@ -3,15 +3,14 @@ package com.filipnikolov.launchpad.monitoring.service.impl;
 import com.filipnikolov.launchpad.deployment.model.Deployment;
 import com.filipnikolov.launchpad.deployment.model.DeploymentStatus;
 import com.filipnikolov.launchpad.deployment.repository.DeploymentRepository;
+import com.filipnikolov.launchpad.docker.service.DockerService;
 import com.filipnikolov.launchpad.monitoring.service.NotificationService;
 import com.filipnikolov.launchpad.monitoring.service.UptimeMonitorService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,11 +27,7 @@ public class UptimeMonitorServiceImpl implements UptimeMonitorService {
 
     private final DeploymentRepository deploymentRepository;
     private final NotificationService notificationService;
-
-    @Value("${traefik.domain}")
-    private String traefikDomain;
-
-    private final RestClient restClient = RestClient.create();
+    private final DockerService dockerService;
 
     @Override
     @Scheduled(fixedRate = 60000)
@@ -62,17 +57,9 @@ public class UptimeMonitorServiceImpl implements UptimeMonitorService {
     }
 
     /**
-     * Pings the app's Traefik URL and returns true if it responds with any 2xx status.
+     * Checks if the app's Docker container is currently running via the Docker API.
      */
     private boolean isHealthy(String appName) {
-        try {
-            restClient.get()
-                    .uri("http://" + appName + "." + traefikDomain)
-                    .retrieve()
-                    .toBodilessEntity();
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        return dockerService.isContainerRunning(appName);
     }
 }
