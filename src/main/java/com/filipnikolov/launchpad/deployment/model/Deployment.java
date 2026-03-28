@@ -21,6 +21,8 @@ public class Deployment {
 
     private String imageName;
 
+    private int containerPort;
+
     @Enumerated(EnumType.STRING)
     private DeploymentStatus status;
 
