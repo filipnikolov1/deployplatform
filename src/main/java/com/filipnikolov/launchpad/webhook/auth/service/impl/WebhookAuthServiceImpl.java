@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 @Service
 public class WebhookAuthServiceImpl implements WebhookAuthService {
@@ -31,7 +32,9 @@ public class WebhookAuthServiceImpl implements WebhookAuthService {
             }
 
             String expectedSignature = "sha256=" + hexString;
-            return expectedSignature.equals(signatureHeader);
+            return MessageDigest.isEqual(
+                    expectedSignature.getBytes(StandardCharsets.UTF_8),
+                    signatureHeader.getBytes(StandardCharsets.UTF_8));
 
         } catch (Exception e) {
             return false;
