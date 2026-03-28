@@ -1,5 +1,6 @@
-package com.filipnikolov.launchpad.docker;
+package com.filipnikolov.launchpad.docker.buildlog.service.impl;
 
+import com.filipnikolov.launchpad.docker.buildlog.service.BuildLogService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -9,10 +10,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
-public class BuildLogService {
+public class BuildLogServiceImpl implements BuildLogService {
 
     private final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
+    @Override
     public SseEmitter subscribe(String appName) {
         SseEmitter emitter = new SseEmitter(5 * 60 * 1000L); // 5 min timeout
         emitters.computeIfAbsent(appName, k -> new CopyOnWriteArrayList<>()).add(emitter);
@@ -24,6 +26,7 @@ public class BuildLogService {
         return emitter;
     }
 
+    @Override
     public void send(String appName, String message) {
         List<SseEmitter> appEmitters = emitters.get(appName);
         if (appEmitters == null) return;
@@ -37,6 +40,7 @@ public class BuildLogService {
         }
     }
 
+    @Override
     public void complete(String appName) {
         List<SseEmitter> appEmitters = emitters.remove(appName);
         if (appEmitters == null) return;

@@ -1,38 +1,19 @@
 package com.filipnikolov.launchpad.webhook.auth.service;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+/**
+ * Verifies the authenticity of incoming GitHub webhook requests
+ * using HMAC SHA-256 signature validation.
+ */
+public interface WebhookAuthService {
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-
-@Service
-public class WebhookAuthService {
-
-    @Value("${github.webhook.secret}")
-    private String secret;
-
-    public boolean isValidSignature(String payload, String signatureHeader) {
-        if (signatureHeader == null || !signatureHeader.startsWith("sha256=")) {
-            return false;
-        }
-
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            byte[] hash = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hash) {
-                hexString.append(String.format("%02x", b));
-            }
-
-            String expectedSignature = "sha256=" + hexString;
-            return expectedSignature.equals(signatureHeader);
-
-        } catch (Exception e) {
-            return false;
-        }
-    }
+    /**
+     * Validates the webhook payload against the X-Hub-Signature-256 header.
+     * Computes HMAC SHA-256 of the payload using the shared secret and compares
+     * it to the signature provided by GitHub.
+     *
+     * @param payload         the raw request body
+     * @param signatureHeader the X-Hub-Signature-256 header value (e.g. "sha256=abc123...")
+     * @return true if the signature is valid, false otherwise
+     */
+    boolean isValidSignature(String payload, String signatureHeader);
 }
