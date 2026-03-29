@@ -2,13 +2,11 @@ services:
   traefik:
     image: traefik:v3.3
     command:
-      - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
     ports:
       - "80:80"
-      - "8080:8080"
     volumes:
       - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock:ro
     networks:
@@ -24,10 +22,14 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - traefik
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-launchpad}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   launchpad:
-    build: .
-    image: filipn123/launchpad:latest
+    image: filipn123/launchpad-backend:latest
     env_file:
       - .env
     environment:
@@ -36,15 +38,27 @@ services:
     volumes:
       - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
     depends_on:
-      - postgres
-      - traefik
+      postgres:
+        condition: service_healthy
+      traefik:
+        condition: service_started
     networks:
       - traefik
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.launchpad.rule=Host(`launchpad.localhost`)"
       - "traefik.http.routers.launchpad.entrypoints=web"
+      - "traefik.http.routers.launchpad-webhook.rule=PathPrefix(`/webhook`)"
+      - "traefik.http.routers.launchpad-webhook.entrypoints=web"
       - "traefik.http.services.launchpad.loadbalancer.server.port=8082"
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
+    environment:
+      WATCHTOWER_POLL_INTERVAL: 300
+    command: launchpad-launchpad-1
 
 networks:
   traefik:

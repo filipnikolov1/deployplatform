@@ -1,28 +1,30 @@
 package com.filipnikolov.launchpad.webhook.controller;
 
-import com.filipnikolov.launchpad.deployment.model.Deployment;
 import com.filipnikolov.launchpad.deployment.service.DeploymentService;
 import com.filipnikolov.launchpad.webhook.auth.service.WebhookAuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/webhook")
 @RequiredArgsConstructor
 public class WebhookController {
 
+    private static final Logger log = LoggerFactory.getLogger(WebhookController.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Pattern VALID_APP_NAME = Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$");
+    private static final long REPLAY_WINDOW_MS = 5 * 60 * 1000;
+
     private final DeploymentService deploymentService;
     private final WebhookAuthService webhookAuthService;
-
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    @Value("${dockerhub.registry:filipnikolov}")
-    private String dockerhubRegistry;
 
     @Value("${app.default-port:3000}")
     private int defaultContainerPort;
@@ -36,59 +38,49 @@ public class WebhookController {
         }
     }
 
-    /**
-     * Receives GitHub webhook events. Verifies the HMAC signature, filters for
-     * push events on refs/heads/main, then triggers a deployment for the repo.
-     */
-    @PostMapping("/github")
-    public ResponseEntity<Void> handleWebhook(
-            @RequestHeader("X-GitHub-Event") String event,
-            @RequestHeader("X-Hub-Signature-256") String signature,
+    private boolean isValidAppName(String appName) {
+        return appName != null && VALID_APP_NAME.matcher(appName).matches();
+    }
+
+    @PostMapping("/deploy")
+    public ResponseEntity<Void> handleDeploy(
+            @RequestHeader("X-Signature-256") String signature,
             @RequestBody String rawBody) {
 
         if (!webhookAuthService.isValidSignature(rawBody, signature)) {
             return ResponseEntity.status(401).build();
         }
 
-        if (!"push".equals(event)) {
-            return ResponseEntity.ok().build();
-        }
-
         Map<String, Object> payload = parsePayload(rawBody);
 
-        String ref = (String) payload.get("ref");
-        if (!"refs/heads/main".equals(ref)) {
-            return ResponseEntity.ok().build();
+        if (!payload.containsKey("timestamp")) {
+            return ResponseEntity.badRequest().build();
+        }
+        long timestamp = ((Number) payload.get("timestamp")).longValue();
+        long now = System.currentTimeMillis();
+        if (Math.abs(now - timestamp) > REPLAY_WINDOW_MS) {
+            log.warn("Stale deploy request rejected (timestamp: {})", timestamp);
+            return ResponseEntity.status(401).build();
         }
 
-        Map<String, Object> repo = (Map<String, Object>) payload.get("repository");
-        if (repo == null) {
+        String imageName = (String) payload.get("image");
+        String appName = (String) payload.get("app_name");
+        String repoUrl = (String) payload.get("repo_url");
+
+        if (imageName == null || appName == null) {
             return ResponseEntity.badRequest().build();
         }
 
-        String repoUrl = (String) repo.get("clone_url");
-        String appName = (String) repo.get("name");
-        if (appName == null || repoUrl == null) {
+        if (!isValidAppName(appName)) {
+            log.warn("Invalid app name rejected: {}", appName);
             return ResponseEntity.badRequest().build();
         }
 
-        String imageName = dockerhubRegistry + "/" + appName + ":latest";
-        deploymentService.createDeployment(appName, repoUrl, imageName, defaultContainerPort);
+        int containerPort = payload.containsKey("port")
+                ? ((Number) payload.get("port")).intValue()
+                : defaultContainerPort;
 
+        deploymentService.createDeployment(appName, repoUrl, imageName, containerPort);
         return ResponseEntity.ok().build();
-    }
-
-    /**
-     * Test endpoint that deploys an nginx container via the full deployment pipeline.
-     * Creates a deployment record so the uptime monitor can track it.
-     */
-    @GetMapping("/test-docker")
-    public ResponseEntity<String> testDocker() {
-        try {
-            Deployment deployment = deploymentService.createDeployment("test-nginx", "https://test.com", "nginx:latest", 80);
-            return ResponseEntity.ok("Deployment created: " + deployment.getStatus());
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Failed: " + e.getMessage());
-        }
     }
 }
