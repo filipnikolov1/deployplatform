@@ -37,4 +37,15 @@ public interface DockerService {
      * @return true if the container is in a running state, false otherwise
      */
     boolean isContainerRunning(String containerName);
+
+    /**
+     * Fetches the last {@code tailLines} lines of stdout+stderr from a running container.
+     * Returns an empty list if the container does not exist, has never started,
+     * or the log fetch fails for any reason.
+     *
+     * @param containerName the container name (same as appName)
+     * @param tailLines     maximum number of lines to return from the tail
+     * @return list of log lines, oldest first; never null
+     */
+    java.util.List<String> getContainerLogs(String containerName, int tailLines);
 }
