@@ -14,6 +14,7 @@ Current status and next steps for [[Launchpad]].
 8. [[Security Hardening]] — Auth, rate limiting, input validation
 9. [[CI/CD Pipeline]] — GitHub Actions build + push
 10. [[Watchtower]] — Auto-updates
+11. [[AI Integration]] — Local LLM via Ollama for log analysis
 
 ## Next: VPS Deployment
 

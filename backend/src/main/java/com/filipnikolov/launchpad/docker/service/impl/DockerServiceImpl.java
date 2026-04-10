@@ -5,6 +5,7 @@ import com.filipnikolov.launchpad.docker.service.DockerService;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.model.AuthConfig;
+import com.github.dockerjava.api.model.Frame;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.PullResponseItem;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.Closeable;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -154,5 +157,32 @@ public class DockerServiceImpl implements DockerService {
         } catch (Exception e) {
             // Container doesn't exist
         }
+    }
+
+    @Override
+    public List<String> getContainerLogs(String containerName, int tailLines) {
+        List<String> lines = new ArrayList<>();
+        try {
+            dockerClient.logContainerCmd(containerName)
+                    .withStdOut(true)
+                    .withStdErr(true)
+                    .withTail(tailLines)
+                    .exec(new ResultCallback.Adapter<Frame>() {
+                        @Override
+                        public void onNext(Frame frame) {
+                            String line = new String(frame.getPayload(), StandardCharsets.UTF_8)
+                                    .stripTrailing();
+                            if (!line.isEmpty()) {
+                                lines.add(line);
+                            }
+                        }
+                    }).awaitCompletion();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            // Container doesn't exist, never started, or docker socket unavailable —
+            // return whatever we've accumulated (likely empty).
+        }
+        return lines;
     }
 }

@@ -28,6 +28,17 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - traefik
+
   launchpad:
     image: filipn123/launchpad-backend:latest
     env_file:
@@ -35,6 +46,7 @@ services:
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/launchpad
       DOCKER_SOCKET: unix:///var/run/docker.sock
+      OLLAMA_BASE_URL: http://ollama:11434
     volumes:
       - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
     depends_on:
@@ -66,3 +78,4 @@ networks:
 
 volumes:
   postgres_data:
+  ollama_data:

@@ -36,6 +36,12 @@ com.filipnikolov.launchpad
 │   ├── repository/      -> EnvVarRepository
 │   └── service/         -> EnvVarService + impl
 ├── exception/           -> GlobalExceptionHandler
+├── ai/                  -> [[AI Integration]]
+│   ├── config/          -> OllamaRestClientConfig
+│   ├── controller/      -> AiController
+│   ├── exception/       -> AiUnavailableException, AiNotReadyException
+│   ├── model/           -> OllamaRequest, OllamaResponse (records)
+│   └── service/         -> OllamaService + impl
 ├── monitoring/          -> [[Uptime Monitoring]]
 │   └── service/         -> UptimeMonitorService, NotificationService
 └── webhook/             -> [[Webhook Receiver]]
@@ -59,6 +65,6 @@ com.filipnikolov.launchpad
 - **Flyway migrations** - Database schema versioned and auto-applied
 - **SSE for logs** - Server-Sent Events for real-time build log streaming
 
-See also: [[Database Schema]], [[API Reference]], [[Security]]
+See also: [[Database Schema]], [[API Reference]], [[Security]], [[AI Integration]]
 
 #architecture
