@@ -32,5 +32,15 @@ build/
 ### VS Code ###
 .vscode/
 
+### Obsidian ###
+.obsidian/
+
 ### Environment ###
 .env
+
+### macOS ###
+.DS_Store
+
+### Superpowers workspaces ###
+.superpowers/
+docs/superpowers/
