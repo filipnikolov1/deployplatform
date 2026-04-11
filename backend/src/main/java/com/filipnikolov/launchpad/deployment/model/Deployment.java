@@ -2,7 +2,6 @@ package com.filipnikolov.launchpad.deployment.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.Generated;
 
 import java.time.LocalDateTime;
 

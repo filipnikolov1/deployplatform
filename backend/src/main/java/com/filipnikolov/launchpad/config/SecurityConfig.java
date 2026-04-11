@@ -25,7 +25,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/webhook/**").permitAll()
+                        .requestMatchers("/deploy-hook/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/apps/*/logs/build").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll()

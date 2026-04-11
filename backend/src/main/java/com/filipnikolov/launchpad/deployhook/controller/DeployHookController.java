@@ -1,7 +1,7 @@
-package com.filipnikolov.launchpad.webhook.controller;
+package com.filipnikolov.launchpad.deployhook.controller;
 
 import com.filipnikolov.launchpad.deployment.service.DeploymentService;
-import com.filipnikolov.launchpad.webhook.auth.service.WebhookAuthService;
+import com.filipnikolov.launchpad.deployhook.auth.service.DeployHookAuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -14,17 +14,17 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 @RestController
-@RequestMapping("/webhook")
+@RequestMapping("/deploy-hook")
 @RequiredArgsConstructor
-public class WebhookController {
+public class DeployHookController {
 
-    private static final Logger log = LoggerFactory.getLogger(WebhookController.class);
+    private static final Logger log = LoggerFactory.getLogger(DeployHookController.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final Pattern VALID_APP_NAME = Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$");
     private static final long REPLAY_WINDOW_MS = 5 * 60 * 1000;
 
     private final DeploymentService deploymentService;
-    private final WebhookAuthService webhookAuthService;
+    private final DeployHookAuthService deployHookAuthService;
 
     @Value("${app.default-port:3000}")
     private int defaultContainerPort;
@@ -42,12 +42,12 @@ public class WebhookController {
         return appName != null && VALID_APP_NAME.matcher(appName).matches();
     }
 
-    @PostMapping("/deploy")
+    @PostMapping
     public ResponseEntity<Void> handleDeploy(
             @RequestHeader("X-Signature-256") String signature,
             @RequestBody String rawBody) {
 
-        if (!webhookAuthService.isValidSignature(rawBody, signature)) {
+        if (!deployHookAuthService.isValidSignature(rawBody, signature)) {
             return ResponseEntity.status(401).build();
         }
 

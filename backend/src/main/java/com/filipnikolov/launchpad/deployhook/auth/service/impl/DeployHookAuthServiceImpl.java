@@ -1,6 +1,6 @@
-package com.filipnikolov.launchpad.webhook.auth.service.impl;
+package com.filipnikolov.launchpad.deployhook.auth.service.impl;
 
-import com.filipnikolov.launchpad.webhook.auth.service.WebhookAuthService;
+import com.filipnikolov.launchpad.deployhook.auth.service.DeployHookAuthService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -10,9 +10,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
 @Service
-public class WebhookAuthServiceImpl implements WebhookAuthService {
+public class DeployHookAuthServiceImpl implements DeployHookAuthService {
 
-    @Value("${github.webhook.secret}")
+    @Value("${deploy.hook.secret}")
     private String secret;
 
     @Override
