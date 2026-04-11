@@ -27,16 +27,15 @@ function bytesToString(b: Uint8Array): string {
   return new TextDecoder().decode(b);
 }
 
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  const out = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(out).set(bytes);
-  return out;
+function toBuffer(s: string): ArrayBuffer {
+  const bytes = new TextEncoder().encode(s);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 async function importKey(secret: string): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     "raw",
-    toArrayBuffer(stringToBytes(secret)),
+    toBuffer(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign", "verify"],
@@ -45,7 +44,7 @@ async function importKey(secret: string): Promise<CryptoKey> {
 
 async function hmacSign(secret: string, data: string): Promise<string> {
   const key = await importKey(secret);
-  const sig = await crypto.subtle.sign("HMAC", key, toArrayBuffer(stringToBytes(data)));
+  const sig = await crypto.subtle.sign("HMAC", key, toBuffer(data));
   return bytesToBase64Url(new Uint8Array(sig));
 }
 

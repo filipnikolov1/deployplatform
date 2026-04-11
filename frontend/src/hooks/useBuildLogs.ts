@@ -15,7 +15,7 @@ export function useBuildLogs(appName: string) {
     setLines([]);
     setStatus("connecting");
     const es = new EventSource(
-      `/api/apps/${encodeURIComponent(appName)}/logs/build`,
+      `/api/apps/${encodeURIComponent(appName)}/logs/runtime`,
     );
     esRef.current = es;
 

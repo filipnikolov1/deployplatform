@@ -38,7 +38,7 @@ describe("useBuildLogs", () => {
   it("opens an EventSource pointed at the proxy route", () => {
     renderHook(() => useBuildLogs("demo"));
     expect(FakeEventSource.instances).toHaveLength(1);
-    expect(FakeEventSource.instances[0].url).toBe("/api/apps/demo/logs/build");
+    expect(FakeEventSource.instances[0].url).toBe("/api/apps/demo/logs/runtime");
   });
 
   it("appends received lines", () => {

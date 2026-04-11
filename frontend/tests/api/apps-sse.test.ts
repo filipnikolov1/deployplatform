@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { GET } from "@/app/api/apps/[appName]/logs/build/route";
+import { GET } from "@/app/api/apps/[appName]/logs/runtime/route";
 import { signSession } from "@/lib/auth";
 
 describe("SSE build log proxy", () => {
@@ -11,7 +11,7 @@ describe("SSE build log proxy", () => {
   });
 
   it("401s without session", async () => {
-    const res = await GET(new Request("http://l/api/apps/x/logs/build"), {
+    const res = await GET(new Request("http://l/api/apps/x/logs/runtime"), {
       params: { appName: "x" },
     });
     expect(res.status).toBe(401);
@@ -34,7 +34,7 @@ describe("SSE build log proxy", () => {
         headers: { "content-type": "text/event-stream" },
       }),
     );
-    const req = new Request("http://l/api/apps/x/logs/build", {
+    const req = new Request("http://l/api/apps/x/logs/runtime", {
       headers: { cookie: `launchpad-session=${token}` },
     });
     const res = await GET(req, { params: { appName: "x" } });

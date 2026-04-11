@@ -1,6 +1,5 @@
 package com.filipnikolov.launchpad.docker.service.impl;
 
-import com.filipnikolov.launchpad.docker.buildlog.service.BuildLogService;
 import com.filipnikolov.launchpad.docker.service.DockerService;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
@@ -21,25 +20,23 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Consumer;
 
 @Service
 public class DockerServiceImpl implements DockerService {
 
     private final DockerClient dockerClient;
-    private final BuildLogService buildLogService;
     private final String traefikNetwork;
     private final String traefikDomain;
     private final AuthConfig authConfig;
 
     public DockerServiceImpl(
-            BuildLogService buildLogService,
             @Value("${docker.socket}") String dockerSocket,
             @Value("${dockerhub.username}") String dockerhubUsername,
             @Value("${dockerhub.token}") String dockerhubToken,
             @Value("${traefik.network}") String traefikNetwork,
             @Value("${traefik.domain}") String traefikDomain) {
 
-        this.buildLogService = buildLogService;
         this.traefikNetwork = traefikNetwork;
         this.traefikDomain = traefikDomain;
 
@@ -66,8 +63,6 @@ public class DockerServiceImpl implements DockerService {
 
     @Override
     public String pullAndRun(String imageName, String appName, int containerPort, Map<String, String> envVars) throws InterruptedException {
-        buildLogService.send(appName, "Pulling image: " + imageName);
-
         var pullCmd = dockerClient.pullImageCmd(imageName);
         if (authConfig != null) {
             pullCmd.withAuthConfig(authConfig);
@@ -79,23 +74,15 @@ public class DockerServiceImpl implements DockerService {
             public void onStart(Closeable closeable) {}
 
             @Override
-            public void onNext(PullResponseItem item) {
-                String status = item.getStatus();
-                if (status != null) {
-                    String progress = item.getProgress() != null ? " " + item.getProgress() : "";
-                    buildLogService.send(appName, status + progress);
-                }
-            }
+            public void onNext(PullResponseItem item) {}
 
             @Override
             public void onError(Throwable throwable) {
-                buildLogService.send(appName, "Pull failed: " + throwable.getMessage());
                 latch.countDown();
             }
 
             @Override
             public void onComplete() {
-                buildLogService.send(appName, "Pull complete");
                 latch.countDown();
             }
 
@@ -104,7 +91,6 @@ public class DockerServiceImpl implements DockerService {
         });
         latch.await();
 
-        buildLogService.send(appName, "Stopping existing container...");
         stopAndRemoveContainer(appName);
 
         List<String> env = envVars.entrySet().stream()
@@ -125,12 +111,7 @@ public class DockerServiceImpl implements DockerService {
                 .exec()
                 .getId();
 
-        buildLogService.send(appName, "Starting container: " + containerId.substring(0, 12));
         dockerClient.startContainerCmd(containerId).exec();
-
-        buildLogService.send(appName, "Container running at " + appName + "." + traefikDomain);
-        buildLogService.complete(appName);
-
         return containerId;
     }
 
@@ -184,5 +165,38 @@ public class DockerServiceImpl implements DockerService {
             // return whatever we've accumulated (likely empty).
         }
         return lines;
+    }
+
+    @Override
+    public Closeable streamContainerLogs(
+            String containerName,
+            int tailLines,
+            Consumer<String> onLine,
+            Consumer<Throwable> onError,
+            Runnable onComplete) {
+        return dockerClient.logContainerCmd(containerName)
+                .withStdOut(true)
+                .withStdErr(true)
+                .withFollowStream(true)
+                .withTail(tailLines)
+                .exec(new ResultCallback.Adapter<Frame>() {
+                    @Override
+                    public void onNext(Frame frame) {
+                        String line = new String(frame.getPayload(), StandardCharsets.UTF_8).stripTrailing();
+                        if (!line.isEmpty()) {
+                            onLine.accept(line);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                        onError.accept(throwable);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        onComplete.run();
+                    }
+                });
     }
 }

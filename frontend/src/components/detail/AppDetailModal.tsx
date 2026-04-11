@@ -46,7 +46,7 @@ export function AppDetailModal({ appName, onClose }: Props) {
                 tabs={[
                   {
                     id: "logs",
-                    label: "Build Logs",
+                    label: "Logs",
                     panel: <BuildLogViewer appName={app.appName} />,
                   },
                   {
