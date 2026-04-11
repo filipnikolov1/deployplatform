@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final int WINDOW_MS = 60_000;
-    private static final int MAX_WEBHOOK_REQUESTS = 30;
+    private static final int MAX_DEPLOY_HOOK_REQUESTS = 30;
     private static final int MAX_API_REQUESTS = 60;
 
     private final ConcurrentHashMap<String, long[]> requestCounts = new ConcurrentHashMap<>();
@@ -23,9 +23,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         String ip = request.getRemoteAddr();
         String path = request.getRequestURI();
-        boolean isWebhook = path.startsWith("/webhook");
-        int limit = isWebhook ? MAX_WEBHOOK_REQUESTS : MAX_API_REQUESTS;
-        String key = ip + ":" + (isWebhook ? "webhook" : "api");
+        boolean isDeployHook = path.startsWith("/deploy-hook");
+        int limit = isDeployHook ? MAX_DEPLOY_HOOK_REQUESTS : MAX_API_REQUESTS;
+        String key = ip + ":" + (isDeployHook ? "deploy-hook" : "api");
 
         long now = System.currentTimeMillis();
         long[] entry = requestCounts.compute(key, (k, v) -> {

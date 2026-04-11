@@ -1,0 +1,77 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
+import { useBuildLogs } from "@/hooks/useBuildLogs";
+import { Button } from "@/components/primitives/Button";
+import { GlassCard } from "@/components/primitives/GlassCard";
+import { AiAnalysisPanel } from "./AiAnalysisPanel";
+
+interface Props {
+  appName: string;
+}
+
+export function BuildLogViewer({ appName }: Props) {
+  const { lines, status } = useBuildLogs(appName);
+  const paneRef = useRef<HTMLPreElement>(null);
+  const [stickyBottom, setStickyBottom] = useState(true);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+
+  useEffect(() => {
+    const pane = paneRef.current;
+    if (!pane) return;
+    const onScroll = () => {
+      const atBottom =
+        pane.scrollHeight - pane.scrollTop - pane.clientHeight < 16;
+      setStickyBottom(atBottom);
+    };
+    pane.addEventListener("scroll", onScroll);
+    return () => pane.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const pane = paneRef.current;
+    if (pane && stickyBottom) {
+      pane.scrollTop = pane.scrollHeight;
+    }
+  }, [lines, stickyBottom]);
+
+  const empty = lines.length === 0;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-xs text-slate-500">
+          {status === "connecting" && "connecting…"}
+          {status === "open" && `${lines.length} lines`}
+          {status === "error" && "connection error"}
+          {status === "closed" && "closed"}
+        </span>
+        <Button
+          variant="ghost-purple"
+          leadingIcon={<Sparkles size={16} />}
+          onClick={() => setAnalysisOpen(true)}
+        >
+          Ask AI: Analyze Logs
+        </Button>
+      </div>
+
+      <GlassCard radius="card" className="p-0">
+        <pre
+          ref={paneRef}
+          className="max-h-[50dvh] overflow-auto whitespace-pre px-4 py-3 font-mono text-xs leading-[1.4] text-green-300 tabular-nums"
+        >
+          {empty ? (
+            <span className="text-slate-500">Waiting for logs…</span>
+          ) : (
+            lines.join("\n")
+          )}
+        </pre>
+      </GlassCard>
+
+      {analysisOpen && (
+        <AiAnalysisPanel appName={appName} onClose={() => setAnalysisOpen(false)} />
+      )}
+    </div>
+  );
+}

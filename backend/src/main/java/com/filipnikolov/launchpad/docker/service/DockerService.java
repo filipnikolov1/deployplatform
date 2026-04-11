@@ -1,6 +1,8 @@
 package com.filipnikolov.launchpad.docker.service;
 
+import java.io.Closeable;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Manages Docker containers — pulling images, creating/starting containers,
@@ -48,4 +50,23 @@ public interface DockerService {
      * @return list of log lines, oldest first; never null
      */
     java.util.List<String> getContainerLogs(String containerName, int tailLines);
+
+    /**
+     * Starts a follow-mode log stream for a container, invoking callbacks for each
+     * new line, on error, and on completion. Returns a Closeable that cancels the
+     * stream when closed.
+     *
+     * @param containerName the container name to stream logs from
+     * @param tailLines     number of historical lines to emit before live-tailing
+     * @param onLine        invoked for every non-empty log line received
+     * @param onError       invoked if the stream fails
+     * @param onComplete    invoked when the stream ends normally
+     * @return a Closeable that cancels the subscription when closed
+     */
+    Closeable streamContainerLogs(
+            String containerName,
+            int tailLines,
+            Consumer<String> onLine,
+            Consumer<Throwable> onError,
+            Runnable onComplete);
 }

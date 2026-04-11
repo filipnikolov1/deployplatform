@@ -41,6 +41,9 @@ services:
 
   launchpad:
     image: filipn123/launchpad-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     env_file:
       - .env
     environment:
@@ -60,9 +63,29 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.launchpad.rule=Host(`launchpad.localhost`)"
       - "traefik.http.routers.launchpad.entrypoints=web"
-      - "traefik.http.routers.launchpad-webhook.rule=PathPrefix(`/webhook`)"
-      - "traefik.http.routers.launchpad-webhook.entrypoints=web"
+      - "traefik.http.routers.launchpad-deploy-hook.rule=PathPrefix(`/deploy-hook`)"
+      - "traefik.http.routers.launchpad-deploy-hook.entrypoints=web"
       - "traefik.http.services.launchpad.loadbalancer.server.port=8082"
+
+  launchpad-frontend:
+    image: filipn123/launchpad-frontend:latest
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      BACKEND_URL: http://launchpad:8082
+      API_KEY: ${APP_API_KEY}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
+      SESSION_SECRET: ${SESSION_SECRET}
+    depends_on:
+      - launchpad
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`appdashboard.localhost`)"
+      - "traefik.http.routers.dashboard.entrypoints=web"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=3000"
 
   watchtower:
     image: containrrr/watchtower
