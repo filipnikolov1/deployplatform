@@ -4,12 +4,12 @@ import { StatusDot } from "@/components/primitives/StatusDot";
 
 describe("StatusDot", () => {
   it("renders the dot and a visually-hidden status label", () => {
-    render(<StatusDot status="running" />);
+    render(<StatusDot status="RUNNING" />);
     expect(screen.getByText("Running")).toHaveClass("sr-only");
   });
 
   it("exposes the correct role=status", () => {
-    render(<StatusDot status="failed" />);
+    render(<StatusDot status="FAILED" />);
     expect(screen.getByRole("status")).toHaveAccessibleName("Failed");
   });
 });
