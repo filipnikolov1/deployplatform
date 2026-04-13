@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import type { ComponentType } from "react";
 import { Modal } from "@/components/primitives/Modal";
 import { GlassCard } from "@/components/primitives/GlassCard";
 import { Tabs } from "@/components/primitives/Tabs";
@@ -11,6 +12,9 @@ import { BuildLogViewer } from "./BuildLogViewer";
 import { DeployHistoryList } from "./DeployHistoryList";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useEvents } from "@/hooks/useEvents";
+import { useContainerStats } from "@/hooks/useContainerStats";
+import { Clock, Cpu, HardDrive, RotateCcw, Zap } from "lucide-react";
+import { Button } from "@/components/primitives/Button";
 import type { Deployment } from "@/types/deployment";
 
 interface Props {
@@ -31,13 +35,14 @@ export function AppDetailModal({ appName, onClose }: Props) {
     { refreshInterval: 10_000 },
   );
   const { events } = useEvents({ appName, limit: 20 });
+  const { stats } = useContainerStats(appName);
   const titleId = `app-detail-${appName}`;
 
   return (
     <Modal open onClose={onClose} labelledBy={titleId}>
       <GlassCard
         radius="panel"
-        className="flex h-full w-full flex-col overflow-hidden sm:h-auto sm:max-h-[85dvh]"
+        className="sm:max-w-2xl sm:w-full bg-black/80 backdrop-blur-xl border border-white/[0.08] flex h-full w-full flex-col overflow-hidden sm:h-auto sm:max-h-[85dvh]"
       >
         {!app ? (
           <AppDetailSkeleton />
@@ -45,13 +50,31 @@ export function AppDetailModal({ appName, onClose }: Props) {
           <>
             <AppDetailHeader app={app} onClose={onClose} titleId={titleId} />
             <AppInfoRow app={app} />
+            <div className="grid grid-cols-2 gap-3 p-4">
+              <InfoCard icon={Cpu} label="CPU" value={stats ? `${stats.cpuPercent.toFixed(1)}%` : "—"} />
+              <InfoCard
+                icon={HardDrive}
+                label="Memory"
+                value={
+                  stats
+                    ? `${Math.round(stats.memoryUsedMB)}MB / ${stats.memoryLimitMB}MB`
+                    : "—"
+                }
+              />
+              <InfoCard icon={Clock} label="Uptime" value={stats ? formatUptime(stats.uptimeSeconds) : "—"} />
+              <InfoCard icon={RotateCcw} label="Restarts" value={stats ? String(stats.restartCount) : "—"} />
+            </div>
             <div className="flex-1 overflow-hidden p-4">
               <Tabs
                 tabs={[
                   {
                     id: "logs",
                     label: "Logs",
-                    panel: <BuildLogViewer appName={app.appName} />,
+                    panel: (
+                      <div className="min-h-[120px] max-h-[400px] overflow-auto font-mono text-xs bg-black/40 rounded-lg p-3">
+                        <BuildLogViewer appName={app.appName} />
+                      </div>
+                    ),
                   },
                   {
                     id: "env",
@@ -91,9 +114,43 @@ export function AppDetailModal({ appName, onClose }: Props) {
                 ]}
               />
             </div>
+            <div className="grid grid-cols-2 gap-3 p-6 border-t border-white/[0.08]">
+              <Button leadingIcon={<Zap className="h-4 w-4" />}>Redeploy</Button>
+              <Button variant="ghost-purple">View Logs</Button>
+            </div>
           </>
         )}
       </GlassCard>
     </Modal>
   );
+}
+
+function InfoCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-4">
+      <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </div>
+      <div className="text-sm text-slate-100 tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+function formatUptime(uptimeSeconds: number): string {
+  const days = Math.floor(uptimeSeconds / 86_400);
+  const hours = Math.floor((uptimeSeconds % 86_400) / 3_600);
+  const mins = Math.floor((uptimeSeconds % 3_600) / 60);
+  const secs = uptimeSeconds % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m ${secs}s`;
 }

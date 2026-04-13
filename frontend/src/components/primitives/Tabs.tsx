@@ -34,7 +34,12 @@ export function Tabs({ tabs, initialId, onChange }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div role="tablist" className="flex gap-1 border-b border-white/10">
+      <div
+        role="tablist"
+        className={`grid gap-1 bg-white/[0.04] border border-white/[0.08] rounded-lg p-1 ${
+          tabs.length === 4 ? "grid-cols-4" : "grid-cols-2"
+        }`}
+      >
         {tabs.map((tab, idx) => {
           const selected = tab.id === active;
           return (
@@ -47,10 +52,10 @@ export function Tabs({ tabs, initialId, onChange }: Props) {
               tabIndex={selected ? 0 : -1}
               onClick={() => select(tab.id)}
               onKeyDown={(e) => onKey(e, idx)}
-              className={`rounded-t-md px-4 py-2 text-sm transition focus:outline-none focus-visible:ring-focus ${
+              className={`rounded-md px-4 py-2 text-sm transition focus:outline-none focus-visible:ring-focus ${
                 selected
-                  ? "border-b-2 border-purple-400 text-slate-100"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-accent-ghost/30 text-white"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
               }`}
             >
               {tab.label}
