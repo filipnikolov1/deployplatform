@@ -8,6 +8,9 @@ import { AppDetailHeader } from "./AppDetailHeader";
 import { AppInfoRow } from "./AppInfoRow";
 import { AppDetailSkeleton } from "./AppDetailSkeleton";
 import { BuildLogViewer } from "./BuildLogViewer";
+import { DeployHistoryList } from "./DeployHistoryList";
+import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
+import { useEvents } from "@/hooks/useEvents";
 import type { Deployment } from "@/types/deployment";
 
 interface Props {
@@ -27,6 +30,7 @@ export function AppDetailModal({ appName, onClose }: Props) {
     fetcher,
     { refreshInterval: 10_000 },
   );
+  const { events } = useEvents({ appName, limit: 20 });
   const titleId = `app-detail-${appName}`;
 
   return (
@@ -53,8 +57,34 @@ export function AppDetailModal({ appName, onClose }: Props) {
                     id: "env",
                     label: "Env Vars",
                     panel: (
-                      <div className="text-sm text-slate-500">
+                      <div className="text-sm text-slate-400">
                         Env vars — implemented in Plan 3.
+                      </div>
+                    ),
+                  },
+                  {
+                    id: "activity",
+                    label: "Activity",
+                    panel:
+                      events.length === 0 ? (
+                        <div className="text-sm text-slate-400">
+                          No recent activity.
+                        </div>
+                      ) : (
+                        <div className="max-h-[400px] overflow-auto">
+                          <ActivityTimeline events={events} />
+                        </div>
+                      ),
+                  },
+                  {
+                    id: "history",
+                    label: "History",
+                    panel: (
+                      <div className="max-h-[400px] overflow-auto">
+                        <DeployHistoryList
+                          appName={app.appName}
+                          events={events}
+                        />
                       </div>
                     ),
                   },
