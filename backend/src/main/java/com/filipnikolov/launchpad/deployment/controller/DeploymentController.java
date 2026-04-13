@@ -2,6 +2,8 @@ package com.filipnikolov.launchpad.deployment.controller;
 
 import com.filipnikolov.launchpad.deployment.model.Deployment;
 import com.filipnikolov.launchpad.deployment.service.DeploymentService;
+import com.filipnikolov.launchpad.docker.dto.ContainerStats;
+import com.filipnikolov.launchpad.docker.service.ContainerStatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +16,7 @@ import java.util.List;
 public class DeploymentController {
 
     private final DeploymentService deploymentService;
+    private final ContainerStatsService statsService;
 
     /**
      * Lists all deployments with their current status.
@@ -46,5 +49,13 @@ public class DeploymentController {
     @PostMapping("/{appName}/stop")
     public ResponseEntity<Deployment> stopApp(@PathVariable String appName) {
         return ResponseEntity.ok(deploymentService.stopDeployment(appName));
+    }
+
+    /**
+     * Returns live container stats (cpu, memory, uptime, restart count).
+     */
+    @GetMapping("/{appName}/stats")
+    public ResponseEntity<ContainerStats> stats(@PathVariable String appName) {
+        return ResponseEntity.ok(statsService.get(appName));
     }
 }

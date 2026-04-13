@@ -7,14 +7,10 @@ import com.github.dockerjava.api.model.AuthConfig;
 import com.github.dockerjava.api.model.Frame;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.PullResponseItem;
-import com.github.dockerjava.core.DefaultDockerClientConfig;
-import com.github.dockerjava.core.DockerClientImpl;
-import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.Closeable;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,12 +27,13 @@ public class DockerServiceImpl implements DockerService {
     private final AuthConfig authConfig;
 
     public DockerServiceImpl(
-            @Value("${docker.socket}") String dockerSocket,
+            DockerClient dockerClient,
             @Value("${dockerhub.username}") String dockerhubUsername,
             @Value("${dockerhub.token}") String dockerhubToken,
             @Value("${traefik.network}") String traefikNetwork,
             @Value("${traefik.domain}") String traefikDomain) {
 
+        this.dockerClient = dockerClient;
         this.traefikNetwork = traefikNetwork;
         this.traefikDomain = traefikDomain;
 
@@ -48,17 +45,6 @@ public class DockerServiceImpl implements DockerService {
         } else {
             this.authConfig = null;
         }
-
-        DefaultDockerClientConfig config = DefaultDockerClientConfig
-                .createDefaultConfigBuilder()
-                .withDockerHost(dockerSocket)
-                .build();
-
-        ZerodepDockerHttpClient httpClient = new ZerodepDockerHttpClient.Builder()
-                .dockerHost(URI.create(dockerSocket))
-                .build();
-
-        this.dockerClient = DockerClientImpl.getInstance(config, httpClient);
     }
 
     @Override
