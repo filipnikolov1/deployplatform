@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, Wrench } from "lucide-react";
 import { GlassCard } from "@/components/primitives/GlassCard";
 
 export function BottomNav() {
@@ -15,6 +15,13 @@ export function BottomNav() {
           className="flex h-11 w-11 items-center justify-center rounded-full text-accent-ghostLight"
         >
           <LayoutGrid className="h-5 w-5" aria-hidden="true" />
+        </Link>
+        <Link
+          href="/setup"
+          aria-label="Setup"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-slate-300"
+        >
+          <Wrench className="h-5 w-5" aria-hidden="true" />
         </Link>
       </GlassCard>
     </div>
