@@ -13,9 +13,10 @@ import type { Deployment } from "@/types/deployment";
 interface Props {
   app: Deployment;
   onOpen: (appName: string) => void;
+  mode?: "grid" | "list";
 }
 
-export function AppCard({ app, onOpen }: Props) {
+export function AppCard({ app, onOpen, mode = "grid" }: Props) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const { commitsAhead } = useCommitsAhead(app.appName);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -32,7 +33,9 @@ export function AppCard({ app, onOpen }: Props) {
       role="button"
       tabIndex={0}
       aria-label={`Open ${app.appName}`}
-      className="group relative bg-white/[0.04] border border-white/[0.12] rounded-xl p-5 backdrop-blur-xl cursor-pointer hover:bg-white/[0.06] transition-colors focus-visible:ring-2 focus-visible:ring-accent-ghostLight outline-none"
+      className={`group relative bg-white/[0.04] border border-white/[0.12] rounded-xl backdrop-blur-xl cursor-pointer hover:bg-white/[0.06] transition-colors focus-visible:ring-2 focus-visible:ring-accent-ghostLight outline-none ${
+        mode === "list" ? "p-4" : "p-5"
+      }`}
       onClick={trigger}
       onKeyDown={(e: KeyboardEvent<HTMLElement>) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -66,7 +69,7 @@ export function AppCard({ app, onOpen }: Props) {
         </div>
       )}
 
-      <div className="flex items-start gap-3">
+      <div className={`flex items-start gap-3 ${mode === "list" ? "pr-10" : ""}`}>
         <div className={`p-2 rounded-lg ${config.bgColor}`}>
           <Icon className={`h-4 w-4 ${config.iconColor}`} />
         </div>
@@ -79,51 +82,89 @@ export function AppCard({ app, onOpen }: Props) {
         </div>
       </div>
 
-      <div
-        className={`inline-flex w-fit items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.bgColor} ${config.borderColor} ${config.iconColor}`}
-      >
-        <Icon className="h-3 w-3" />
-        {config.label}
-      </div>
-
-      <div className="flex items-center justify-between gap-2 pt-3 pb-3 border-t border-white/[0.08] mt-3">
-        <span className="text-xs text-slate-400 truncate font-mono">{app.imageName}</span>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4 border-t border-white/[0.08] pt-3 text-xs">
-        <div>
-          <span className="text-slate-400 block mb-0.5">Framework</span>
-          <span className="text-slate-300 font-medium truncate">Docker</span>
-        </div>
-        <div>
-          <span className="text-slate-400 block mb-0.5">Branch</span>
-          <span className="text-slate-300 font-medium truncate">main</span>
-        </div>
-        <div>
-          <span className="text-slate-400 block mb-0.5">Port</span>
-          <span className="text-slate-300 font-medium truncate tabular-nums">{app.containerPort}</span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between mt-3 text-xs text-slate-400">
-        <span className="inline-flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          Deployed {formatRelative(app.updatedAt)}
-        </span>
-        {commitsAhead.count && commitsAhead.count > 0 && (
-          <a
-            href={commitsAhead.compareUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-xs font-medium border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
-            onClick={(e: MouseEvent<HTMLAnchorElement>) => e.stopPropagation()}
-            aria-label={`${commitsAhead.count} commits ahead on main`}
+      {mode === "list" ? (
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-white/[0.08] pt-3 text-xs">
+          <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-medium border ${config.bgColor} ${config.borderColor} ${config.iconColor}`}
           >
-            <GitBranch className="h-3 w-3" />
-            {commitsAhead.count} ahead
-          </a>
-        )}
-      </div>
+            <Icon className="h-3 w-3" />
+            {config.label}
+          </span>
+          <span className="text-slate-400 font-mono truncate">{app.imageName}</span>
+          <span className="text-slate-300 tabular-nums">port {app.containerPort}</span>
+          <span className="text-slate-400 inline-flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {formatRelative(app.updatedAt)}
+          </span>
+          {commitsAhead.count && commitsAhead.count > 0 && (
+            <a
+              href={commitsAhead.compareUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-xs font-medium border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
+              onClick={(e: MouseEvent<HTMLAnchorElement>) => e.stopPropagation()}
+              aria-label={`${commitsAhead.count} commits ahead on main`}
+            >
+              <GitBranch className="h-3 w-3" />
+              {commitsAhead.count} ahead
+            </a>
+          )}
+        </div>
+      ) : (
+        <>
+          <div
+            className={`inline-flex w-fit items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.bgColor} ${config.borderColor} ${config.iconColor}`}
+          >
+            <Icon className="h-3 w-3" />
+            {config.label}
+          </div>
+
+          <div className="flex items-center justify-between gap-2 pt-3 pb-3 border-t border-white/[0.08] mt-3">
+            <span className="text-xs text-slate-400 truncate font-mono">
+              {app.imageName}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 border-t border-white/[0.08] pt-3 text-xs">
+            <div>
+              <span className="text-slate-400 block mb-0.5">Framework</span>
+              <span className="text-slate-300 font-medium truncate">Docker</span>
+            </div>
+            <div>
+              <span className="text-slate-400 block mb-0.5">Branch</span>
+              <span className="text-slate-300 font-medium truncate">main</span>
+            </div>
+            <div>
+              <span className="text-slate-400 block mb-0.5">Port</span>
+              <span className="text-slate-300 font-medium truncate tabular-nums">
+                {app.containerPort}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mt-3 text-xs text-slate-400">
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Deployed {formatRelative(app.updatedAt)}
+            </span>
+            {commitsAhead.count && commitsAhead.count > 0 && (
+              <a
+                href={commitsAhead.compareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-xs font-medium border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
+                onClick={(e: MouseEvent<HTMLAnchorElement>) =>
+                  e.stopPropagation()
+                }
+                aria-label={`${commitsAhead.count} commits ahead on main`}
+              >
+                <GitBranch className="h-3 w-3" />
+                {commitsAhead.count} ahead
+              </a>
+            )}
+          </div>
+        </>
+      )}
     </motion.article>
   );
 }

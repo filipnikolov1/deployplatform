@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/primitives/Button";
 import { GlassCard } from "@/components/primitives/GlassCard";
+import { Modal } from "@/components/primitives/Modal";
 import type { DeploymentEvent } from "@/types/launchpad";
 
 interface Props {
@@ -21,34 +20,10 @@ export function RollbackConfirmDialog({
   onConfirm,
 }: Props) {
   const titleId = `rollback-confirm-${event.id}`;
-  const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    document.addEventListener("keydown", onKey);
-    const first = ref.current?.querySelector<HTMLElement>("button");
-    first?.focus();
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onCancel]);
-
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
-      <div
-        ref={ref}
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="w-full max-w-md"
-      >
+  return (
+    <Modal open onClose={onCancel} labelledBy={titleId}>
+      <div className="w-full max-w-md">
         <GlassCard radius="panel" className="p-6">
           <div className="flex items-start gap-3 mb-4">
             <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
@@ -75,6 +50,7 @@ export function RollbackConfirmDialog({
               Cancel
             </Button>
             <button
+              type="button"
               onClick={onConfirm}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-200 text-sm font-medium hover:bg-amber-500/30 transition-colors focus:outline-none focus-visible:ring-focus"
             >
@@ -83,7 +59,6 @@ export function RollbackConfirmDialog({
           </div>
         </GlassCard>
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }

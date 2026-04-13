@@ -108,7 +108,11 @@ export function AppGrid() {
                     : ""
                 }
               >
-                <AppCard app={app} onOpen={setOpenAppName} />
+                <AppCard
+                  app={app}
+                  onOpen={setOpenAppName}
+                  mode={prefs.layout_mode}
+                />
               </motion.div>
             ))}
           </AnimatePresence>
