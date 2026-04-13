@@ -47,4 +47,15 @@ public interface DeploymentService {
      * Restores a soft-deleted deployment. Throws if the undo window has expired.
      */
     Deployment restore(String appName);
+
+    /**
+     * Rolls back to a previously deployed image referenced by an event id.
+     * Pins the app to that image and ignores subsequent webhook deploys until unpinned.
+     */
+    Deployment rollback(String appName, Long eventId);
+
+    /**
+     * Releases the pinned image so future webhook deploys take effect again.
+     */
+    Deployment unpin(String appName);
 }

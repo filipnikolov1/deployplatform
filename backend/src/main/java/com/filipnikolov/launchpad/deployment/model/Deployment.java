@@ -45,4 +45,9 @@ public class Deployment {
 
     private LocalDateTime deletedAt;
 
+    @Column(length = 500)
+    private String pinnedImage;
+
+    private LocalDateTime pinnedAt;
+
 }

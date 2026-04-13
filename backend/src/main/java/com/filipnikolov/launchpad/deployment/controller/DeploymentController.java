@@ -94,6 +94,34 @@ public class DeploymentController {
     }
 
     /**
+     * Rolls back to a previously deployed image identified by an event id and
+     * pins the app so future webhooks are ignored until unpinned.
+     */
+    @PostMapping("/{appName}/rollback")
+    public ResponseEntity<?> rollback(@PathVariable String appName,
+                                      @RequestBody Map<String, Long> body) {
+        Long eventId = body.get("eventId");
+        if (eventId == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "eventId is required"));
+        }
+        var maybeHandle = lockService.tryLock("app:" + appName);
+        if (maybeHandle.isEmpty()) {
+            return ResponseEntity.status(409).body(Map.of("error", "locked"));
+        }
+        try (var handle = maybeHandle.get()) {
+            return ResponseEntity.ok(deploymentService.rollback(appName, eventId));
+        }
+    }
+
+    /**
+     * Releases a pinned image so future webhook deploys take effect again.
+     */
+    @PostMapping("/{appName}/unpin")
+    public ResponseEntity<Deployment> unpin(@PathVariable String appName) {
+        return ResponseEntity.ok(deploymentService.unpin(appName));
+    }
+
+    /**
      * Returns live container stats (cpu, memory, uptime, restart count).
      */
     @GetMapping("/{appName}/stats")

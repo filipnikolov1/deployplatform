@@ -6,7 +6,9 @@ import com.filipnikolov.launchpad.deployment.model.DeploymentEventStatus;
 import com.filipnikolov.launchpad.deployment.model.DeploymentEventType;
 import com.filipnikolov.launchpad.deployment.model.DeploymentStatus;
 import com.filipnikolov.launchpad.deployment.model.TriggerSource;
+import com.filipnikolov.launchpad.deployment.repository.DeploymentEventRepository;
 import com.filipnikolov.launchpad.deployment.repository.DeploymentRepository;
+import com.filipnikolov.launchpad.deployment.model.DeploymentEvent;
 import com.filipnikolov.launchpad.deployment.service.DeploymentEventService;
 import com.filipnikolov.launchpad.deployment.service.DeploymentService;
 import com.filipnikolov.launchpad.docker.service.DockerService;
@@ -31,6 +33,7 @@ public class DeploymentServiceImpl implements DeploymentService {
     private static final Logger log = LoggerFactory.getLogger(DeploymentServiceImpl.class);
 
     private final DeploymentRepository deploymentRepository;
+    private final DeploymentEventRepository eventRepository;
     private final DockerService dockerService;
     private final EnvVarService envVarService;
     private final DeploymentEventService eventService;
@@ -182,6 +185,54 @@ public class DeploymentServiceImpl implements DeploymentService {
         }
         d.setDeletedAt(null);
         return deploymentRepository.save(d);
+    }
+
+    @Override
+    @Transactional
+    public Deployment rollback(String appName, Long eventId) {
+        DeploymentEvent target = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+        if (!target.getAppName().equals(appName) || target.getImageName() == null) {
+            throw new IllegalArgumentException("Invalid rollback target");
+        }
+        Deployment d = getDeployment(appName);
+
+        try {
+            dockerService.pullAndRun(target.getImageName(), appName,
+                    d.getContainerPort(), envVarService.getEnvVars(appName));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Rollback interrupted", e);
+        }
+
+        d.setImageName(target.getImageName());
+        d.setPinnedImage(target.getImageName());
+        d.setPinnedAt(LocalDateTime.now());
+        d.setStatus(DeploymentStatus.RUNNING);
+        d.setUpdatedAt(LocalDateTime.now());
+        deploymentRepository.save(d);
+
+        CreateDeploymentRequest ctx = new CreateDeploymentRequest(
+                appName, d.getRepoUrl(), target.getImageName(), d.getContainerPort(),
+                target.getBranch(), target.getCommitSha(), target.getCommitMessage(),
+                target.getCommitAuthor(), null, TriggerSource.ROLLBACK);
+        eventService.record(DeploymentEventType.MANUAL_ROLLBACK, DeploymentEventStatus.SUCCESS,
+                appName, ctx, null, null);
+
+        return d;
+    }
+
+    @Override
+    @Transactional
+    public Deployment unpin(String appName) {
+        Deployment d = getDeployment(appName);
+        d.setPinnedImage(null);
+        d.setPinnedAt(null);
+        d.setUpdatedAt(LocalDateTime.now());
+        deploymentRepository.save(d);
+        eventService.record(DeploymentEventType.PIN_RELEASED, DeploymentEventStatus.SUCCESS,
+                appName, null, null, null);
+        return d;
     }
 
     private CreateDeploymentRequest contextFor(Deployment d, TriggerSource trigger) {

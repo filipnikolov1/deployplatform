@@ -1,7 +1,12 @@
 package com.filipnikolov.launchpad.deployhook.controller;
 
 import com.filipnikolov.launchpad.deployment.dto.CreateDeploymentRequest;
+import com.filipnikolov.launchpad.deployment.model.Deployment;
+import com.filipnikolov.launchpad.deployment.model.DeploymentEventStatus;
+import com.filipnikolov.launchpad.deployment.model.DeploymentEventType;
 import com.filipnikolov.launchpad.deployment.model.TriggerSource;
+import com.filipnikolov.launchpad.deployment.repository.DeploymentRepository;
+import com.filipnikolov.launchpad.deployment.service.DeploymentEventService;
 import com.filipnikolov.launchpad.deployment.service.DeploymentService;
 import com.filipnikolov.launchpad.deployhook.auth.service.DeployHookAuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,6 +21,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 @RestController
@@ -30,6 +36,8 @@ public class DeployHookController {
 
     private final DeploymentService deploymentService;
     private final DeployHookAuthService deployHookAuthService;
+    private final DeploymentRepository deploymentRepository;
+    private final DeploymentEventService eventService;
 
     @Value("${app.default-port:3000}")
     private int defaultContainerPort;
@@ -48,7 +56,7 @@ public class DeployHookController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> handleDeploy(
+    public ResponseEntity<?> handleDeploy(
             @RequestHeader("X-Signature-256") String signature,
             @RequestHeader(value = "X-Launchpad-Trigger", required = false) String triggerHeader,
             @RequestBody String rawBody) {
@@ -103,6 +111,18 @@ public class DeployHookController {
         CreateDeploymentRequest req = new CreateDeploymentRequest(
                 appName, repoUrl, imageName, containerPort,
                 branch, commitSha, commitMessage, commitAuthor, commitTs, trigger);
+
+        Optional<Deployment> existing = deploymentRepository.findByAppName(appName);
+        if (existing.isPresent() && existing.get().getPinnedImage() != null) {
+            String pinnedImage = existing.get().getPinnedImage();
+            eventService.record(DeploymentEventType.WEBHOOK_IGNORED, DeploymentEventStatus.FAILURE,
+                    appName, req, null, "App pinned to " + pinnedImage);
+            log.warn("Webhook ignored for {} — pinned to {}", appName, pinnedImage);
+            return ResponseEntity.status(202).body(Map.of(
+                    "status", "ignored",
+                    "reason", "app is pinned",
+                    "pinnedImage", pinnedImage));
+        }
 
         deploymentService.createDeployment(req);
         return ResponseEntity.ok().build();
