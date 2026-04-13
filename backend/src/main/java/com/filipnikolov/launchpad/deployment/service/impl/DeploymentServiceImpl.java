@@ -235,6 +235,20 @@ public class DeploymentServiceImpl implements DeploymentService {
         return d;
     }
 
+    @Override
+    @Transactional
+    public Deployment precreate(String appName, int containerPort) {
+        return deploymentRepository.findByAppNameAndDeletedAtIsNull(appName).orElseGet(() -> {
+            Deployment d = new Deployment();
+            d.setAppName(appName);
+            d.setContainerPort(containerPort);
+            d.setStatus(DeploymentStatus.PENDING);
+            d.setCreatedAt(LocalDateTime.now());
+            d.setUpdatedAt(LocalDateTime.now());
+            return deploymentRepository.save(d);
+        });
+    }
+
     private CreateDeploymentRequest contextFor(Deployment d, TriggerSource trigger) {
         return new CreateDeploymentRequest(
                 d.getAppName(),
