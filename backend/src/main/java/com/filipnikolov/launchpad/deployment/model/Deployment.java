@@ -29,4 +29,18 @@ public class Deployment {
 
     private LocalDateTime updatedAt;
 
+    @Column(length = 255)
+    private String branch;
+
+    @Column(length = 64)
+    private String commitSha;
+
+    @Column(length = 500)
+    private String commitMessage;
+
+    @Column(length = 255)
+    private String commitAuthor;
+
+    private LocalDateTime commitTimestamp;
+
 }

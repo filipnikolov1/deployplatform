@@ -1,5 +1,7 @@
 package com.filipnikolov.launchpad.deployhook.controller;
 
+import com.filipnikolov.launchpad.deployment.dto.CreateDeploymentRequest;
+import com.filipnikolov.launchpad.deployment.model.TriggerSource;
 import com.filipnikolov.launchpad.deployment.service.DeploymentService;
 import com.filipnikolov.launchpad.deployhook.auth.service.DeployHookAuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,6 +12,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -45,6 +50,7 @@ public class DeployHookController {
     @PostMapping
     public ResponseEntity<Void> handleDeploy(
             @RequestHeader("X-Signature-256") String signature,
+            @RequestHeader(value = "X-Launchpad-Trigger", required = false) String triggerHeader,
             @RequestBody String rawBody) {
 
         if (!deployHookAuthService.isValidSignature(rawBody, signature)) {
@@ -80,7 +86,25 @@ public class DeployHookController {
                 ? ((Number) payload.get("port")).intValue()
                 : defaultContainerPort;
 
-        deploymentService.createDeployment(appName, repoUrl, imageName, containerPort);
+        String branch = (String) payload.get("branch");
+        String commitSha = (String) payload.get("commit_sha");
+        String commitMessage = (String) payload.get("commit_message");
+        String commitAuthor = (String) payload.get("commit_author");
+        LocalDateTime commitTs = payload.containsKey("commit_timestamp") && payload.get("commit_timestamp") != null
+                ? LocalDateTime.ofInstant(
+                    Instant.ofEpochSecond(((Number) payload.get("commit_timestamp")).longValue()),
+                    ZoneOffset.UTC)
+                : null;
+
+        TriggerSource trigger = "manual".equalsIgnoreCase(triggerHeader)
+                ? TriggerSource.MANUAL
+                : TriggerSource.AUTOMATIC;
+
+        CreateDeploymentRequest req = new CreateDeploymentRequest(
+                appName, repoUrl, imageName, containerPort,
+                branch, commitSha, commitMessage, commitAuthor, commitTs, trigger);
+
+        deploymentService.createDeployment(req);
         return ResponseEntity.ok().build();
     }
 }
