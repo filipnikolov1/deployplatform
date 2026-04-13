@@ -4,6 +4,8 @@ import com.filipnikolov.launchpad.deployment.model.Deployment;
 import com.filipnikolov.launchpad.deployment.service.DeploymentService;
 import com.filipnikolov.launchpad.docker.dto.ContainerStats;
 import com.filipnikolov.launchpad.docker.service.ContainerStatsService;
+import com.filipnikolov.launchpad.github.dto.CommitsAhead;
+import com.filipnikolov.launchpad.github.service.GitHubService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +19,7 @@ public class DeploymentController {
 
     private final DeploymentService deploymentService;
     private final ContainerStatsService statsService;
+    private final GitHubService gitHubService;
 
     /**
      * Lists all deployments with their current status.
@@ -57,5 +60,18 @@ public class DeploymentController {
     @GetMapping("/{appName}/stats")
     public ResponseEntity<ContainerStats> stats(@PathVariable String appName) {
         return ResponseEntity.ok(statsService.get(appName));
+    }
+
+    /**
+     * Returns the commits in (deployed..branch) for the app — fuels the
+     * "commits ahead" pill on the dashboard.
+     */
+    @GetMapping("/{appName}/commits-ahead")
+    public ResponseEntity<CommitsAhead> commitsAhead(@PathVariable String appName) {
+        Deployment d = deploymentService.getDeployment(appName);
+        if (d.getCommitSha() == null || d.getBranch() == null || d.getRepoUrl() == null) {
+            return ResponseEntity.ok(new CommitsAhead(0, java.util.List.of(), null));
+        }
+        return ResponseEntity.ok(gitHubService.compare(d.getRepoUrl(), d.getCommitSha(), d.getBranch()));
     }
 }
