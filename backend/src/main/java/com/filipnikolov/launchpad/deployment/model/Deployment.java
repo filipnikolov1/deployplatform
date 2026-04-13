@@ -43,4 +43,6 @@ public class Deployment {
 
     private LocalDateTime commitTimestamp;
 
+    private LocalDateTime deletedAt;
+
 }

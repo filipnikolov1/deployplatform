@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +43,7 @@ public class DeploymentServiceImpl implements DeploymentService {
     public Deployment createDeployment(CreateDeploymentRequest req) {
         long startedAt = System.currentTimeMillis();
 
-        Deployment deployment = deploymentRepository.findByAppName(req.appName())
+        Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(req.appName())
                 .orElseGet(() -> {
                     Deployment newDeployment = new Deployment();
                     newDeployment.setAppName(req.appName());
@@ -89,13 +90,30 @@ public class DeploymentServiceImpl implements DeploymentService {
 
     @Override
     public List<Deployment> getAllDeployments() {
-        return deploymentRepository.findAll();
+        return deploymentRepository.findAllByDeletedAtIsNull();
     }
 
     @Override
     public Deployment getDeployment(String appName) {
-        return deploymentRepository.findByAppName(appName)
+        return deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
                 .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
+    }
+
+    @Scheduled(fixedDelay = 60_000)
+    @Transactional
+    public void hardDeleteExpired() {
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(5);
+        deploymentRepository.findAll().stream()
+                .filter(d -> d.getDeletedAt() != null && d.getDeletedAt().isBefore(cutoff))
+                .forEach(d -> {
+                    try {
+                        dockerService.stopAndRemoveContainer(d.getAppName());
+                    } catch (Exception e) {
+                        log.warn("Failed to stop container during hard-delete of {}: {}", d.getAppName(), e.getMessage());
+                    }
+                    deploymentRepository.delete(d);
+                    log.info("Hard-deleted expired deployment: {}", d.getAppName());
+                });
     }
 
     @Override
@@ -143,6 +161,27 @@ public class DeploymentServiceImpl implements DeploymentService {
         log.info("Stopped: {}", appName);
 
         return deploymentRepository.save(deployment);
+    }
+
+    @Override
+    @Transactional
+    public Deployment softDelete(String appName) {
+        Deployment d = getDeployment(appName);
+        d.setDeletedAt(LocalDateTime.now());
+        return deploymentRepository.save(d);
+    }
+
+    @Override
+    @Transactional
+    public Deployment restore(String appName) {
+        Deployment d = deploymentRepository.findByAppName(appName)
+                .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
+        if (d.getDeletedAt() == null) return d;
+        if (d.getDeletedAt().isBefore(LocalDateTime.now().minusMinutes(5))) {
+            throw new IllegalStateException("Undo window expired");
+        }
+        d.setDeletedAt(null);
+        return deploymentRepository.save(d);
     }
 
     private CreateDeploymentRequest contextFor(Deployment d, TriggerSource trigger) {

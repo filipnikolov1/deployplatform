@@ -37,4 +37,14 @@ public interface DeploymentService {
      * Stops a running container and marks the deployment as STOPPED.
      */
     Deployment stopDeployment(String appName);
+
+    /**
+     * Marks a deployment as soft-deleted; the cleanup job purges it after the undo window.
+     */
+    Deployment softDelete(String appName);
+
+    /**
+     * Restores a soft-deleted deployment. Throws if the undo window has expired.
+     */
+    Deployment restore(String appName);
 }
