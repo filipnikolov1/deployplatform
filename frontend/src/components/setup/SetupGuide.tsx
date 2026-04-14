@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Rocket } from "lucide-react";
 import { GlassCard } from "@/components/primitives/GlassCard";
 import { CodeBlock } from "./CodeBlock";
 import { HealthChecklist } from "./HealthChecklist";
 import { useDeployUrl } from "@/hooks/useDeployUrl";
+import { useToast } from "@/hooks/useToast";
 import {
   generateDockerfile,
   generateWorkflow,
@@ -15,10 +16,55 @@ import {
 
 export function SetupGuide() {
   const { url, isLoading } = useDeployUrl();
+  const toast = useToast();
   const [appName, setAppName] = useState("my-app");
   const [branch, setBranch] = useState("main");
   const [stack, setStack] = useState<TechStack>("nodejs");
   const [port, setPort] = useState("3000");
+  const [creating, setCreating] = useState(false);
+  const [curlTemplate, setCurlTemplate] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(
+          `/api/deploy-hook/curl-template?app=${encodeURIComponent(appName)}`,
+        );
+        if (!res.ok) return;
+        const text = await res.text();
+        if (!cancelled) setCurlTemplate(text);
+      } catch {
+        /* ignore */
+      }
+    };
+    if (appName) void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [appName]);
+
+  const handleCreate = async () => {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/setup/precreate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appName, port: Number(port) || 3000 }),
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "");
+        toast.error(msg || "Create failed");
+        return;
+      }
+      toast.success(`${appName} created`);
+    } catch {
+      toast.error("Create failed");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const workflow = useMemo(
     () => generateWorkflow(appName, branch, stack),
@@ -113,6 +159,19 @@ export function SetupGuide() {
       </GlassCard>
 
       <GlassCard radius="panel" className="p-6 space-y-3">
+        <h2 className="text-lg font-semibold text-slate-100">
+          5) Manual deploy (curl)
+        </h2>
+        <p className="text-sm text-slate-400">
+          Copy this command to trigger a deploy from your terminal for testing.
+        </p>
+        <CodeBlock
+          code={curlTemplate || "# loading template…"}
+          language="bash"
+        />
+      </GlassCard>
+
+      <GlassCard radius="panel" className="p-6 space-y-3">
         <h2 className="text-lg font-semibold text-slate-100">Health checklist</h2>
         <HealthChecklist />
         <a
@@ -123,10 +182,11 @@ export function SetupGuide() {
         </a>
         <button
           type="button"
-          onClick={() => console.log("create app", { appName, port })}
-          className="inline-flex items-center px-4 py-2 rounded-full bg-accent-ghost/30 border border-accent-ghostLight text-sm text-white hover:bg-accent-ghost/40 focus:outline-none focus-visible:ring-focus"
+          onClick={handleCreate}
+          disabled={creating || !appName}
+          className="inline-flex items-center px-4 py-2 rounded-full bg-accent-ghost/30 border border-accent-ghostLight text-sm text-white hover:bg-accent-ghost/40 focus:outline-none focus-visible:ring-focus disabled:opacity-60"
         >
-          Create app
+          {creating ? "Creating…" : "Create app"}
         </button>
       </GlassCard>
     </div>

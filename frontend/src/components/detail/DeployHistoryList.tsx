@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useSWRConfig } from "swr";
 import { RotateCcw, CheckCircle2, XCircle, Clock } from "lucide-react";
 import type { DeploymentEvent } from "@/types/launchpad";
 import { RollbackConfirmDialog } from "./RollbackConfirmDialog";
+import { useToast } from "@/hooks/useToast";
 
 interface Props {
   appName: string;
@@ -11,8 +13,46 @@ interface Props {
 }
 
 export function DeployHistoryList({ appName, events }: Props) {
+  const toast = useToast();
+  const { mutate } = useSWRConfig();
   const [rollbackTarget, setRollbackTarget] =
     useState<DeploymentEvent | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const performRollback = async (event: DeploymentEvent) => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(
+        `/api/apps/${encodeURIComponent(appName)}/rollback`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId: event.id }),
+        },
+      );
+      if (res.status === 409) {
+        toast.error("App is busy — try again in a few seconds");
+        return;
+      }
+      if (!res.ok) {
+        toast.error("Rollback failed");
+        return;
+      }
+      toast.success("Rolled back");
+      void mutate("/api/apps");
+      void mutate(`/api/apps/${encodeURIComponent(appName)}`);
+      void mutate(
+        (key) =>
+          typeof key === "string" &&
+          key.startsWith(`/api/apps/${encodeURIComponent(appName)}/events`),
+      );
+      setRollbackTarget(null);
+    } catch {
+      toast.error("Rollback failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const deploys = events
     .filter((e) =>
@@ -87,12 +127,9 @@ export function DeployHistoryList({ appName, events }: Props) {
         <RollbackConfirmDialog
           appName={appName}
           event={rollbackTarget}
+          submitting={submitting}
           onCancel={() => setRollbackTarget(null)}
-          onConfirm={() => {
-            // TODO wire to POST /api/apps/{name}/rollback
-            console.log("rollback", appName, rollbackTarget.id);
-            setRollbackTarget(null);
-          }}
+          onConfirm={() => performRollback(rollbackTarget)}
         />
       )}
     </>

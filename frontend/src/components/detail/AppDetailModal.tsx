@@ -1,7 +1,9 @@
 "use client";
 
-import useSWR from "swr";
+import { useState } from "react";
+import useSWR, { useSWRConfig } from "swr";
 import type { ComponentType } from "react";
+import { useToast } from "@/hooks/useToast";
 import { Modal } from "@/components/primitives/Modal";
 import { GlassCard } from "@/components/primitives/GlassCard";
 import { Tabs } from "@/components/primitives/Tabs";
@@ -36,7 +38,64 @@ export function AppDetailModal({ appName, onClose }: Props) {
   );
   const { events } = useEvents({ appName, limit: 20 });
   const { stats } = useContainerStats(appName);
+  const toast = useToast();
+  const { mutate } = useSWRConfig();
+  const [redeploying, setRedeploying] = useState(false);
+  const [downloadingLogs, setDownloadingLogs] = useState(false);
   const titleId = `app-detail-${appName}`;
+
+  const handleRedeploy = async () => {
+    if (redeploying || !app) return;
+    setRedeploying(true);
+    try {
+      const res = await fetch(
+        `/api/apps/${encodeURIComponent(app.appName)}/restart`,
+        { method: "POST" },
+      );
+      if (res.status === 409) {
+        toast.error("App is busy — try again in a moment");
+        return;
+      }
+      if (!res.ok) {
+        toast.error("Redeploy failed");
+        return;
+      }
+      toast.success("Redeploy started");
+      void mutate("/api/apps");
+      void mutate(`/api/apps/${encodeURIComponent(app.appName)}`);
+    } catch {
+      toast.error("Redeploy failed");
+    } finally {
+      setRedeploying(false);
+    }
+  };
+
+  const handleDownloadLogs = async () => {
+    if (downloadingLogs || !app) return;
+    setDownloadingLogs(true);
+    try {
+      const res = await fetch(
+        `/api/apps/${encodeURIComponent(app.appName)}/logs/runtime/download`,
+      );
+      if (!res.ok) {
+        toast.error("Log download failed");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${app.appName}-runtime.log`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Log download failed");
+    } finally {
+      setDownloadingLogs(false);
+    }
+  };
 
   return (
     <Modal open onClose={onClose} labelledBy={titleId}>
@@ -115,8 +174,20 @@ export function AppDetailModal({ appName, onClose }: Props) {
               />
             </div>
             <div className="grid grid-cols-2 gap-3 p-6 border-t border-white/[0.08]">
-              <Button leadingIcon={<Zap className="h-4 w-4" />}>Redeploy</Button>
-              <Button variant="ghost-purple">View Logs</Button>
+              <Button
+                leadingIcon={<Zap className="h-4 w-4" />}
+                onClick={handleRedeploy}
+                disabled={redeploying}
+              >
+                {redeploying ? "Redeploying…" : "Redeploy"}
+              </Button>
+              <Button
+                variant="ghost-purple"
+                onClick={handleDownloadLogs}
+                disabled={downloadingLogs}
+              >
+                {downloadingLogs ? "Preparing…" : "Download Logs"}
+              </Button>
             </div>
           </>
         )}

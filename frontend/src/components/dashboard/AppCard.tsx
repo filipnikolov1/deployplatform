@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
+import { useSWRConfig } from "swr";
 import { motion } from "framer-motion";
 import { Clock, GitBranch, MoreVertical } from "lucide-react";
 import { formatRelative } from "@/lib/time";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useCommitsAhead } from "@/hooks/useCommitsAhead";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useToast } from "@/hooks/useToast";
 import { statusConfig, toAppStatus } from "@/lib/statusConfig";
 import type { Deployment } from "@/types/deployment";
 
@@ -19,11 +22,114 @@ interface Props {
 export function AppCard({ app, onOpen, mode = "grid" }: Props) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const { commitsAhead } = useCommitsAhead(app.appName);
+  const { prefs } = usePreferences();
+  const toast = useToast();
+  const { mutate } = useSWRConfig();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const status = toAppStatus(app.status);
   const config = statusConfig[status];
   const Icon = config.icon;
   const trigger = () => onOpen(app.appName);
+  const isPinned = prefs.pinned_apps.includes(app.appName);
+
+  const closeMenu = () => setMenuOpen(false);
+
+  const refreshApps = () => {
+    void mutate("/api/apps");
+    void mutate(`/api/apps/${encodeURIComponent(app.appName)}`);
+  };
+
+  const handleAction = async (
+    e: MouseEvent<HTMLButtonElement>,
+    action: "redeploy" | "stop" | "pin" | "delete",
+  ) => {
+    e.stopPropagation();
+    closeMenu();
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (action === "redeploy") {
+        const res = await fetch(
+          `/api/apps/${encodeURIComponent(app.appName)}/restart`,
+          { method: "POST" },
+        );
+        if (res.status === 409) {
+          toast.error("App is busy — try again in a moment");
+          return;
+        }
+        if (!res.ok) {
+          toast.error("Redeploy failed");
+          return;
+        }
+        toast.success("Redeploy started");
+        refreshApps();
+      } else if (action === "stop") {
+        const res = await fetch(
+          `/api/apps/${encodeURIComponent(app.appName)}/stop`,
+          { method: "POST" },
+        );
+        if (res.status === 409) {
+          toast.error("App is busy — try again in a moment");
+          return;
+        }
+        if (!res.ok) {
+          toast.error("Stop failed");
+          return;
+        }
+        toast.success("App stopped");
+        refreshApps();
+      } else if (action === "pin") {
+        const method = isPinned ? "DELETE" : "POST";
+        const res = await fetch(
+          `/api/me/pin/${encodeURIComponent(app.appName)}`,
+          { method },
+        );
+        if (!res.ok) {
+          toast.error(isPinned ? "Unpin failed" : "Pin failed");
+          return;
+        }
+        toast.success(isPinned ? "Unpinned" : "Pinned");
+        void mutate("/api/me");
+      } else if (action === "delete") {
+        const res = await fetch(
+          `/api/apps/${encodeURIComponent(app.appName)}`,
+          { method: "DELETE" },
+        );
+        if (!res.ok) {
+          toast.error("Delete failed");
+          return;
+        }
+        toast.success(`${app.appName} deleted`, {
+          durationMs: 10_000,
+          action: {
+            label: "Undo",
+            onClick: async () => {
+              try {
+                const restore = await fetch(
+                  `/api/apps/${encodeURIComponent(app.appName)}/restore`,
+                  { method: "POST" },
+                );
+                if (!restore.ok) {
+                  toast.error("Undo failed");
+                  return;
+                }
+                toast.success("Restored");
+                refreshApps();
+              } catch {
+                toast.error("Undo failed");
+              }
+            },
+          },
+        });
+        refreshApps();
+      }
+    } catch {
+      toast.error("Request failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <motion.article
@@ -55,17 +161,39 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
         <MoreVertical className="h-4 w-4 text-slate-300" />
       </button>
       {menuOpen && (
-        <div className="absolute top-12 right-3 z-10 rounded-lg border border-white/[0.12] bg-black/90 p-1.5 text-sm">
-          {["Redeploy", "Stop", "Pin", "Delete"].map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={(e: MouseEvent<HTMLButtonElement>) => e.stopPropagation()}
-              className="block w-full rounded px-3 py-1.5 text-left text-slate-200 hover:bg-white/10"
-            >
-              {item}
-            </button>
-          ))}
+        <div className="absolute top-12 right-3 z-10 rounded-lg border border-white/[0.12] bg-black/90 p-1.5 text-sm min-w-[140px]">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={(e) => handleAction(e, "redeploy")}
+            className="block w-full rounded px-3 py-1.5 text-left text-slate-200 hover:bg-white/10 disabled:opacity-60"
+          >
+            Redeploy
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={(e) => handleAction(e, "stop")}
+            className="block w-full rounded px-3 py-1.5 text-left text-slate-200 hover:bg-white/10 disabled:opacity-60"
+          >
+            Stop
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={(e) => handleAction(e, "pin")}
+            className="block w-full rounded px-3 py-1.5 text-left text-slate-200 hover:bg-white/10 disabled:opacity-60"
+          >
+            {isPinned ? "Unpin" : "Pin"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={(e) => handleAction(e, "delete")}
+            className="block w-full rounded px-3 py-1.5 text-left text-red-300 hover:bg-red-500/10 disabled:opacity-60"
+          >
+            Delete
+          </button>
         </div>
       )}
 

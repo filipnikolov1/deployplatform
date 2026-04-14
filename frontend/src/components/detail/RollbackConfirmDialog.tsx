@@ -11,6 +11,7 @@ interface Props {
   event: DeploymentEvent;
   onCancel: () => void;
   onConfirm: () => void;
+  submitting?: boolean;
 }
 
 export function RollbackConfirmDialog({
@@ -18,6 +19,7 @@ export function RollbackConfirmDialog({
   event,
   onCancel,
   onConfirm,
+  submitting = false,
 }: Props) {
   const titleId = `rollback-confirm-${event.id}`;
 
@@ -46,15 +48,16 @@ export function RollbackConfirmDialog({
             </div>
           </div>
           <div className="flex items-center justify-end gap-2">
-            <Button variant="ghost-purple" onClick={onCancel}>
+            <Button variant="ghost-purple" onClick={onCancel} disabled={submitting}>
               Cancel
             </Button>
             <button
               type="button"
               onClick={onConfirm}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-200 text-sm font-medium hover:bg-amber-500/30 transition-colors focus:outline-none focus-visible:ring-focus"
+              disabled={submitting}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-200 text-sm font-medium hover:bg-amber-500/30 transition-colors focus:outline-none focus-visible:ring-focus disabled:opacity-60"
             >
-              Confirm rollback
+              {submitting ? "Rolling back…" : "Confirm rollback"}
             </button>
           </div>
         </GlassCard>
