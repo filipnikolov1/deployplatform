@@ -14,8 +14,10 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -47,7 +49,7 @@ public class DeployHookController {
         try {
             return objectMapper.readValue(rawBody, Map.class);
         } catch (Exception e) {
-            throw new RuntimeException("Invalid JSON payload", e);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid JSON payload", e);
         }
     }
 

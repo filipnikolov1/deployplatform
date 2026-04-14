@@ -33,11 +33,12 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        // If no API key configured, skip auth (development mode)
+        // Fail closed: if no API key configured, reject every /api/** request.
         if (apiKey == null || apiKey.isBlank()) {
-            var auth = new UsernamePasswordAuthenticationToken("dev", null, List.of());
-            SecurityContextHolder.getContext().setAuthentication(auth);
-            chain.doFilter(request, response);
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            response.setContentType("application/json");
+            response.getWriter().write(
+                    "{\"error\":\"Service Unavailable\",\"message\":\"APP_API_KEY not configured\"}");
             return;
         }
 
