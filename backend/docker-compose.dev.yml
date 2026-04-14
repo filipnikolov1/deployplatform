@@ -23,9 +23,22 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - traefik
+
 networks:
   traefik:
     name: traefik
+    external: true
 
 volumes:
   postgres_data:
+  ollama_data:
