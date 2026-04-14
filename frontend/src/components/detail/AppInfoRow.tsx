@@ -6,10 +6,10 @@ import type { Deployment } from "@/types/deployment";
 
 interface Props {
   app: Deployment;
-  publicHost?: string;
+  publicHost: string;
 }
 
-export function AppInfoRow({ app, publicHost = "localhost" }: Props) {
+export function AppInfoRow({ app, publicHost }: Props) {
   const publicUrl = `http://${app.appName}.${publicHost}`;
   return (
     <dl className="bg-white/[0.04] rounded-lg p-4 grid grid-cols-2 gap-x-6 gap-y-2 font-mono text-xs text-slate-400 tabular-nums sm:grid-cols-4">

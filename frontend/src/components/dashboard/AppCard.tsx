@@ -32,6 +32,7 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
   const Icon = config.icon;
   const trigger = () => onOpen(app.appName);
   const isPinned = prefs.pinned_apps.includes(app.appName);
+  const branchLabel = app.branch ?? "main";
 
   const closeMenu = () => setMenuOpen(false);
 
@@ -205,7 +206,7 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
           <p className="text-base font-semibold text-white truncate">{app.appName}</p>
           <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
             <GitBranch className="h-3 w-3" />
-            <span>main</span>
+            <span>{branchLabel}</span>
           </div>
         </div>
       </div>
@@ -231,7 +232,7 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-xs font-medium border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
               onClick={(e: MouseEvent<HTMLAnchorElement>) => e.stopPropagation()}
-              aria-label={`${commitsAhead.count} commits ahead on main`}
+              aria-label={`${commitsAhead.count} commits ahead on ${branchLabel}`}
             >
               <GitBranch className="h-3 w-3" />
               {commitsAhead.count} ahead
@@ -260,7 +261,7 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
             </div>
             <div>
               <span className="text-slate-400 block mb-0.5">Branch</span>
-              <span className="text-slate-300 font-medium truncate">main</span>
+              <span className="text-slate-300 font-medium truncate">{branchLabel}</span>
             </div>
             <div>
               <span className="text-slate-400 block mb-0.5">Port</span>
@@ -284,7 +285,7 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
                 onClick={(e: MouseEvent<HTMLAnchorElement>) =>
                   e.stopPropagation()
                 }
-                aria-label={`${commitsAhead.count} commits ahead on main`}
+                aria-label={`${commitsAhead.count} commits ahead on ${branchLabel}`}
               >
                 <GitBranch className="h-3 w-3" />
                 {commitsAhead.count} ahead
