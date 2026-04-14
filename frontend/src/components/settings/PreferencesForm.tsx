@@ -86,7 +86,7 @@ function RadioRow<T extends string>({
 }
 
 export function PreferencesForm() {
-  const { prefs, update, email } = usePreferences();
+  const { prefs, update } = usePreferences();
   const toast = useToast();
 
   const save = async (patch: Partial<UserPreferences>) => {
@@ -212,26 +212,6 @@ export function PreferencesForm() {
         )}
       </GlassCard>
 
-      <GlassCard radius="panel" className="p-6">
-        <h2 className="text-lg font-semibold text-slate-100 mb-1">Account</h2>
-        <p className="text-sm text-slate-400 mb-4">
-          Your Launchpad account details.
-        </p>
-        <div className="space-y-3">
-          <div>
-            <div className="text-xs text-slate-400 mb-1">Email</div>
-            <div className="font-mono text-sm text-slate-200">{email}</div>
-          </div>
-          <div>
-            <a
-              href="/README.md#api-key"
-              className="text-sm text-accent-ghostLight hover:text-white transition-colors focus:outline-none focus-visible:ring-focus"
-            >
-              Regenerate API key (see README)
-            </a>
-          </div>
-        </div>
-      </GlassCard>
     </div>
   );
 }
