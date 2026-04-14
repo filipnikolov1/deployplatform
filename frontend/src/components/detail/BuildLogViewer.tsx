@@ -41,7 +41,7 @@ export function BuildLogViewer({ appName }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="font-mono text-xs text-slate-500">
+        <span className="font-mono text-xs text-slate-400">
           {status === "connecting" && "connecting…"}
           {status === "open" && `${lines.length} lines`}
           {status === "error" && "connection error"}
@@ -62,7 +62,7 @@ export function BuildLogViewer({ appName }: Props) {
           className="max-h-[50dvh] overflow-auto whitespace-pre px-4 py-3 font-mono text-xs leading-[1.4] text-green-300 tabular-nums"
         >
           {empty ? (
-            <span className="text-slate-500">Waiting for logs…</span>
+            <span className="text-slate-400">Waiting for logs...</span>
           ) : (
             lines.join("\n")
           )}

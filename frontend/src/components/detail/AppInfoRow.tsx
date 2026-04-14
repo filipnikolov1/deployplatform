@@ -12,17 +12,17 @@ interface Props {
 export function AppInfoRow({ app, publicHost = "localhost" }: Props) {
   const publicUrl = `http://${app.appName}.${publicHost}`;
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-2 p-4 font-mono text-xs text-slate-400 tabular-nums sm:grid-cols-4">
+    <dl className="bg-white/[0.04] rounded-lg p-4 grid grid-cols-2 gap-x-6 gap-y-2 font-mono text-xs text-slate-400 tabular-nums sm:grid-cols-4">
       <div>
-        <dt className="text-slate-500">image</dt>
+        <dt className="text-slate-400">image</dt>
         <dd className="truncate text-slate-200">{app.imageName}</dd>
       </div>
       <div>
-        <dt className="text-slate-500">port</dt>
+        <dt className="text-slate-400">port</dt>
         <dd className="text-slate-200">{app.containerPort}</dd>
       </div>
       <div>
-        <dt className="text-slate-500">url</dt>
+        <dt className="text-slate-400">url</dt>
         <dd>
           <a
             href={publicUrl}
@@ -35,7 +35,7 @@ export function AppInfoRow({ app, publicHost = "localhost" }: Props) {
         </dd>
       </div>
       <div>
-        <dt className="text-slate-500">repo</dt>
+        <dt className="text-slate-400">repo</dt>
         <dd>
           <a
             href={app.repoUrl}
@@ -48,7 +48,7 @@ export function AppInfoRow({ app, publicHost = "localhost" }: Props) {
         </dd>
       </div>
       <div className="col-span-2 sm:col-span-4">
-        <dt className="text-slate-500">updated</dt>
+        <dt className="text-slate-400">updated</dt>
         <dd className="text-slate-200">{formatRelative(app.updatedAt)}</dd>
       </div>
     </dl>

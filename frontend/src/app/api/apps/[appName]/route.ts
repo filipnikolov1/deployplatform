@@ -6,3 +6,14 @@ export async function GET(
 ) {
   return proxyToBackend(req, `/api/apps/${encodeURIComponent(params.appName)}`);
 }
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: { appName: string } },
+) {
+  return proxyToBackend(
+    req,
+    `/api/apps/${encodeURIComponent(params.appName)}`,
+    { method: "DELETE" },
+  );
+}

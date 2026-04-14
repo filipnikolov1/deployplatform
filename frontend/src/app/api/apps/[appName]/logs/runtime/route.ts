@@ -32,6 +32,7 @@ export async function GET(
     `${backend}/api/apps/${encodeURIComponent(params.appName)}/logs`,
     {
       headers: { "X-API-Key": apiKey, Accept: "text/event-stream" },
+      cache: "no-store",
       signal: req.signal,
     },
   );
@@ -43,10 +44,11 @@ export async function GET(
   return new Response(upstream.body, {
     status: 200,
     headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
+      "Content-Type": upstream.headers.get("content-type") ?? "text/event-stream",
+      "Cache-Control":
+        upstream.headers.get("cache-control") ?? "no-cache, no-transform",
+      Connection: upstream.headers.get("connection") ?? "keep-alive",
+      "X-Accel-Buffering": upstream.headers.get("x-accel-buffering") ?? "no",
     },
   });
 }

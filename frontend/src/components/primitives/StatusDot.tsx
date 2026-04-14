@@ -1,16 +1,15 @@
 import type { DeploymentStatus } from "@/types/deployment";
-import { statusTokens } from "@/lib/status";
+import { statusConfig, toAppStatus } from "@/lib/statusConfig";
 
 export function StatusDot({ status }: { status: DeploymentStatus }) {
-  const { color, label } = statusTokens(status);
+  const config = statusConfig[toAppStatus(status)];
   return (
-    <span role="status" aria-label={label} className="inline-flex items-center">
+    <span role="status" aria-label={config.label} className="inline-flex items-center">
       <span
         aria-hidden="true"
-        className="inline-block h-2 w-2 rounded-full dot-glow"
-        style={{ color, backgroundColor: color }}
+        className={`inline-block h-2 w-2 rounded-full dot-glow ${config.dotColor}`}
       />
-      <span className="sr-only">{label}</span>
+      <span className="sr-only">{config.label}</span>
     </span>
   );
 }

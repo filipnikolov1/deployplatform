@@ -33,7 +33,7 @@ public class UptimeMonitorServiceImpl implements UptimeMonitorService {
     @Scheduled(fixedRate = 60000)
     public void checkAll() {
         // Check RUNNING apps — mark as DOWN if unreachable
-        List<Deployment> runningApps = deploymentRepository.findByStatus(DeploymentStatus.RUNNING);
+        List<Deployment> runningApps = deploymentRepository.findByStatusAndDeletedAtIsNull(DeploymentStatus.RUNNING);
         for (Deployment app : runningApps) {
             if (!isHealthy(app.getAppName())) {
                 log.warn("App is down: {}", app.getAppName());
@@ -45,7 +45,7 @@ public class UptimeMonitorServiceImpl implements UptimeMonitorService {
         }
 
         // Check DOWN apps — mark as RUNNING if they recovered
-        List<Deployment> downApps = deploymentRepository.findByStatus(DeploymentStatus.DOWN);
+        List<Deployment> downApps = deploymentRepository.findByStatusAndDeletedAtIsNull(DeploymentStatus.DOWN);
         for (Deployment app : downApps) {
             if (isHealthy(app.getAppName())) {
                 log.info("App recovered: {}", app.getAppName());
