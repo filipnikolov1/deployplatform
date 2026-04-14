@@ -1,20 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 import type { SetupStatus } from "@/types/launchpad";
-import { mockSetupStatus } from "@/lib/mocks/setupStatus.mock";
+
+const fetcher = async (url: string): Promise<SetupStatus> => {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to load setup status: ${res.status}`);
+  return res.json();
+};
 
 export function useSetupStatus() {
-  const [status, setStatus] = useState<SetupStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading } = useSWR<SetupStatus>(
+    "/api/setup/status",
+    fetcher,
+    {
+      refreshInterval: 15_000,
+      revalidateOnFocus: true,
+    },
+  );
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setStatus(mockSetupStatus);
-      setIsLoading(false);
-    }, 120);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return { status, isLoading };
+  return { status: data ?? null, isLoading };
 }

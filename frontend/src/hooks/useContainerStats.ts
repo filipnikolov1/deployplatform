@@ -1,20 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 import type { ContainerStats } from "@/types/launchpad";
-import { generateMockStats } from "@/lib/mocks/stats.mock";
+
+const fetcher = async (url: string): Promise<ContainerStats> => {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to load stats: ${res.status}`);
+  return res.json();
+};
 
 export function useContainerStats(appName: string): {
   stats: ContainerStats | null;
   isLoading: boolean;
 } {
-  const [stats, setStats] = useState<ContainerStats | null>(null);
+  const { data, isLoading } = useSWR<ContainerStats>(
+    appName ? `/api/apps/${encodeURIComponent(appName)}/stats` : null,
+    fetcher,
+    {
+      refreshInterval: 5_000,
+      revalidateOnFocus: true,
+      dedupingInterval: 2_000,
+    },
+  );
 
-  useEffect(() => {
-    setStats(generateMockStats());
-    const interval = setInterval(() => setStats(generateMockStats()), 5_000);
-    return () => clearInterval(interval);
-  }, [appName]);
-
-  return { stats, isLoading: stats === null };
+  return { stats: data ?? null, isLoading };
 }

@@ -1,28 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 import type { CommitsAhead } from "@/types/launchpad";
-import { getMockCommitsAhead } from "@/lib/mocks/commitsAhead.mock";
+
+const fetcher = async (url: string): Promise<CommitsAhead> => {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to load commits-ahead: ${res.status}`);
+  return res.json();
+};
 
 export function useCommitsAhead(appName: string): {
   commitsAhead: CommitsAhead;
   isLoading: boolean;
 } {
-  const [commitsAhead, setCommitsAhead] = useState<CommitsAhead>({
-    count: null,
-    commits: [],
-    compareUrl: "#",
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading } = useSWR<CommitsAhead>(
+    appName ? `/api/apps/${encodeURIComponent(appName)}/commits-ahead` : null,
+    fetcher,
+    {
+      refreshInterval: 60_000,
+      revalidateOnFocus: false,
+      dedupingInterval: 10_000,
+    },
+  );
 
-  useEffect(() => {
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      setCommitsAhead(getMockCommitsAhead(appName));
-      setIsLoading(false);
-    }, 130);
-    return () => clearTimeout(timer);
-  }, [appName]);
-
-  return { commitsAhead, isLoading };
+  return {
+    commitsAhead: data ?? { count: null, commits: [], compareUrl: "#" },
+    isLoading,
+  };
 }
