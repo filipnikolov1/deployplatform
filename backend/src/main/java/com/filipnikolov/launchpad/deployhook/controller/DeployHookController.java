@@ -116,7 +116,15 @@ public class DeployHookController {
 
         Optional<Deployment> existing = deploymentRepository.findByAppName(appName);
         if (existing.isPresent() && existing.get().getPinnedImage() != null) {
-            String pinnedImage = existing.get().getPinnedImage();
+            Deployment d = existing.get();
+            String pinnedImage = d.getPinnedImage();
+            if (d.isSelfApp()) {
+                d.setLatestKnownImage(imageName);
+                d.setLatestKnownSha(commitSha);
+                d.setLatestKnownMessage(commitMessage);
+                d.setUpdatedAt(LocalDateTime.now());
+                deploymentRepository.save(d);
+            }
             eventService.record(DeploymentEventType.UPDATE_AVAILABLE, DeploymentEventStatus.SUCCESS,
                     appName, req, null, "New version available: " + imageName);
             log.info("Update available for pinned app {} — new image {}", appName, imageName);

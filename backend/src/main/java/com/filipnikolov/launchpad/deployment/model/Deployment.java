@@ -50,4 +50,16 @@ public class Deployment {
 
     private LocalDateTime pinnedAt;
 
+    @Column(name = "is_self_app", nullable = false)
+    private boolean selfApp = false;
+
+    @Column(name = "latest_known_image")
+    private String latestKnownImage;
+
+    @Column(name = "latest_known_sha")
+    private String latestKnownSha;
+
+    @Column(name = "latest_known_message", columnDefinition = "TEXT")
+    private String latestKnownMessage;
+
 }

@@ -132,6 +132,28 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
     }
   };
 
+  const handleSelfUpdate = async (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/self-apps/${encodeURIComponent(app.appName)}/update`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        toast.error("Update failed");
+        return;
+      }
+      toast.success("Update started");
+      refreshApps();
+    } catch {
+      toast.error("Update failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <motion.article
       layout
@@ -276,6 +298,16 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
               <Clock className="h-3 w-3" />
               Deployed {formatRelative(app.updatedAt)}
             </span>
+            {app.isSelfApp && app.latestKnownSha && app.commitSha !== app.latestKnownSha && (
+              <button
+                type="button"
+                onClick={handleSelfUpdate}
+                disabled={busy}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 text-xs font-medium border border-amber-500/20 hover:bg-amber-500/20 transition-colors disabled:opacity-60"
+              >
+                Update available
+              </button>
+            )}
             {commitsAhead.count && commitsAhead.count > 0 && (
               <a
                 href={commitsAhead.compareUrl}
