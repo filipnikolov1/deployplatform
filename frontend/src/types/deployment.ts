@@ -12,6 +12,7 @@ export interface Deployment {
   imageName: string;
   containerPort: number;
   status: DeploymentStatus;
+  branch?: string;
   createdAt: string;
   updatedAt: string;
 }

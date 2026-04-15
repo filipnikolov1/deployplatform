@@ -109,7 +109,10 @@ export function AppDetailModal({ appName, onClose }: Props) {
         ) : (
           <>
             <AppDetailHeader app={app} onClose={onClose} titleId={titleId} />
-            <AppInfoRow app={app} />
+            <AppInfoRow
+              app={app}
+              publicHost={process.env.NEXT_PUBLIC_APP_BASE_DOMAIN ?? "localhost"}
+            />
             <div className="grid grid-cols-2 gap-3 p-4">
               <InfoCard icon={Cpu} label="CPU" value={stats ? `${stats.cpuPercent.toFixed(1)}%` : "—"} />
               <InfoCard
