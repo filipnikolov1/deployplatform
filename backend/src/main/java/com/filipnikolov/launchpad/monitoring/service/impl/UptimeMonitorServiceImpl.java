@@ -16,8 +16,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Pings each RUNNING app via HTTP every 60 seconds. If an app doesn't respond,
- * marks it as DOWN and sends an email alert via the NotificationService.
+ * Checks each RUNNING app's container liveness every 60 seconds via the
+ * Docker API. If a container is no longer running, marks the app as DOWN
+ * and sends an email alert via the NotificationService. This is NOT an
+ * HTTP health probe — a crashed-but-not-exited app process will still
+ * look healthy here.
  */
 @Service
 @RequiredArgsConstructor
@@ -35,7 +38,7 @@ public class UptimeMonitorServiceImpl implements UptimeMonitorService {
         // Check RUNNING apps — mark as DOWN if unreachable
         List<Deployment> runningApps = deploymentRepository.findByStatusAndDeletedAtIsNull(DeploymentStatus.RUNNING);
         for (Deployment app : runningApps) {
-            if (!isHealthy(app.getAppName())) {
+            if (!isContainerRunning(app.getAppName())) {
                 log.warn("App is down: {}", app.getAppName());
                 app.setStatus(DeploymentStatus.DOWN);
                 app.setUpdatedAt(LocalDateTime.now());
@@ -47,7 +50,7 @@ public class UptimeMonitorServiceImpl implements UptimeMonitorService {
         // Check DOWN apps — mark as RUNNING if they recovered
         List<Deployment> downApps = deploymentRepository.findByStatusAndDeletedAtIsNull(DeploymentStatus.DOWN);
         for (Deployment app : downApps) {
-            if (isHealthy(app.getAppName())) {
+            if (isContainerRunning(app.getAppName())) {
                 log.info("App recovered: {}", app.getAppName());
                 app.setStatus(DeploymentStatus.RUNNING);
                 app.setUpdatedAt(LocalDateTime.now());
@@ -57,9 +60,10 @@ public class UptimeMonitorServiceImpl implements UptimeMonitorService {
     }
 
     /**
-     * Checks if the app's Docker container is currently running via the Docker API.
+     * Container-liveness check — asks the Docker API whether the container
+     * for this app is currently in a running state. Does not probe HTTP.
      */
-    private boolean isHealthy(String appName) {
+    private boolean isContainerRunning(String appName) {
         return dockerService.isContainerRunning(appName);
     }
 }

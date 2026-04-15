@@ -16,7 +16,7 @@ public class ActionLockService {
         ReentrantLock lock = locks.computeIfAbsent(key, k -> new ReentrantLock());
         try {
             if (lock.tryLock(5, TimeUnit.SECONDS)) {
-                return Optional.of(new LockHandle(lock));
+                return Optional.of(new LockHandle(key, lock));
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -24,16 +24,38 @@ public class ActionLockService {
         return Optional.empty();
     }
 
-    public static class LockHandle implements AutoCloseable {
+    /**
+     * Removes the lock entry if it's currently held by exactly one holder
+     * (the caller about to release it) and has no waiters. Called from
+     * LockHandle.close() to keep the map bounded.
+     */
+    private void tryRemoveIfIdle(String key, ReentrantLock lock) {
+        locks.compute(key, (k, existing) -> {
+            if (existing == null) return null;
+            if (existing != lock) return existing;
+            if (existing.getHoldCount() == 1 && !existing.hasQueuedThreads()) {
+                return null;
+            }
+            return existing;
+        });
+    }
+
+    public class LockHandle implements AutoCloseable {
+        private final String key;
         private final ReentrantLock lock;
 
-        LockHandle(ReentrantLock lock) {
+        LockHandle(String key, ReentrantLock lock) {
+            this.key = key;
             this.lock = lock;
         }
 
         @Override
         public void close() {
-            lock.unlock();
+            try {
+                tryRemoveIfIdle(key, lock);
+            } finally {
+                lock.unlock();
+            }
         }
     }
 }
