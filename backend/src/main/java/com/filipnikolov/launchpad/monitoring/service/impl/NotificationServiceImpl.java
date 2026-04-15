@@ -20,12 +20,14 @@ public class NotificationServiceImpl implements NotificationService {
     private final RestClient restClient;
     private final String fromEmail;
     private final String toEmail;
+    private final String apiKey;
 
     public NotificationServiceImpl(
             @Value("${resend.api-key:}") String apiKey,
             @Value("${resend.from:Launchpad <onboarding@resend.dev>}") String fromEmail,
             @Value("${resend.to:}") String toEmail) {
 
+        this.apiKey = apiKey;
         this.fromEmail = fromEmail;
         this.toEmail = toEmail;
 
@@ -38,8 +40,9 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void sendDownAlert(String appName) {
-        if (toEmail.isEmpty()) {
-            log.warn("No alert email configured (resend.to). Skipping alert for: {}", appName);
+        if (toEmail.isEmpty() || apiKey.isEmpty()) {
+            log.warn("Resend not fully configured (to='{}', api-key={}). Skipping alert for: {}",
+                    toEmail, apiKey.isEmpty() ? "missing" : "set", appName);
             return;
         }
 

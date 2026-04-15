@@ -7,6 +7,7 @@ import com.filipnikolov.launchpad.deployment.model.DeploymentEventType;
 import com.filipnikolov.launchpad.deployment.repository.DeploymentEventRepository;
 import com.filipnikolov.launchpad.deployment.service.DeploymentEventService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -49,17 +50,25 @@ public class DeploymentEventServiceImpl implements DeploymentEventService {
 
     @Override
     public List<DeploymentEvent> listForApp(String appName, int limit) {
-        return repo.findTop20ByAppNameOrderByCreatedAtDesc(appName);
+        int clamped = clampLimit(limit, 20);
+        return repo.findByAppNameOrderByCreatedAtDesc(appName, PageRequest.of(0, clamped));
     }
 
     @Override
     public List<DeploymentEvent> listGlobal(int limit) {
-        return repo.findTop50ByOrderByCreatedAtDesc();
+        int clamped = clampLimit(limit, 50);
+        return repo.findAllByOrderByCreatedAtDesc(PageRequest.of(0, clamped));
     }
 
     @Override
     public Optional<DeploymentEvent> latestForApp(String appName) {
         return repo.findTopByAppNameAndEventTypeOrderByCreatedAtDesc(
                 appName, DeploymentEventType.DEPLOY_FINISHED);
+    }
+
+    private static int clampLimit(int limit, int defaultIfNonPositive) {
+        if (limit <= 0) return defaultIfNonPositive;
+        if (limit > 200) return 200;
+        return limit;
     }
 }
