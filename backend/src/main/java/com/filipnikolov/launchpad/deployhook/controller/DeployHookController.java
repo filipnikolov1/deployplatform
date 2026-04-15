@@ -116,14 +116,22 @@ public class DeployHookController {
 
         Optional<Deployment> existing = deploymentRepository.findByAppName(appName);
         if (existing.isPresent() && existing.get().getPinnedImage() != null) {
-            String pinnedImage = existing.get().getPinnedImage();
-            eventService.record(DeploymentEventType.WEBHOOK_IGNORED, DeploymentEventStatus.FAILURE,
-                    appName, req, null, "App pinned to " + pinnedImage);
-            log.warn("Webhook ignored for {} — pinned to {}", appName, pinnedImage);
+            Deployment d = existing.get();
+            String pinnedImage = d.getPinnedImage();
+            if (d.isSelfApp()) {
+                d.setLatestKnownImage(imageName);
+                d.setLatestKnownSha(commitSha);
+                d.setLatestKnownMessage(commitMessage);
+                d.setUpdatedAt(LocalDateTime.now());
+                deploymentRepository.save(d);
+            }
+            eventService.record(DeploymentEventType.UPDATE_AVAILABLE, DeploymentEventStatus.SUCCESS,
+                    appName, req, null, "New version available: " + imageName);
+            log.info("Update available for pinned app {} — new image {}", appName, imageName);
             return ResponseEntity.status(202).body(Map.of(
-                    "status", "ignored",
-                    "reason", "app is pinned",
-                    "pinnedImage", pinnedImage));
+                    "status", "update_available",
+                    "pinnedImage", pinnedImage,
+                    "availableImage", imageName));
         }
 
         deploymentService.createDeployment(req);
