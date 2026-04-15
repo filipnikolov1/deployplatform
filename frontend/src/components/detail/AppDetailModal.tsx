@@ -9,6 +9,7 @@ import { GlassCard } from "@/components/primitives/GlassCard";
 import { Tabs } from "@/components/primitives/Tabs";
 import { AppDetailHeader } from "./AppDetailHeader";
 import { AppInfoRow } from "./AppInfoRow";
+import { EnvVarsTab } from "./EnvVarsTab";
 import { AppDetailSkeleton } from "./AppDetailSkeleton";
 import { BuildLogViewer } from "./BuildLogViewer";
 import { DeployHistoryList } from "./DeployHistoryList";
@@ -138,11 +139,7 @@ export function AppDetailModal({ appName, onClose }: Props) {
                   {
                     id: "env",
                     label: "Env Vars",
-                    panel: (
-                      <div className="text-sm text-slate-400">
-                        Env vars — implemented in Plan 3.
-                      </div>
-                    ),
+                    panel: <EnvVarsTab appName={app.appName} />,
                   },
                   {
                     id: "activity",
