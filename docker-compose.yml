@@ -70,8 +70,8 @@ services:
   launchpad-frontend:
     image: filipn123/launchpad-frontend:latest
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
+      context: ./frontend
+      dockerfile: Dockerfile
     environment:
       BACKEND_URL: http://launchpad:8082
       API_KEY: ${APP_API_KEY}

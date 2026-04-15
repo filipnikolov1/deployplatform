@@ -55,8 +55,11 @@ export function DeployHistoryList({ appName, events }: Props) {
   };
 
   const deploys = events
-    .filter((e) =>
-      ["DEPLOY_FINISHED", "MANUAL_ROLLBACK"].includes(e.eventType),
+    .filter(
+      (e) =>
+        ["DEPLOY_FINISHED", "MANUAL_ROLLBACK"].includes(e.eventType) &&
+        e.status === "SUCCESS" &&
+        !!e.imageName,
     )
     .slice(0, 10);
 
@@ -68,57 +71,75 @@ export function DeployHistoryList({ appName, events }: Props) {
 
   return (
     <>
-      <ul className="space-y-2">
+      <ul className="space-y-3">
         {deploys.map((event) => {
           const isSuccess = event.status === "SUCCESS";
           const Icon = isSuccess ? CheckCircle2 : XCircle;
           return (
             <li
               key={event.id}
-              className="flex items-start gap-3 p-3 rounded-lg bg-white/[0.04] border border-white/[0.08]"
+              className="overflow-hidden rounded-card border border-white/[0.08] bg-black/35 shadow-[0_18px_40px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.04)]"
             >
-              <Icon
-                className={`h-4 w-4 mt-0.5 shrink-0 ${
-                  isSuccess ? "text-emerald-400" : "text-red-400"
-                }`}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="text-sm font-medium text-white truncate">
-                    {event.commitMessage ?? "—"}
-                  </span>
+              <div className="flex items-start gap-4 px-5 py-5 sm:px-6">
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${
+                    isSuccess
+                      ? "border-emerald-400/30 bg-emerald-500/14 text-emerald-200"
+                      : "border-red-400/25 bg-red-500/12 text-red-200"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1 pt-1">
+                  <div className="mb-1 flex items-start justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="truncate text-sm font-medium text-white">
+                        {event.commitMessage ?? "—"}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] ${
+                          isSuccess
+                            ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                            : "border-red-400/20 bg-red-500/10 text-red-200"
+                        }`}
+                      >
+                        <Icon className="h-3 w-3" />
+                        {isSuccess ? "Success" : "Failed"}
+                      </span>
+                      {event.eventType === "MANUAL_ROLLBACK" && (
+                        <span className="inline-flex items-center rounded-full border border-amber-300/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-amber-100">
+                          rollback
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRollbackTarget(event)}
+                      aria-label={`Roll back ${appName} to ${
+                        event.commitSha?.slice(0, 7) ?? "this version"
+                      }`}
+                      className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-black/30 px-3 py-1.5 text-xs text-slate-200 transition-colors hover:bg-black/45 focus:outline-none focus-visible:ring-focus"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Rollback
+                    </button>
+                  </div>
                   {event.commitSha && (
-                    <span className="font-mono text-xs px-1.5 py-0.5 bg-white/5 rounded text-slate-300">
+                    <span className="mb-2 inline-flex rounded-md border border-white/[0.08] bg-black/30 px-2 py-1 font-mono text-xs text-slate-300">
                       {event.commitSha.slice(0, 7)}
                     </span>
                   )}
-                  {event.eventType === "MANUAL_ROLLBACK" && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                      rollback
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400 tabular-nums">
-                  <Clock className="h-3 w-3" />
-                  <time dateTime={event.createdAt}>
-                    {new Date(event.createdAt).toLocaleString()}
-                  </time>
-                  {event.durationMs != null && (
-                    <span>· {(event.durationMs / 1000).toFixed(1)}s</span>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2 text-xs tabular-nums text-slate-400">
+                    <Clock className="h-3 w-3" />
+                    <time dateTime={event.createdAt}>
+                      {new Date(event.createdAt).toLocaleString()}
+                    </time>
+                    {event.durationMs != null && (
+                      <span>· {(event.durationMs / 1000).toFixed(1)}s</span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setRollbackTarget(event)}
-                aria-label={`Roll back ${appName} to ${
-                  event.commitSha?.slice(0, 7) ?? "this version"
-                }`}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.04] text-xs text-slate-200 hover:bg-white/[0.08] transition-colors focus:outline-none focus-visible:ring-focus"
-              >
-                <RotateCcw className="h-3 w-3" />
-                Rollback
-              </button>
             </li>
           );
         })}

@@ -34,10 +34,19 @@ export function LoginCard() {
   }
 
   return (
-    <GlassCard variant="panel" className="w-full max-w-sm p-8 flex flex-col gap-6">
-      <div className="flex flex-col items-center gap-2">
-        <Rocket className="h-8 w-8 text-accent-ghostLight" aria-hidden="true" />
-        <h1 className="text-2xl font-semibold text-text-primary">Launchpad</h1>
+    <GlassCard
+      variant="panel"
+      className="w-full max-w-md border-white/[0.12] bg-black/35 p-8 shadow-[0_28px_70px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.08)]"
+    >
+      <div className="mb-6 flex flex-col items-center gap-3 rounded-card border border-white/[0.08] bg-white/[0.03] px-5 py-6">
+        <div className="rounded-2xl border border-sky-200/20 bg-sky-300/10 p-3">
+          <Rocket className="h-7 w-7 text-sky-200" aria-hidden="true" />
+        </div>
+        <div className="glass-kicker">Secure Access</div>
+        <h1 className="text-3xl font-semibold text-text-primary">Launchpad</h1>
+        <p className="text-center text-sm text-slate-300/70">
+          Enter the dashboard password to open the control surface.
+        </p>
       </div>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <Input

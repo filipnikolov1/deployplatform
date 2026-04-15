@@ -6,10 +6,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh">
       <Sidebar />
       <main
-        className="sm:pl-24 pb-28 sm:pb-6 px-4 sm:px-8 pt-6 max-w-7xl mx-auto"
+        className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-8 sm:pb-6 sm:pl-24"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 112px)" }}
       >
-        {children}
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/14 to-transparent" />
+          {children}
+        </div>
       </main>
       <BottomNav />
     </div>

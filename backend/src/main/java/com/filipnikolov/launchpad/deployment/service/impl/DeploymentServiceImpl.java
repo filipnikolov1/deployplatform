@@ -192,7 +192,13 @@ public class DeploymentServiceImpl implements DeploymentService {
     public Deployment rollback(String appName, Long eventId) {
         DeploymentEvent target = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
-        if (!target.getAppName().equals(appName) || target.getImageName() == null) {
+        boolean rollbackableType = target.getEventType() == DeploymentEventType.DEPLOY_FINISHED
+                || target.getEventType() == DeploymentEventType.MANUAL_ROLLBACK;
+        if (!target.getAppName().equals(appName)
+                || !rollbackableType
+                || target.getStatus() != DeploymentEventStatus.SUCCESS
+                || target.getImageName() == null
+                || target.getImageName().isBlank()) {
             throw new IllegalArgumentException("Invalid rollback target");
         }
         Deployment d = getDeployment(appName);

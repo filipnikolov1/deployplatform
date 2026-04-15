@@ -109,7 +109,11 @@ public class DeploymentController {
             return ResponseEntity.status(409).body(Map.of("error", "locked"));
         }
         try (var handle = maybeHandle.get()) {
-            return ResponseEntity.ok(deploymentService.rollback(appName, eventId));
+            try {
+                return ResponseEntity.ok(deploymentService.rollback(appName, eventId));
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            }
         }
     }
 

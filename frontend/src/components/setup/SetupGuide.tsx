@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Rocket } from "lucide-react";
 import { GlassCard } from "@/components/primitives/GlassCard";
+import { Input } from "@/components/primitives/Input";
+import { Button } from "@/components/primitives/Button";
 import { CodeBlock } from "./CodeBlock";
 import { HealthChecklist } from "./HealthChecklist";
 import { useDeployUrl } from "@/hooks/useDeployUrl";
@@ -74,16 +76,15 @@ export function SetupGuide() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-white/[0.08] bg-white/[0.02] -mx-4 px-4 py-8 sm:-mx-8 sm:px-8 rounded-xl">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
-            <Rocket className="h-5 w-5 text-purple-400" />
+      <div className="glass-page-header">
+        <div className="flex items-center gap-4">
+          <div className="rounded-2xl border border-sky-200/20 bg-sky-300/10 p-3">
+            <Rocket className="h-5 w-5 text-sky-200" />
           </div>
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-100">
-              Setup Guide
-            </h1>
-            <p className="text-slate-400">
+            <div className="glass-kicker">First Deploy</div>
+            <h1 className="glass-title text-3xl sm:text-3xl">Setup Guide</h1>
+            <p className="glass-subtitle">
               Configure repository, workflow, and Docker image publishing.
             </p>
           </div>
@@ -91,39 +92,35 @@ export function SetupGuide() {
       </div>
 
       <GlassCard radius="panel" className="p-6">
-        <h2 className="text-lg font-semibold text-slate-100 mb-2">
+        <h2 className="mb-2 text-lg font-semibold text-slate-100">
           1) Repository
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <label className="text-sm text-slate-300 md:col-span-2">
-            App name
-            <input
+          <div className="md:col-span-2">
+            <Input
+              label="App name"
               value={appName}
               onChange={(e) =>
                 setAppName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
               }
-              className="mt-1.5 w-full rounded-full bg-surface-glass border border-border-glass px-4 py-2.5 text-base text-text-primary"
             />
-          </label>
-          <label className="text-sm text-slate-300">
-            Branch
-            <input
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              className="mt-1.5 w-full rounded-full bg-surface-glass border border-border-glass px-4 py-2.5 text-base text-text-primary"
-            />
-          </label>
-          <label className="text-sm text-slate-300">
-            Port
-            <input
-              value={port}
-              onChange={(e) => setPort(e.target.value)}
-              className="mt-1.5 w-full rounded-full bg-surface-glass border border-border-glass px-4 py-2.5 text-base text-text-primary"
-            />
-          </label>
+          </div>
+          <Input
+            label="Branch"
+            value={branch}
+            onChange={(e) => setBranch(e.target.value)}
+          />
+          <Input
+            label="Port"
+            value={port}
+            inputMode="numeric"
+            onChange={(e) => setPort(e.target.value)}
+          />
         </div>
         <div className="mt-4">
-          <p className="text-sm text-slate-400 mb-2">Deploy hook endpoint</p>
+          <p className="mb-2 pl-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/72">
+            Deploy hook endpoint
+          </p>
           <CodeBlock code={isLoading ? "Loading deploy URL..." : url} language="text" />
         </div>
       </GlassCard>
@@ -136,10 +133,10 @@ export function SetupGuide() {
               key={option.value}
               type="button"
               onClick={() => setStack(option.value)}
-              className={`rounded-lg px-3 py-2 text-sm border transition-colors ${
+              className={`rounded-2xl px-3 py-2.5 text-sm border backdrop-blur-xl transition-colors ${
                 stack === option.value
-                  ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
-                  : "bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-white/[0.08]"
+                  ? "border-sky-200/30 bg-sky-300/12 text-sky-100"
+                  : "border-white/[0.10] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"
               }`}
             >
               {option.label}
@@ -174,20 +171,9 @@ export function SetupGuide() {
       <GlassCard radius="panel" className="p-6 space-y-3">
         <h2 className="text-lg font-semibold text-slate-100">Health checklist</h2>
         <HealthChecklist />
-        <a
-          href="/docs/setup#secret"
-          className="inline-flex text-sm text-accent-ghostLight hover:text-white transition-colors"
-        >
-          Generating the deploy-hook secret
-        </a>
-        <button
-          type="button"
-          onClick={handleCreate}
-          disabled={creating || !appName}
-          className="inline-flex items-center px-4 py-2 rounded-full bg-accent-ghost/30 border border-accent-ghostLight text-sm text-white hover:bg-accent-ghost/40 focus:outline-none focus-visible:ring-focus disabled:opacity-60"
-        >
+        <Button type="button" onClick={handleCreate} disabled={creating || !appName}>
           {creating ? "Creating…" : "Create app"}
-        </button>
+        </Button>
       </GlassCard>
     </div>
   );

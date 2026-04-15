@@ -19,7 +19,8 @@ interface Props {
 
 interface EventTypeEntry {
   title: string;
-  color: string;
+  chipClass: string;
+  badgeClass: string;
   icon: LucideIcon;
   label: string;
 }
@@ -27,73 +28,85 @@ interface EventTypeEntry {
 const eventTypeConfig: Record<DeploymentEventType, EventTypeEntry> = {
   DEPLOY_FINISHED: {
     title: "Deploy completed",
-    color: "bg-emerald-500",
+    chipClass: "border-emerald-400/30 bg-emerald-500/14 text-emerald-200",
+    badgeClass: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
     icon: CheckCircle2,
     label: "Success",
   },
   DEPLOY_TRIGGERED: {
     title: "Deploy triggered",
-    color: "bg-blue-500",
+    chipClass: "border-sky-300/20 bg-sky-400/10 text-sky-100",
+    badgeClass: "border-sky-300/20 bg-sky-400/10 text-sky-100",
     icon: Circle,
     label: "Running",
   },
   DEPLOY_STARTED: {
     title: "Deploy in progress",
-    color: "bg-blue-500",
+    chipClass: "border-sky-300/20 bg-sky-400/10 text-sky-100",
+    badgeClass: "border-sky-300/20 bg-sky-400/10 text-sky-100",
     icon: Circle,
     label: "Running",
   },
   BUILD_STARTED: {
     title: "Build started",
-    color: "bg-amber-500",
+    chipClass: "border-amber-300/25 bg-amber-500/10 text-amber-100",
+    badgeClass: "border-amber-300/20 bg-amber-500/10 text-amber-100",
     icon: Clock,
     label: "Building",
   },
   BUILD_FINISHED: {
     title: "Build completed",
-    color: "bg-emerald-500",
+    chipClass: "border-emerald-400/30 bg-emerald-500/14 text-emerald-200",
+    badgeClass: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
     icon: CheckCircle2,
     label: "Success",
   },
   FAILED: {
     title: "Deploy failed",
-    color: "bg-red-500",
+    chipClass: "border-red-400/25 bg-red-500/12 text-red-200",
+    badgeClass: "border-red-400/20 bg-red-500/10 text-red-200",
     icon: XCircle,
     label: "Failed",
   },
   CRASHED: {
     title: "Container crashed",
-    color: "bg-red-500",
+    chipClass: "border-red-400/25 bg-red-500/12 text-red-200",
+    badgeClass: "border-red-400/20 bg-red-500/10 text-red-200",
     icon: XCircle,
     label: "Crashed",
   },
   RESTARTED: {
     title: "Container restarted",
-    color: "bg-blue-500",
+    chipClass: "border-sky-300/20 bg-sky-400/10 text-sky-100",
+    badgeClass: "border-sky-300/20 bg-sky-400/10 text-sky-100",
     icon: RotateCcw,
     label: "Restarted",
   },
   STOPPED: {
     title: "Container stopped",
-    color: "bg-slate-500",
+    chipClass: "border-white/10 bg-white/[0.06] text-slate-200",
+    badgeClass: "border-white/10 bg-white/[0.06] text-slate-200",
     icon: Circle,
     label: "Stopped",
   },
   MANUAL_ROLLBACK: {
     title: "Rolled back",
-    color: "bg-amber-500",
+    chipClass: "border-amber-300/25 bg-amber-500/10 text-amber-100",
+    badgeClass: "border-amber-300/20 bg-amber-500/10 text-amber-100",
     icon: RotateCcw,
     label: "Rollback",
   },
   WEBHOOK_IGNORED: {
     title: "Webhook ignored",
-    color: "bg-slate-500",
+    chipClass: "border-white/10 bg-white/[0.06] text-slate-300",
+    badgeClass: "border-white/10 bg-white/[0.06] text-slate-300",
     icon: Ban,
     label: "Ignored",
   },
   PIN_RELEASED: {
     title: "Pin released",
-    color: "bg-blue-500",
+    chipClass: "border-sky-300/20 bg-sky-400/10 text-sky-100",
+    badgeClass: "border-sky-300/20 bg-sky-400/10 text-sky-100",
     icon: CheckCircle2,
     label: "Unpinned",
   },
@@ -115,53 +128,54 @@ export function ActivityRow({ event, isLast }: Props) {
   const Icon = config.icon;
 
   return (
-    <div className="relative group hover:bg-white/5 transition-colors">
-      <div className="flex gap-4 p-6">
-        <div className="relative flex flex-col items-center">
+    <div className="group relative transition-colors hover:bg-white/[0.03]">
+      <div className="flex gap-4 px-5 py-5 sm:px-6">
+        <div className="relative flex w-10 shrink-0 justify-center">
           <div
-            className={`w-2.5 h-2.5 rounded-full ${config.color} ring-4 ring-black z-10`}
+            className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-2xl border backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${config.chipClass}`}
           >
+            <Icon className="h-4 w-4" />
             <span className="sr-only">{config.label}</span>
           </div>
           {!isLast && (
-            <div className="absolute top-2.5 w-px h-full bg-white/10" />
+            <div className="absolute bottom-[-20px] top-10 w-px bg-gradient-to-b from-white/12 to-transparent" />
           )}
         </div>
-        <div className="flex-1 min-w-0 pt-0.5">
-          <div className="flex items-start justify-between gap-4 mb-1">
-            <div className="flex items-center gap-3 flex-wrap">
+        <div className="min-w-0 flex-1 pt-1">
+          <div className="mb-1 flex items-start justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
               <h3 className="font-medium text-white">{config.title}</h3>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-xs font-medium text-slate-200">
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] ${config.badgeClass}`}>
                 <Icon className="w-3 h-3" />
                 {config.label}
               </span>
               {event.triggeredBy === "MANUAL" && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-xs font-medium border border-purple-500/20">
+                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-slate-300">
                   manual
                 </span>
               )}
             </div>
             <time
-              className="text-sm text-slate-400 whitespace-nowrap tabular-nums"
+              className="whitespace-nowrap text-sm tabular-nums text-slate-500"
               dateTime={event.createdAt}
             >
               {relative(event.createdAt)}
             </time>
           </div>
           {event.commitMessage && (
-            <p className="text-sm text-slate-400 mb-1 line-clamp-1">
+            <p className="mb-1 line-clamp-1 text-sm text-slate-300/78">
               {event.commitMessage}
             </p>
           )}
           {event.errorMessage && (
-            <p className="text-sm text-red-400/80 mb-1 line-clamp-1">
+            <p className="mb-1 line-clamp-1 text-sm text-red-300/85">
               {event.errorMessage}
             </p>
           )}
-          <div className="flex items-center gap-3 text-sm text-slate-400">
-            <span className="font-mono">{event.appName}</span>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+            <span className="font-mono text-slate-300">{event.appName}</span>
             {event.commitSha && (
-              <span className="font-mono text-xs px-1.5 py-0.5 bg-white/5 rounded">
+              <span className="rounded-md border border-white/[0.08] bg-black/30 px-2 py-1 font-mono text-xs text-slate-300">
                 {event.commitSha.slice(0, 7)}
               </span>
             )}
