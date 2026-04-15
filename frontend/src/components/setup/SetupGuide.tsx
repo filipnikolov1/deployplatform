@@ -69,8 +69,8 @@ export function SetupGuide() {
   };
 
   const workflow = useMemo(
-    () => generateWorkflow(appName, branch, stack),
-    [appName, branch, stack],
+    () => generateWorkflow(appName, branch, stack, port),
+    [appName, branch, stack, port],
   );
   const dockerfile = useMemo(() => generateDockerfile(stack), [stack]);
 

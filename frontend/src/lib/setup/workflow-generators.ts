@@ -16,6 +16,7 @@ export function generateWorkflow(
   appName: string,
   branch: string,
   _stack: TechStack,
+  port: string = "3000",
 ): string {
   const safe = appName || "my-app";
   return `name: Deploy ${safe}
@@ -25,10 +26,17 @@ on:
     branches: [${branch}]
 
 jobs:
-  build:
+  build-push:
     runs-on: ubuntu-latest
+    outputs:
+      image_sha_tag: \${{ steps.meta.outputs.image_sha_tag }}
     steps:
       - uses: actions/checkout@v4
+
+      - id: meta
+        run: |
+          SHORT_SHA="\${GITHUB_SHA::7}"
+          echo "image_sha_tag=\${{ secrets.DOCKERHUB_USERNAME }}/${safe}:git-\${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       - name: Login to DockerHub
         uses: docker/login-action@v3
@@ -37,33 +45,45 @@ jobs:
           password: \${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
-        run: |
-          docker build -t \${{ secrets.DOCKERHUB_USERNAME }}/${safe}:\${{ github.sha }} .
-          docker tag \${{ secrets.DOCKERHUB_USERNAME }}/${safe}:\${{ github.sha }} \\
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
             \${{ secrets.DOCKERHUB_USERNAME }}/${safe}:latest
-          docker push \${{ secrets.DOCKERHUB_USERNAME }}/${safe}:\${{ github.sha }}
-          docker push \${{ secrets.DOCKERHUB_USERNAME }}/${safe}:latest
+            \${{ steps.meta.outputs.image_sha_tag }}
 
-      - name: Notify Launchpad
+  notify-launchpad:
+    runs-on: ubuntu-latest
+    needs: build-push
+    steps:
+      - name: Post to deploy-hook
         env:
-          LAUNCHPAD_URL: \${{ secrets.LAUNCHPAD_URL }}
-          LAUNCHPAD_SECRET: \${{ secrets.LAUNCHPAD_SECRET }}
+          HOOK_URL: \${{ secrets.LAUNCHPAD_DEPLOY_HOOK_URL }}
+          HOOK_KEY: \${{ secrets.LAUNCHPAD_DEPLOY_KEY }}
+          IMAGE: \${{ needs.build-push.outputs.image_sha_tag }}
+          SHA: \${{ github.sha }}
+          BRANCH: \${{ github.ref_name }}
+          MSG: \${{ toJSON(github.event.head_commit.message) }}
+          AUTHOR: \${{ github.event.head_commit.author.name }}
+          REPO: \${{ github.server_url }}/\${{ github.repository }}
         run: |
-          BODY=$(jq -n \\
-            --arg image "\${{ secrets.DOCKERHUB_USERNAME }}/${safe}:\${{ github.sha }}" \\
-            --arg app_name "${safe}" \\
-            --arg repo_url "\${{ github.server_url }}/\${{ github.repository }}" \\
-            --arg branch "\${{ github.ref_name }}" \\
-            --arg commit_sha "\${{ github.sha }}" \\
-            --arg commit_message "\${{ github.event.head_commit.message }}" \\
-            --arg commit_author "\${{ github.event.head_commit.author.name }}" \\
-            --argjson timestamp $(date +%s%3N) \\
-            '{image: $image, app_name: $app_name, repo_url: $repo_url, branch: $branch, commit_sha: $commit_sha, commit_message: $commit_message, commit_author: $commit_author, timestamp: $timestamp}')
-          SIGNATURE=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$LAUNCHPAD_SECRET" | sed 's/^.* //')
-          curl -X POST "$LAUNCHPAD_URL/deploy-hook" \\
+          PAYLOAD=$(jq -n \\
+            --arg app "${safe}" \\
+            --arg image "$IMAGE" \\
+            --arg repo "$REPO" \\
+            --arg branch "$BRANCH" \\
+            --arg sha "$SHA" \\
+            --argjson msg "$MSG" \\
+            --arg author "$AUTHOR" \\
+            --arg port "${port}" \\
+            --arg ts "$(date +%s)000" \\
+            '{app_name:$app, image:$image, repo_url:$repo, branch:$branch, commit_sha:$sha, commit_message:$msg, commit_author:$author, port:($port|tonumber), timestamp:($ts|tonumber)}')
+          SIG="sha256=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$HOOK_KEY" -hex | awk '{print $2}')"
+          curl -fsS -X POST "$HOOK_URL" \\
+            -H "X-Signature-256: $SIG" \\
             -H "Content-Type: application/json" \\
-            -H "X-Signature-256: sha256=$SIGNATURE" \\
-            -d "$BODY"
+            -d "$PAYLOAD"
 `;
 }
 
