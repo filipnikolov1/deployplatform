@@ -11,7 +11,13 @@ export type DeploymentEventType =
   | "STOPPED"
   | "MANUAL_ROLLBACK"
   | "WEBHOOK_IGNORED"
-  | "PIN_RELEASED";
+  | "PIN_RELEASED"
+  | "UPDATE_AVAILABLE"
+  | "UPDATE_TRIGGERED"
+  | "UPDATE_SUCCESS"
+  | "UPDATE_FAILED"
+  | "UPDATER_UNREACHABLE"
+  | "SELF_APP_BOOTSTRAPPED";
 
 export type DeploymentEventStatus = "SUCCESS" | "FAILURE" | "IN_PROGRESS";
 

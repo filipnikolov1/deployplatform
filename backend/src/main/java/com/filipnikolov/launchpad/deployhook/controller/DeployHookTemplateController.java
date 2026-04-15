@@ -19,7 +19,7 @@ public class DeployHookTemplateController {
                 # Export these first:
                 #   LAUNCHPAD_SECRET=<your deploy-hook secret>
                 #   IMAGE=<docker image, e.g. filipnikolov/%s:latest>
-                PAYLOAD='{"app_name":"%s","image":"'"$IMAGE"'","repo_url":"","port":3000,"timestamp":'"$(date +%%s)"'}'
+                PAYLOAD='{"app_name":"%s","image":"'"$IMAGE"'","repo_url":"","port":3000,"timestamp":'"$(date +%%s)000"'}'
                 curl -X POST %s/deploy-hook \\
                   -H "X-Signature-256: sha256=$(printf '%%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$LAUNCHPAD_SECRET" | awk '{print $2}')" \\
                   -H "X-Launchpad-Trigger: manual" \\

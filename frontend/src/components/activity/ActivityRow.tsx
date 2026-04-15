@@ -5,6 +5,9 @@ import {
   Clock,
   RotateCcw,
   Ban,
+  ArrowUpCircle,
+  Sparkles,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 import type {
@@ -110,6 +113,56 @@ const eventTypeConfig: Record<DeploymentEventType, EventTypeEntry> = {
     icon: CheckCircle2,
     label: "Unpinned",
   },
+  UPDATE_AVAILABLE: {
+    title: "Update available",
+    chipClass: "border-sky-300/25 bg-sky-400/12 text-sky-100",
+    badgeClass: "border-sky-300/20 bg-sky-400/10 text-sky-100",
+    icon: ArrowUpCircle,
+    label: "Available",
+  },
+  UPDATE_TRIGGERED: {
+    title: "Self-update triggered",
+    chipClass: "border-sky-300/25 bg-sky-400/12 text-sky-100",
+    badgeClass: "border-sky-300/20 bg-sky-400/10 text-sky-100",
+    icon: ArrowUpCircle,
+    label: "Updating",
+  },
+  UPDATE_SUCCESS: {
+    title: "Self-update succeeded",
+    chipClass: "border-emerald-400/30 bg-emerald-500/14 text-emerald-200",
+    badgeClass: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
+    icon: CheckCircle2,
+    label: "Updated",
+  },
+  UPDATE_FAILED: {
+    title: "Self-update failed",
+    chipClass: "border-red-400/25 bg-red-500/12 text-red-200",
+    badgeClass: "border-red-400/20 bg-red-500/10 text-red-200",
+    icon: XCircle,
+    label: "Failed",
+  },
+  UPDATER_UNREACHABLE: {
+    title: "Updater unreachable",
+    chipClass: "border-amber-300/25 bg-amber-500/10 text-amber-100",
+    badgeClass: "border-amber-300/20 bg-amber-500/10 text-amber-100",
+    icon: AlertTriangle,
+    label: "Unreachable",
+  },
+  SELF_APP_BOOTSTRAPPED: {
+    title: "Self-app bootstrapped",
+    chipClass: "border-white/10 bg-white/[0.06] text-slate-200",
+    badgeClass: "border-white/10 bg-white/[0.06] text-slate-200",
+    icon: Sparkles,
+    label: "Bootstrapped",
+  },
+};
+
+const fallbackEventConfig: EventTypeEntry = {
+  title: "Event",
+  chipClass: "border-white/10 bg-white/[0.06] text-slate-300",
+  badgeClass: "border-white/10 bg-white/[0.06] text-slate-300",
+  icon: Circle,
+  label: "Event",
 };
 
 function relative(iso: string): string {
@@ -124,7 +177,7 @@ function relative(iso: string): string {
 }
 
 export function ActivityRow({ event, isLast }: Props) {
-  const config = eventTypeConfig[event.eventType];
+  const config = eventTypeConfig[event.eventType] ?? fallbackEventConfig;
   const Icon = config.icon;
 
   return (
