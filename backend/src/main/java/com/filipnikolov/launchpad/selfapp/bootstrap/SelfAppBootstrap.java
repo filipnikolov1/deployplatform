@@ -36,6 +36,10 @@ public class SelfAppBootstrap {
 
     @PostConstruct
     public void bootstrap() {
+        if ("dev".equals(runningSha)) {
+            log.info("Skipping self-app bootstrap (LAUNCHPAD_GIT_SHA not set — running outside compose)");
+            return;
+        }
         ensureSelfApp("launchpad-backend", "filipn123/launchpad-backend:git-" + runningSha);
         ensureSelfApp("launchpad-frontend", "filipn123/launchpad-frontend:latest");
         reconcilePendingUpdates("launchpad-backend");
@@ -46,6 +50,7 @@ public class SelfAppBootstrap {
                 .orElseGet(() -> {
                     Deployment newD = new Deployment();
                     newD.setAppName(appName);
+                    newD.setRepoUrl("https://github.com/filipnikolov1/launchpad");
                     newD.setCreatedAt(LocalDateTime.now());
                     newD.setStatus(DeploymentStatus.RUNNING);
                     newD.setImageName(image);

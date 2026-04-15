@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { Trash2, Plus } from "lucide-react";
 import { Input } from "@/components/primitives/Input";
@@ -29,7 +29,7 @@ export function EnvVarsTab({ appName }: Props) {
   const [busy, setBusy] = useState(false);
 
   const handleSet = async (key: string, value: string) => {
-    if (!key || busy) return;
+    if (!key) return;
     setBusy(true);
     try {
       const res = await fetch(
@@ -41,12 +41,15 @@ export function EnvVarsTab({ appName }: Props) {
         },
       );
       if (!res.ok) {
-        toast.error(`Failed to set ${key}`);
+        const detail = await res.text().catch(() => "");
+        console.error("env var save failed", res.status, detail);
+        toast.error(`Failed to set ${key} (${res.status})`);
         return;
       }
       toast.success(`${key} saved`);
       void mutate();
-    } catch {
+    } catch (err) {
+      console.error("env var save error", err);
       toast.error(`Failed to set ${key}`);
     } finally {
       setBusy(false);
@@ -54,7 +57,6 @@ export function EnvVarsTab({ appName }: Props) {
   };
 
   const handleDelete = async (key: string) => {
-    if (busy) return;
     setBusy(true);
     try {
       const res = await fetch(
@@ -62,12 +64,15 @@ export function EnvVarsTab({ appName }: Props) {
         { method: "DELETE" },
       );
       if (!res.ok) {
-        toast.error(`Failed to delete ${key}`);
+        const detail = await res.text().catch(() => "");
+        console.error("env var delete failed", res.status, detail);
+        toast.error(`Failed to delete ${key} (${res.status})`);
         return;
       }
       toast.success(`${key} deleted`);
       void mutate();
-    } catch {
+    } catch (err) {
+      console.error("env var delete error", err);
       toast.error(`Failed to delete ${key}`);
     } finally {
       setBusy(false);
@@ -145,6 +150,11 @@ interface RowProps {
 
 function EnvVarRow({ varKey, initialValue, onSave, onDelete, disabled }: RowProps) {
   const [value, setValue] = useState(initialValue);
+
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
+
   const dirty = value !== initialValue;
 
   return (
