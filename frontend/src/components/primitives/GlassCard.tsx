@@ -38,7 +38,7 @@ export const GlassCard = forwardRef(function GlassCard(
   const { className = "" } = props;
   const r = resolveRadius(props);
   const radiusClass = r === "panel" ? "rounded-panel" : "rounded-card";
-  const base = `${radiusClass} border border-border-glass bg-surface-glass backdrop-blur-glass shadow-glass ${className}`;
+  const base = `${radiusClass} border border-border-glass bg-surface-glass backdrop-blur-glass shadow-glass [box-shadow:0_24px_48px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.08)] ${className}`;
 
   if (props.as === "button") {
     const { as: _as, variant: _variant, radius: _radius, className: _cn, children, ...rest } =

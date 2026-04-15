@@ -45,6 +45,7 @@ public class ContainerStatsServiceImpl implements ContainerStatsService {
         try {
             InspectContainerResponse inspect = dockerClient.inspectContainerCmd(appName).exec();
             Statistics raw = dockerClient.statsCmd(appName)
+                    .withNoStream(true)
                     .exec(new InvocationBuilder.AsyncResultCallback<Statistics>())
                     .awaitResult();
 

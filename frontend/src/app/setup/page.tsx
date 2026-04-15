@@ -8,8 +8,10 @@ export default function SetupPage() {
   return (
     <ToastProvider>
       <AppShell>
-        <div className="mx-auto max-w-5xl px-4 py-12">
-          <SetupGuide />
+        <div className="mx-auto max-w-6xl py-6">
+          <section className="px-1 sm:px-0">
+            <SetupGuide />
+          </section>
         </div>
       </AppShell>
     </ToastProvider>

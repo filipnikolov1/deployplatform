@@ -13,13 +13,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   const fallbackId = useId();
   const inputId = id ?? fallbackId;
   return (
-    <div className="flex flex-col gap-1.5 w-full">
-      <label htmlFor={inputId} className="text-sm text-text-secondary">
+    <div className="flex w-full flex-col gap-2">
+      <label
+        htmlFor={inputId}
+        className="pl-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/72"
+      >
         {label}
       </label>
       <div className="relative">
         {leading && (
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
             {leading}
           </span>
         )}
@@ -28,12 +31,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           id={inputId}
           aria-invalid={error ? "true" : undefined}
           aria-describedby={error ? `${inputId}-err` : undefined}
-          className={`w-full rounded-full bg-surface-glass border border-border-glass px-4 py-2.5 text-base text-text-primary placeholder:text-text-tertiary backdrop-blur-glass ${leading ? "pl-10" : ""} ${className}`}
+        className={`glass-control w-full px-4 py-3 text-[15px] text-text-primary outline-none focus:border-white/[0.16] focus:bg-black/60 ${leading ? "pl-11" : ""} ${error ? "border-status-failed/50" : ""} ${className}`}
           {...rest}
         />
       </div>
       {error && (
-        <p id={`${inputId}-err`} role="alert" className="text-sm text-status-failed">
+        <p
+          id={`${inputId}-err`}
+          role="alert"
+          className="pl-1 text-sm text-status-failed"
+        >
           {error}
         </p>
       )}
