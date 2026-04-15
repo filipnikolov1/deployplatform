@@ -12,4 +12,8 @@ FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8082
+ARG LAUNCHPAD_GIT_SHA=dev
+ARG LAUNCHPAD_GIT_MESSAGE=local
+ENV LAUNCHPAD_GIT_SHA=${LAUNCHPAD_GIT_SHA}
+ENV LAUNCHPAD_GIT_MESSAGE=${LAUNCHPAD_GIT_MESSAGE}
 ENTRYPOINT ["java", "-jar", "app.jar"]

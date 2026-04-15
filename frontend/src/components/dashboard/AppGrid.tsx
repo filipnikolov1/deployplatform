@@ -48,10 +48,16 @@ export function AppGrid() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-end justify-between">
-        <h1 className="text-2xl font-semibold text-slate-200">Apps</h1>
-        <span className="font-mono text-sm text-slate-400 tabular-nums">
+    <div className="flex flex-col gap-6 sm:gap-7">
+      <div className="glass-page-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="glass-kicker">Control Surface</div>
+          <h1 className="glass-title">Apps</h1>
+          <p className="glass-subtitle">
+            Live deployment status, actions, and rollout visibility in one place.
+          </p>
+        </div>
+        <span className="font-mono text-sm text-slate-300/70 tabular-nums">
           {apps ? `${apps.length} total` : ""}
         </span>
       </div>

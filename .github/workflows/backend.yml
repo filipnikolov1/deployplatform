@@ -7,23 +7,17 @@ on:
       - 'backend/**'
 
 jobs:
-  build:
+  build-push:
     runs-on: ubuntu-latest
+    outputs:
+      image_sha_tag: ${{ steps.meta.outputs.image_sha_tag }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./backend
-          push: false
-          tags: filipn123/launchpad-backend:latest
-
-  push:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/checkout@v4
+      - id: meta
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "image_sha_tag=filipn123/launchpad-backend:git-${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       - name: Login to DockerHub
         uses: docker/login-action@v3
@@ -31,9 +25,39 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Push image
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
-          tags: filipn123/launchpad-backend:latest
+          tags: |
+            filipn123/launchpad-backend:latest
+            ${{ steps.meta.outputs.image_sha_tag }}
+          build-args: |
+            LAUNCHPAD_GIT_SHA=${{ github.sha }}
+            LAUNCHPAD_GIT_MESSAGE=${{ github.event.head_commit.message }}
+
+  notify-launchpad:
+    runs-on: ubuntu-latest
+    needs: build-push
+    steps:
+      - name: Post to deploy-hook
+        env:
+          HOOK_URL: ${{ secrets.LAUNCHPAD_DEPLOY_HOOK_URL }}
+          HOOK_KEY: ${{ secrets.LAUNCHPAD_DEPLOY_KEY }}
+          IMAGE: ${{ needs.build-push.outputs.image_sha_tag }}
+          SHA: ${{ github.sha }}
+          MSG: ${{ toJSON(github.event.head_commit.message) }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg app "launchpad-backend" \
+            --arg image "$IMAGE" \
+            --arg sha "$SHA" \
+            --argjson msg "$MSG" \
+            --arg ts "$(date +%s)000" \
+            '{app_name:$app, image:$image, commit_sha:$sha, commit_message:$msg, timestamp:($ts|tonumber)}')
+          SIG="sha256=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$HOOK_KEY" -hex | awk '{print $2}')"
+          curl -fsS -X POST "$HOOK_URL" \
+            -H "X-Signature-256: $SIG" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
