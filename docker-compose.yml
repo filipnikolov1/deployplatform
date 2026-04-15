@@ -87,13 +87,17 @@ services:
       - "traefik.http.routers.dashboard.entrypoints=web"
       - "traefik.http.services.dashboard.loadbalancer.server.port=3000"
 
-  watchtower:
-    image: containrrr/watchtower
+  launchpad-updater:
+    image: filipn123/launchpad-updater:latest
+    build:
+      context: ./updater
+      dockerfile: Dockerfile
     volumes:
       - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
-    environment:
-      WATCHTOWER_POLL_INTERVAL: 300
-    command: launchpad-launchpad-1
+      - ./docker-compose.yml:/workspace/docker-compose.yml:ro
+    networks:
+      - traefik
+    restart: unless-stopped
 
 networks:
   traefik:
