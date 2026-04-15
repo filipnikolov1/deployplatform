@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 @Service
@@ -55,6 +56,7 @@ public class DockerServiceImpl implements DockerService {
         }
 
         CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> pullError = new AtomicReference<>();
         pullCmd.exec(new ResultCallback<PullResponseItem>() {
             @Override
             public void onStart(Closeable closeable) {}
@@ -64,6 +66,7 @@ public class DockerServiceImpl implements DockerService {
 
             @Override
             public void onError(Throwable throwable) {
+                pullError.set(throwable);
                 latch.countDown();
             }
 
@@ -76,6 +79,11 @@ public class DockerServiceImpl implements DockerService {
             public void close() {}
         });
         latch.await();
+
+        Throwable err = pullError.get();
+        if (err != null) {
+            throw new RuntimeException("Docker pull failed for " + imageName + ": " + err.getMessage(), err);
+        }
 
         stopAndRemoveContainer(appName);
 
