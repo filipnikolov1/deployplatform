@@ -1,7 +1,12 @@
+"use client";
+
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
+import { useUpdateAvailableNotifier } from "@/hooks/useUpdateAvailableNotifier";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  useUpdateAvailableNotifier();
+
   return (
     <div className="min-h-dvh">
       <Sidebar />

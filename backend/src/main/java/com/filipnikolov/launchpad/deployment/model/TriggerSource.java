@@ -4,5 +4,6 @@ public enum TriggerSource {
     AUTOMATIC,
     MANUAL,
     ROLLBACK,
-    RESTART
+    RESTART,
+    SELF_UPDATE
 }

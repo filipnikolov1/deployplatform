@@ -7,17 +7,16 @@ on:
       - 'frontend/**'
 
 jobs:
-  build-push:
+  build-push-notify:
     runs-on: ubuntu-latest
-    outputs:
-      image_sha_tag: ${{ steps.meta.outputs.image_sha_tag }}
     steps:
       - uses: actions/checkout@v4
 
       - id: meta
         run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          echo "image_sha_tag=filipn123/launchpad-frontend:git-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image=filipn123/launchpad-frontend:git-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Login to DockerHub
         uses: docker/login-action@v3
@@ -32,23 +31,23 @@ jobs:
           push: true
           tags: |
             filipn123/launchpad-frontend:latest
-            ${{ steps.meta.outputs.image_sha_tag }}
+            ${{ steps.meta.outputs.image }}
           build-args: |
             LAUNCHPAD_GIT_SHA=${{ github.sha }}
             LAUNCHPAD_GIT_MESSAGE=${{ github.event.head_commit.message }}
 
-  notify-launchpad:
-    runs-on: ubuntu-latest
-    needs: build-push
-    steps:
       - name: Post to deploy-hook
         env:
           HOOK_URL: ${{ secrets.LAUNCHPAD_DEPLOY_HOOK_URL }}
           HOOK_KEY: ${{ secrets.LAUNCHPAD_DEPLOY_KEY }}
-          IMAGE: ${{ needs.build-push.outputs.image_sha_tag }}
+          IMAGE: ${{ steps.meta.outputs.image }}
           SHA: ${{ github.sha }}
           MSG: ${{ toJSON(github.event.head_commit.message) }}
         run: |
+          if [ -z "$IMAGE" ]; then
+            echo "::error::IMAGE is empty — aborting notify" >&2
+            exit 1
+          fi
           PAYLOAD=$(jq -n \
             --arg app "launchpad-frontend" \
             --arg image "$IMAGE" \

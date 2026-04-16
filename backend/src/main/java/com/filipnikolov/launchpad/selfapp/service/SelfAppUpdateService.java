@@ -1,8 +1,10 @@
 package com.filipnikolov.launchpad.selfapp.service;
 
+import com.filipnikolov.launchpad.deployment.dto.CreateDeploymentRequest;
 import com.filipnikolov.launchpad.deployment.model.Deployment;
 import com.filipnikolov.launchpad.deployment.model.DeploymentEventStatus;
 import com.filipnikolov.launchpad.deployment.model.DeploymentEventType;
+import com.filipnikolov.launchpad.deployment.model.TriggerSource;
 import com.filipnikolov.launchpad.deployment.repository.DeploymentRepository;
 import com.filipnikolov.launchpad.deployment.service.DeploymentEventService;
 import com.filipnikolov.launchpad.exception.ResourceNotFoundException;
@@ -43,6 +45,7 @@ public class SelfAppUpdateService {
 
         String targetImage = d.getLatestKnownImage();
         String targetSha = d.getLatestKnownSha();
+        String targetMessage = d.getLatestKnownMessage();
 
         if (!updaterClient.health()) {
             eventService.record(DeploymentEventType.UPDATER_UNREACHABLE,
@@ -90,6 +93,14 @@ public class SelfAppUpdateService {
             eventService.record(DeploymentEventType.UPDATE_SUCCESS,
                     DeploymentEventStatus.SUCCESS, appName, null, null,
                     "Updated to " + targetImage);
+
+            // Record DEPLOY_FINISHED so the update appears in deploy history and is a rollback target
+            CreateDeploymentRequest historyCtx = new CreateDeploymentRequest(
+                    appName, d.getRepoUrl(), targetImage, d.getContainerPort(),
+                    d.getBranch(), targetSha, targetMessage,
+                    d.getCommitAuthor(), null, TriggerSource.SELF_UPDATE);
+            eventService.record(DeploymentEventType.DEPLOY_FINISHED, DeploymentEventStatus.SUCCESS,
+                    appName, historyCtx, null, null);
         }
         // For launchpad-backend, the new container will reconcile on startup via SelfAppBootstrap.
     }

@@ -83,7 +83,9 @@ public class DeployHookController {
         String appName = (String) payload.get("app_name");
         String repoUrl = (String) payload.get("repo_url");
 
-        if (imageName == null || appName == null) {
+        if (imageName == null || imageName.isBlank() || appName == null || appName.isBlank()) {
+            log.warn("Deploy-hook rejected: missing image or app_name (image='{}', app_name='{}')",
+                    imageName, appName);
             return ResponseEntity.badRequest().build();
         }
 
