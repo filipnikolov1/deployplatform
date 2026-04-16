@@ -1,0 +1,1 @@
+ALTER TABLE deployment ALTER COLUMN repo_url DROP NOT NULL;

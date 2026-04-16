@@ -43,7 +43,7 @@ export function Modal({ open, onClose, labelledBy, children }: ModalProps) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-6 motion-safe:animate-[fadeIn_180ms_ease-out]"
+      className="fixed inset-0 z-[100] flex items-stretch justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-6 motion-safe:animate-[fadeIn_180ms_ease-out]"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

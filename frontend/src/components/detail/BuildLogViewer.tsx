@@ -39,7 +39,7 @@ export function BuildLogViewer({ appName }: Props) {
   const empty = lines.length === 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <div className="flex items-center justify-between">
         <span className="font-mono text-xs text-slate-400">
           {status === "connecting" && "connecting…"}
@@ -59,7 +59,7 @@ export function BuildLogViewer({ appName }: Props) {
       <GlassCard radius="card" className="p-0">
         <pre
           ref={paneRef}
-          className="max-h-[50dvh] overflow-auto whitespace-pre px-4 py-3 font-mono text-xs leading-[1.4] text-green-300 tabular-nums"
+          className="flex-1 min-h-0 overflow-auto whitespace-pre px-4 py-3 font-mono text-xs leading-[1.4] text-green-300 tabular-nums"
         >
           {empty ? (
             <span className="text-slate-400">Waiting for logs...</span>

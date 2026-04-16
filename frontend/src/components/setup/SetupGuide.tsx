@@ -4,11 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Rocket } from "lucide-react";
 import { GlassCard } from "@/components/primitives/GlassCard";
 import { Input } from "@/components/primitives/Input";
-import { Button } from "@/components/primitives/Button";
 import { CodeBlock } from "./CodeBlock";
 import { HealthChecklist } from "./HealthChecklist";
 import { useDeployUrl } from "@/hooks/useDeployUrl";
-import { useToast } from "@/hooks/useToast";
 import {
   generateDockerfile,
   generateWorkflow,
@@ -18,12 +16,10 @@ import {
 
 export function SetupGuide() {
   const { url, isLoading } = useDeployUrl();
-  const toast = useToast();
   const [appName, setAppName] = useState("my-app");
   const [branch, setBranch] = useState("main");
   const [stack, setStack] = useState<TechStack>("nodejs");
   const [port, setPort] = useState("3000");
-  const [creating, setCreating] = useState(false);
   const [curlTemplate, setCurlTemplate] = useState<string>("");
 
   useEffect(() => {
@@ -45,28 +41,6 @@ export function SetupGuide() {
       cancelled = true;
     };
   }, [appName]);
-
-  const handleCreate = async () => {
-    if (creating) return;
-    setCreating(true);
-    try {
-      const res = await fetch("/api/setup/precreate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appName, port: Number(port) || 3000 }),
-      });
-      if (!res.ok) {
-        const msg = await res.text().catch(() => "");
-        toast.error(msg || "Create failed");
-        return;
-      }
-      toast.success(`${appName} created`);
-    } catch {
-      toast.error("Create failed");
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const workflow = useMemo(
     () => generateWorkflow(appName, branch, stack, port),
@@ -171,9 +145,6 @@ export function SetupGuide() {
       <GlassCard radius="panel" className="p-6 space-y-3">
         <h2 className="text-lg font-semibold text-slate-100">Health checklist</h2>
         <HealthChecklist />
-        <Button type="button" onClick={handleCreate} disabled={creating || !appName}>
-          {creating ? "Creating…" : "Create app"}
-        </Button>
       </GlassCard>
     </div>
   );

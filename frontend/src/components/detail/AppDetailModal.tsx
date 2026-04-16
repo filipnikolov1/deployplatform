@@ -16,7 +16,15 @@ import { DeployHistoryList } from "./DeployHistoryList";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { useEvents } from "@/hooks/useEvents";
 import { useContainerStats } from "@/hooks/useContainerStats";
-import { Clock, Cpu, HardDrive, RotateCcw, Zap } from "lucide-react";
+import { useCommitsAhead } from "@/hooks/useCommitsAhead";
+import {
+  ArrowRight,
+  ArrowUpCircle,
+  Clock,
+  Cpu,
+  HardDrive,
+  RotateCcw,
+} from "lucide-react";
 import { Button } from "@/components/primitives/Button";
 import type { Deployment } from "@/types/deployment";
 
@@ -39,15 +47,22 @@ export function AppDetailModal({ appName, onClose }: Props) {
   );
   const { events } = useEvents({ appName, limit: 20 });
   const { stats } = useContainerStats(appName);
+  const { commitsAhead } = useCommitsAhead(appName);
   const toast = useToast();
   const { mutate } = useSWRConfig();
-  const [redeploying, setRedeploying] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [downloadingLogs, setDownloadingLogs] = useState(false);
   const titleId = `app-detail-${appName}`;
 
-  const handleRedeploy = async () => {
-    if (redeploying || !app) return;
-    setRedeploying(true);
+  const mutateApp = () => {
+    void mutate("/api/apps");
+    void mutate(`/api/apps/${encodeURIComponent(appName)}`);
+  };
+
+  const handleRestart = async () => {
+    if (restarting || !app) return;
+    setRestarting(true);
     try {
       const res = await fetch(
         `/api/apps/${encodeURIComponent(app.appName)}/restart`,
@@ -58,16 +73,59 @@ export function AppDetailModal({ appName, onClose }: Props) {
         return;
       }
       if (!res.ok) {
-        toast.error("Redeploy failed");
+        toast.error("Restart failed");
         return;
       }
-      toast.success("Redeploy started");
-      void mutate("/api/apps");
-      void mutate(`/api/apps/${encodeURIComponent(app.appName)}`);
+      toast.success("Restart started");
+      mutateApp();
     } catch {
-      toast.error("Redeploy failed");
+      toast.error("Restart failed");
     } finally {
-      setRedeploying(false);
+      setRestarting(false);
+    }
+  };
+
+  const handleStop = async () => {
+    if (!app) return;
+    try {
+      const res = await fetch(
+        `/api/apps/${encodeURIComponent(app.appName)}/stop`,
+        { method: "POST" },
+      );
+      if (res.status === 409) {
+        toast.error("App is busy — try again in a moment");
+        return;
+      }
+      if (!res.ok) {
+        toast.error("Stop failed");
+        return;
+      }
+      toast.success("Container stopped");
+      mutateApp();
+    } catch {
+      toast.error("Stop failed");
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (updating || !app) return;
+    setUpdating(true);
+    try {
+      const res = await fetch(
+        `/api/self-apps/${encodeURIComponent(app.appName)}/update`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        toast.error("Update failed");
+        return;
+      }
+      toast.success("Update triggered — restarting");
+      mutateApp();
+      setTimeout(onClose, 1500);
+    } catch {
+      toast.error("Update failed");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -98,6 +156,11 @@ export function AppDetailModal({ appName, onClose }: Props) {
     }
   };
 
+  const hasUpdate =
+    app?.isSelfApp &&
+    !!app.latestKnownSha &&
+    app.commitSha !== app.latestKnownSha;
+
   return (
     <Modal open onClose={onClose} labelledBy={titleId}>
       <GlassCard
@@ -108,13 +171,75 @@ export function AppDetailModal({ appName, onClose }: Props) {
           <AppDetailSkeleton />
         ) : (
           <>
-            <AppDetailHeader app={app} onClose={onClose} titleId={titleId} />
+            <AppDetailHeader
+              app={app}
+              onClose={onClose}
+              onRestart={handleRestart}
+              onStop={handleStop}
+              onUpdate={handleUpdate}
+              restarting={restarting}
+              updating={updating}
+              titleId={titleId}
+            />
+
+            {/* Update available banner */}
+            {hasUpdate && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="mx-6 mt-4 flex items-center gap-4 rounded-2xl border border-amber-300/25 bg-amber-500/[0.08] p-4 backdrop-blur-xl"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-300/30 bg-amber-500/15">
+                  <ArrowUpCircle className="h-5 w-5 text-amber-200" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-amber-100">
+                    Update available
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono">
+                    <span className="text-amber-100/60">running</span>
+                    <span className="text-amber-100/90">
+                      {app.commitSha?.slice(0, 7) ?? "—"}
+                    </span>
+                    <ArrowRight className="h-3 w-3 text-amber-100/50" />
+                    <span className="text-amber-100/60">latest</span>
+                    <span className="text-amber-100">
+                      {app.latestKnownSha?.slice(0, 7)}
+                    </span>
+                  </div>
+                  {app.latestKnownMessage && (
+                    <div className="mt-1 truncate text-xs text-amber-100/70 font-sans">
+                      {app.latestKnownMessage}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  variant="solid-amber"
+                  onClick={handleUpdate}
+                  disabled={updating}
+                  loading={updating}
+                  leadingIcon={<ArrowUpCircle className="h-4 w-4" />}
+                >
+                  {updating ? "Updating…" : "Update now"}
+                </Button>
+              </div>
+            )}
+
             <AppInfoRow
               app={app}
-              publicHost={process.env.NEXT_PUBLIC_APP_BASE_DOMAIN ?? "localhost"}
+              publicHost={
+                process.env.NEXT_PUBLIC_APP_BASE_DOMAIN ?? "localhost"
+              }
+              commitsAhead={commitsAhead}
             />
+
+            {/* Telemetry strip */}
             <div className="grid grid-cols-2 gap-3 p-4">
-              <InfoCard icon={Cpu} label="CPU" value={stats ? `${stats.cpuPercent.toFixed(1)}%` : "—"} />
+              <InfoCard
+                icon={Cpu}
+                label="CPU"
+                value={stats ? `${stats.cpuPercent.toFixed(1)}%` : "—"}
+              />
               <InfoCard
                 icon={HardDrive}
                 label="Memory"
@@ -124,17 +249,27 @@ export function AppDetailModal({ appName, onClose }: Props) {
                     : "—"
                 }
               />
-              <InfoCard icon={Clock} label="Uptime" value={stats ? formatUptime(stats.uptimeSeconds) : "—"} />
-              <InfoCard icon={RotateCcw} label="Restarts" value={stats ? String(stats.restartCount) : "—"} />
+              <InfoCard
+                icon={Clock}
+                label="Uptime"
+                value={stats ? formatUptime(stats.uptimeSeconds) : "—"}
+              />
+              <InfoCard
+                icon={RotateCcw}
+                label="Restarts"
+                value={stats ? String(stats.restartCount) : "—"}
+              />
             </div>
-            <div className="flex-1 overflow-hidden p-4">
+
+            {/* Tabs */}
+            <div className="flex-1 min-h-0 overflow-hidden p-4">
               <Tabs
                 tabs={[
                   {
                     id: "logs",
                     label: "Logs",
                     panel: (
-                      <div className="min-h-[120px] max-h-[400px] overflow-auto font-mono text-xs bg-black/40 rounded-lg p-3">
+                      <div className="h-full min-h-[120px] min-h-0 font-mono text-xs bg-black/40 rounded-lg p-3">
                         <BuildLogViewer appName={app.appName} />
                       </div>
                     ),
@@ -173,14 +308,9 @@ export function AppDetailModal({ appName, onClose }: Props) {
                 ]}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3 p-6 border-t border-white/[0.08]">
-              <Button
-                leadingIcon={<Zap className="h-4 w-4" />}
-                onClick={handleRedeploy}
-                disabled={redeploying}
-              >
-                {redeploying ? "Redeploying…" : "Redeploy"}
-              </Button>
+
+            {/* Footer — Download Logs only */}
+            <div className="flex justify-end p-6 border-t border-white/[0.08]">
               <Button
                 variant="ghost-purple"
                 onClick={handleDownloadLogs}
@@ -206,10 +336,12 @@ function InfoCard({
   value: string;
 }) {
   return (
-    <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-4">
-      <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
-        <Icon className="h-3.5 w-3.5" />
-        {label}
+    <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-3">
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="h-3.5 w-3.5 text-slate-400" />
+        <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400">
+          {label}
+        </span>
       </div>
       <div className="text-sm text-slate-100 tabular-nums">{value}</div>
     </div>

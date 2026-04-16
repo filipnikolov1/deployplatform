@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import useSWR from "swr";
-import { Trash2, Plus } from "lucide-react";
-import { Input } from "@/components/primitives/Input";
-import { Button } from "@/components/primitives/Button";
+import { Eye, EyeOff, KeyRound, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 
 interface Props {
@@ -98,7 +96,19 @@ export function EnvVarsTab({ appName }: Props) {
   return (
     <div className="space-y-3 max-h-[400px] overflow-auto">
       {entries.length === 0 ? (
-        <div className="text-sm text-slate-400">No env vars set.</div>
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.03] p-6 text-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
+            <KeyRound className="h-5 w-5 text-slate-400" />
+          </div>
+          <div>
+            <div className="text-sm font-medium text-slate-200">
+              No environment variables yet
+            </div>
+            <div className="mt-1 text-xs text-slate-400">
+              Add one below to expose it to your container on next deploy.
+            </div>
+          </div>
+        </div>
       ) : (
         <ul className="space-y-2">
           {entries.map(([key, value]) => (
@@ -113,29 +123,43 @@ export function EnvVarsTab({ appName }: Props) {
           ))}
         </ul>
       )}
-      <div className="pt-3 border-t border-white/[0.08] space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            label="Key"
-            value={newKey}
-            onChange={(e) => setNewKey(e.target.value)}
-            placeholder="DATABASE_URL"
-          />
-          <Input
-            label="Value"
-            value={newValue}
-            onChange={(e) => setNewValue(e.target.value)}
-            placeholder="postgres://…"
-          />
-        </div>
-        <Button
-          leadingIcon={<Plus className="h-4 w-4" />}
+
+      {/* Add variable row */}
+      <div className="flex items-center gap-3 rounded-lg border border-dashed border-white/[0.10] bg-white/[0.02] px-3 py-2">
+        <input
+          className="w-[180px] shrink-0 bg-transparent font-mono text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none"
+          value={newKey}
+          onChange={(e) =>
+            setNewKey(
+              e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""),
+            )
+          }
+          placeholder="KEY_NAME"
+          disabled={busy}
+        />
+        <input
+          className="flex-1 bg-transparent font-mono text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none"
+          type="text"
+          value={newValue}
+          onChange={(e) => setNewValue(e.target.value)}
+          placeholder="value"
+          disabled={busy}
+        />
+        <button
+          type="button"
           onClick={handleAdd}
           disabled={busy || !newKey}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-purple-300 hover:bg-white/[0.06] hover:text-purple-200 disabled:opacity-40"
+          aria-label="Add variable"
         >
-          Add variable
-        </Button>
+          <Plus className="h-4 w-4" />
+        </button>
       </div>
+
+      {/* Restart hint */}
+      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500 text-center">
+        Changes apply on next deploy or restart.
+      </p>
     </div>
   );
 }
@@ -148,8 +172,15 @@ interface RowProps {
   disabled: boolean;
 }
 
-function EnvVarRow({ varKey, initialValue, onSave, onDelete, disabled }: RowProps) {
+function EnvVarRow({
+  varKey,
+  initialValue,
+  onSave,
+  onDelete,
+  disabled,
+}: RowProps) {
   const [value, setValue] = useState(initialValue);
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     setValue(initialValue);
@@ -158,11 +189,14 @@ function EnvVarRow({ varKey, initialValue, onSave, onDelete, disabled }: RowProp
   const dirty = value !== initialValue;
 
   return (
-    <li className="flex items-center gap-2">
-      <div className="flex-1 min-w-0 grid grid-cols-2 gap-2">
-        <div className="font-mono text-xs text-slate-200 truncate">{varKey}</div>
+    <li className="flex items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 transition-colors hover:border-white/[0.10] hover:bg-white/[0.04]">
+      <div className="w-[180px] shrink-0 truncate font-mono text-xs text-slate-200">
+        {varKey}
+      </div>
+      <div className="relative flex-1">
         <input
-          className="bg-white/[0.04] border border-white/[0.08] rounded px-2 py-1 font-mono text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-purple-400"
+          type={revealed ? "text" : "password"}
+          className="w-full bg-transparent font-mono text-xs text-slate-200 focus:outline-none"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           disabled={disabled}
@@ -170,17 +204,29 @@ function EnvVarRow({ varKey, initialValue, onSave, onDelete, disabled }: RowProp
       </div>
       <button
         type="button"
-        className="text-xs text-purple-300 hover:text-purple-200 disabled:opacity-60"
+        onClick={() => setRevealed((r) => !r)}
+        className="text-slate-400 hover:text-slate-200"
+        aria-label={revealed ? "Hide value" : "Reveal value"}
+      >
+        {revealed ? (
+          <EyeOff className="h-4 w-4" />
+        ) : (
+          <Eye className="h-4 w-4" />
+        )}
+      </button>
+      <button
+        type="button"
         onClick={() => onSave(value)}
-        disabled={disabled || !dirty}
+        disabled={!dirty || disabled}
+        className="text-xs font-medium text-purple-300 hover:text-purple-200 disabled:opacity-40"
       >
         Save
       </button>
       <button
         type="button"
-        className="text-slate-400 hover:text-red-300 disabled:opacity-60"
         onClick={onDelete}
         disabled={disabled}
+        className="text-slate-400 hover:text-red-300 disabled:opacity-60"
         aria-label={`Delete ${varKey}`}
       >
         <Trash2 className="h-4 w-4" />

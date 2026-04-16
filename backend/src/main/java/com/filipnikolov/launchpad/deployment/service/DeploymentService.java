@@ -58,10 +58,4 @@ public interface DeploymentService {
      * Releases the pinned image so future webhook deploys take effect again.
      */
     Deployment unpin(String appName);
-
-    /**
-     * Idempotently creates a placeholder deployment row for an app before any
-     * deploy webhook arrives. Returns the existing row if one already exists.
-     */
-    Deployment precreate(String appName, int containerPort);
 }

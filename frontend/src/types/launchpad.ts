@@ -21,7 +21,7 @@ export type DeploymentEventType =
 
 export type DeploymentEventStatus = "SUCCESS" | "FAILURE" | "IN_PROGRESS";
 
-export type TriggerSource = "AUTOMATIC" | "MANUAL" | "ROLLBACK" | "RESTART";
+export type TriggerSource = "AUTOMATIC" | "MANUAL" | "ROLLBACK" | "RESTART" | "SELF_UPDATE";
 
 export interface DeploymentEvent {
   id: number;
@@ -70,6 +70,7 @@ export interface UserPreferences {
   notify_on_first_deploy: boolean;
   notify_on_crash: boolean;
   notify_on_rollback: boolean;
+  notify_on_update_available: boolean;
   layout_mode: "grid" | "list";
   reduced_motion: "system" | "always" | "never";
   pinned_apps: string[];

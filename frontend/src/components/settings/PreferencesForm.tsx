@@ -132,6 +132,12 @@ export function PreferencesForm() {
             checked={prefs.notify_on_rollback}
             onChange={(v) => save({ notify_on_rollback: v })}
           />
+          <Toggle
+            label="Update available"
+            description="Email me when a self-app update is available."
+            checked={prefs.notify_on_update_available}
+            onChange={(v) => save({ notify_on_update_available: v })}
+          />
         </div>
       </GlassCard>
 
