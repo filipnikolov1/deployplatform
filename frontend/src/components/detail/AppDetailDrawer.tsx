@@ -8,10 +8,20 @@ import {
   ArrowRight,
   ArrowUpCircle,
   Clock,
+  Container,
+  Copy,
   Cpu,
+  ExternalLink,
+  Github,
+  GitBranch,
+  GitCommit,
+  Globe,
   HardDrive,
+  Plug,
   RotateCcw,
+  TrendingUp,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import { useEvents } from "@/hooks/useEvents";
@@ -65,6 +75,16 @@ function StatCard({ icon: Icon, label, value }: { icon: ComponentType<{ classNam
       >
         {value}
       </div>
+    </div>
+  );
+}
+
+function InfoRow({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 text-xs min-w-0">
+      <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--c-fg-3)" }} />
+      <span className="w-14 shrink-0" style={{ color: "var(--c-fg-3)" }}>{label}</span>
+      <span className="min-w-0 flex-1 flex items-center gap-2 truncate" style={{ color: "var(--c-fg-2)" }}>{children}</span>
     </div>
   );
 }
@@ -146,12 +166,14 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
     setUpdating(true);
     try {
       const res = await fetch(`/api/self-apps/${encodeURIComponent(app.appName)}/update`, { method: "POST" });
-      if (!res.ok) { toast.error("Update failed"); return; }
+      if (!res.ok) { toast.error("Update failed"); setUpdating(false); return; }
       toast.success("Update triggered — restarting");
       mutateApp();
-      setTimeout(onClose, 1500);
-    } catch { toast.error("Update failed"); }
-    finally { setUpdating(false); }
+      setTimeout(() => {
+        setUpdating(false);
+        onClose();
+      }, 1500);
+    } catch { toast.error("Update failed"); setUpdating(false); }
   };
 
   const handleDownloadLogs = async () => {
@@ -234,72 +256,222 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
           <>
             {/* ── Header ── */}
             <header
-              className="flex items-start gap-3.5 px-6 py-[18px]"
+              className="flex flex-col px-6 py-[18px] gap-3"
               style={{ borderBottom: "1px solid var(--c-border-1)" }}
             >
-              <div
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
-                style={{ background: iconBg, border: `1px solid ${iconBd}`, color: chipFg }}
-              >
-                <Icon className="h-[18px] w-[18px]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2
-                    id={titleId}
-                    className="text-lg font-semibold tracking-[-0.005em] m-0"
-                    style={{ color: "var(--c-fg-0)" }}
-                  >
-                    {app.appName}
-                  </h2>
-                  {/* Status chip */}
-                  <span
-                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-medium whitespace-nowrap"
-                    style={{ color: chipFg, background: chipBg, border: `1px solid ${chipBd}` }}
-                  >
-                    <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: dotColor, boxShadow: `0 0 4px ${dotColor}` }}
-                    />
-                    {config.label}
-                  </span>
-                  {app.isSelfApp && (
-                    <span
-                      className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-[0.04em]"
-                      style={{
-                        color: "#DDD6FE",
-                        background: "var(--c-ghost-soft)",
-                        border: "1px solid var(--c-ghost-line)",
-                      }}
-                    >
-                      Self-app
-                    </span>
-                  )}
-                </div>
+              {/* Title row */}
+              <div className="flex items-start gap-3.5">
                 <div
-                  className="flex flex-wrap items-center gap-2.5 mt-1.5 font-mono text-xs"
-                  style={{ color: "var(--c-fg-2)" }}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
+                  style={{ background: iconBg, border: `1px solid ${iconBd}`, color: chipFg }}
                 >
-                  <span>{app.imageName}</span>
-                  <span style={{ color: "var(--c-fg-3)" }}>·</span>
-                  {app.commitSha && <span>{app.commitSha.slice(0, 7)}</span>}
-                  <span style={{ color: "var(--c-fg-3)" }}>·</span>
-                  <span>:{app.containerPort}</span>
+                  <Icon className="h-[18px] w-[18px]" />
                 </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2
+                      id={titleId}
+                      className="text-lg font-semibold tracking-[-0.005em] m-0"
+                      style={{ color: "var(--c-fg-0)" }}
+                    >
+                      {app.appName}
+                    </h2>
+                    {/* Status chip */}
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-medium whitespace-nowrap"
+                      style={{ color: chipFg, background: chipBg, border: `1px solid ${chipBd}` }}
+                    >
+                      <span
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ background: dotColor, boxShadow: `0 0 4px ${dotColor}` }}
+                      />
+                      {config.label}
+                    </span>
+                    {app.isSelfApp && (
+                      <span
+                        className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-[0.04em]"
+                        style={{
+                          color: "#DDD6FE",
+                          background: "var(--c-ghost-soft)",
+                          border: "1px solid var(--c-ghost-line)",
+                        }}
+                      >
+                        Self-app
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close drawer"
+                  onClick={onClose}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+                  style={{
+                    background: "var(--c-surface-2)",
+                    border: "1px solid var(--c-border-1)",
+                    color: "var(--c-fg-2)",
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                aria-label="Close drawer"
-                onClick={onClose}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
-                style={{
-                  background: "var(--c-surface-2)",
-                  border: "1px solid var(--c-border-1)",
-                  color: "var(--c-fg-2)",
-                }}
-              >
-                <X className="h-4 w-4" />
-              </button>
+
+              {/* ── Info grid ── */}
+              {(() => {
+                const baseDomain = process.env.NEXT_PUBLIC_APP_BASE_DOMAIN ?? "localhost";
+                const publicUrl = `http://${app.appName}.${baseDomain}`;
+                const repoDisplay = app.repoUrl
+                  ? app.repoUrl.replace(/\.git$/, "").replace(/^https?:\/\/(github\.com\/)?/, "")
+                  : null;
+                const repoHref = app.repoUrl ? app.repoUrl.replace(/\.git$/, "") : null;
+                const [imageRepo, imageTag] = (() => {
+                  const idx = app.imageName.lastIndexOf(":");
+                  if (idx === -1) return [app.imageName, null];
+                  return [app.imageName.slice(0, idx), app.imageName.slice(idx + 1)];
+                })();
+                const commitHref = app.commitSha && app.repoUrl
+                  ? `${app.repoUrl.replace(/\.git$/, "")}/commit/${app.commitSha}`
+                  : null;
+                return (
+                  <div
+                    className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 pt-3"
+                    style={{ borderTop: "1px solid var(--c-border-1)" }}
+                  >
+                    {/* Image */}
+                    <InfoRow icon={Container} label="Image">
+                      <span className="font-mono truncate">{imageRepo}</span>
+                      {imageTag && (
+                        <span
+                          className="shrink-0 font-mono rounded px-1.5 py-0.5 text-[10px]"
+                          style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border-2)" }}
+                        >
+                          {imageTag}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        aria-label="Copy image name"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(app.imageName);
+                          toast.success("Copied");
+                        }}
+                        className="shrink-0 flex items-center justify-center rounded p-0.5 transition-colors hover:bg-white/10"
+                        style={{ color: "var(--c-fg-3)" }}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
+                    </InfoRow>
+
+                    {/* Page URL — hidden for self-apps */}
+                    {!app.isSelfApp && (
+                      <InfoRow icon={Globe} label="URL">
+                        <a
+                          href={publicUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 truncate hover:opacity-80"
+                          style={{ color: "#C4B5FD" }}
+                        >
+                          {publicUrl.replace(/^https?:\/\//, "")}
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                        </a>
+                      </InfoRow>
+                    )}
+
+                    {/* Branch */}
+                    <InfoRow icon={GitBranch} label="Branch">
+                      {app.branch ? (
+                        <span>{app.branch}</span>
+                      ) : (
+                        <span className="text-white/30">—</span>
+                      )}
+                    </InfoRow>
+
+                    {/* Last commit */}
+                    <InfoRow icon={GitCommit} label="Commit">
+                      {app.commitSha ? (
+                        commitHref ? (
+                          <a
+                            href={commitHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] hover:opacity-80"
+                            style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border-2)", color: "#C4B5FD" }}
+                          >
+                            {app.commitSha.slice(0, 7)}
+                          </a>
+                        ) : (
+                          <span
+                            className="font-mono shrink-0 rounded px-1.5 py-0.5 text-[10px]"
+                            style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border-2)" }}
+                          >
+                            {app.commitSha.slice(0, 7)}
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-white/30">—</span>
+                      )}
+                      {app.commitMessage && (
+                        <span className="truncate" title={app.commitMessage} style={{ color: "var(--c-fg-3)" }}>
+                          {app.commitMessage}
+                        </span>
+                      )}
+                    </InfoRow>
+
+                    {/* Repo */}
+                    <InfoRow icon={Github} label="Repo">
+                      {repoHref ? (
+                        <a
+                          href={repoHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="truncate hover:opacity-80"
+                          style={{ color: "#C4B5FD" }}
+                        >
+                          {repoDisplay}
+                        </a>
+                      ) : (
+                        <span className="text-white/30">—</span>
+                      )}
+                    </InfoRow>
+
+                    {/* Port */}
+                    <InfoRow icon={Plug} label="Port">
+                      <span className="font-mono">:{app.containerPort}</span>
+                    </InfoRow>
+
+                    {/* Deployed */}
+                    <InfoRow icon={Clock} label="Deployed">
+                      <span title={new Date(app.updatedAt).toLocaleString()}>
+                        {(() => {
+                          const diff = Date.now() - new Date(app.updatedAt).getTime();
+                          const mins = Math.floor(diff / 60_000);
+                          if (mins < 1) return "just now";
+                          if (mins < 60) return `${mins}m ago`;
+                          const hrs = Math.floor(mins / 60);
+                          if (hrs < 24) return `${hrs}h ago`;
+                          return `${Math.floor(hrs / 24)}d ago`;
+                        })()}
+                      </span>
+                    </InfoRow>
+
+                    {/* Commits ahead — self-apps only, when count > 0 */}
+                    {commitsAhead && commitsAhead.count != null && commitsAhead.count > 0 ? (
+                      <InfoRow icon={TrendingUp} label="Ahead">
+                        <a
+                          href={commitsAhead.compareUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hover:opacity-80"
+                          style={{ color: "#FDE68A" }}
+                        >
+                          {commitsAhead.count} commits
+                        </a>
+                      </InfoRow>
+                    ) : null}
+                  </div>
+                );
+              })()}
             </header>
 
             {/* ── Actions strip ── */}
@@ -425,12 +597,9 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
             </div>
 
             {/* ── Tab panels ── */}
-            <div className="flex-1 min-h-0 overflow-auto px-6 py-4">
+            <div className={`flex-1 min-h-0 px-6 py-4 ${tab === "logs" ? "overflow-hidden" : "overflow-auto"}`}>
               {tab === "logs" && (
-                <div className="h-full min-h-[180px] font-mono text-xs rounded-[10px] overflow-hidden"
-                  style={{ background: "#040408", border: "1px solid var(--c-border-1)" }}>
-                  <BuildLogViewer appName={app.appName} />
-                </div>
+                <BuildLogViewer appName={app.appName} />
               )}
               {tab === "env" && (
                 <EnvVarsTab appName={app.appName} />

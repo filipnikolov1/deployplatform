@@ -93,7 +93,10 @@ export function DeployHistoryList({ appName, events }: Props) {
                 <div className="min-w-0 flex-1 pt-1">
                   <div className="mb-1 flex items-start justify-between gap-4">
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="truncate text-sm font-medium text-white">
+                      <span
+                        className="line-clamp-2 break-words text-sm font-medium text-white"
+                        title={event.commitMessage ?? undefined}
+                      >
                         {event.commitMessage ?? "—"}
                       </span>
                       <span

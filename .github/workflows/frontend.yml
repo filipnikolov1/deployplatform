@@ -43,6 +43,7 @@ jobs:
           IMAGE: ${{ steps.meta.outputs.image }}
           SHA: ${{ github.sha }}
           MSG: ${{ toJSON(github.event.head_commit.message) }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           if [ -z "$IMAGE" ]; then
             echo "::error::IMAGE is empty — aborting notify" >&2
@@ -53,8 +54,9 @@ jobs:
             --arg image "$IMAGE" \
             --arg sha "$SHA" \
             --argjson msg "$MSG" \
+            --arg branch "$BRANCH" \
             --arg ts "$(date +%s)000" \
-            '{app_name:$app, image:$image, commit_sha:$sha, commit_message:$msg, timestamp:($ts|tonumber)}')
+            '{app_name:$app, image:$image, commit_sha:$sha, commit_message:$msg, branch:$branch, timestamp:($ts|tonumber)}')
           SIG="sha256=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$HOOK_KEY" -hex | awk '{print $2}')"
           curl -fsS -X POST "$HOOK_URL" \
             -H "X-Signature-256: $SIG" \

@@ -60,19 +60,35 @@ public class SelfAppUpdateService {
 
         String service = appName.equals("launchpad-backend") ? "launchpad" : "launchpad-frontend";
 
+        PendingSelfUpdate pending = null;
         if (service.equals("launchpad")) {
-            PendingSelfUpdate p = new PendingSelfUpdate();
-            p.setUpdateId(UUID.randomUUID());
-            p.setAppName(appName);
-            p.setTargetSha(targetSha);
-            p.setTargetImage(targetImage);
-            p.setTriggeredAt(LocalDateTime.now());
-            pendingRepo.save(p);
+            pending = new PendingSelfUpdate();
+            pending.setUpdateId(UUID.randomUUID());
+            pending.setAppName(appName);
+            pending.setTargetSha(targetSha);
+            pending.setTargetImage(targetImage);
+            pending.setTriggeredAt(LocalDateTime.now());
+            pendingRepo.save(pending);
         }
 
-        UpdateResponse resp = updaterClient.update(service, targetImage);
+        UpdateResponse resp;
+        try {
+            resp = updaterClient.update(service, targetImage);
+        } catch (Exception e) {
+            if (pending != null) {
+                pendingRepo.delete(pending);
+            }
+            eventService.record(DeploymentEventType.UPDATE_FAILED,
+                    DeploymentEventStatus.FAILURE, appName, null, null,
+                    "Updater call failed: " + e.getMessage());
+            log.error("Self-update call failed for {}: {}", appName, e.getMessage(), e);
+            return;
+        }
 
         if (!"ok".equals(resp.status())) {
+            if (pending != null) {
+                pendingRepo.delete(pending);
+            }
             eventService.record(DeploymentEventType.UPDATE_FAILED,
                     DeploymentEventStatus.FAILURE, appName, null, null,
                     resp.error() != null ? resp.error() : "unknown error");
