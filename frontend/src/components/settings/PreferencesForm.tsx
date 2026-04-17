@@ -1,7 +1,6 @@
 "use client";
 
 import { X } from "lucide-react";
-import { GlassCard } from "@/components/primitives/GlassCard";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useToast } from "@/hooks/useToast";
 import type { UserPreferences } from "@/types/launchpad";
@@ -18,11 +17,14 @@ function Toggle({
   description?: string;
 }) {
   return (
-    <label className="flex items-start justify-between gap-4 py-3 cursor-pointer">
+    <label
+      className="flex items-start justify-between gap-4 py-3.5 cursor-pointer"
+      style={{ borderBottom: "1px solid var(--c-border-1)" }}
+    >
       <div className="flex-1">
-        <div className="text-sm font-medium text-slate-100">{label}</div>
+        <div className="text-sm font-medium" style={{ color: "var(--c-fg-1)" }}>{label}</div>
         {description && (
-          <div className="text-xs text-slate-400 mt-0.5">{description}</div>
+          <div className="text-xs mt-0.5" style={{ color: "var(--c-fg-3)" }}>{description}</div>
         )}
       </div>
       <button
@@ -31,17 +33,16 @@ function Toggle({
         aria-checked={checked}
         aria-label={label}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-focus ${
-          checked
-            ? "bg-accent-ghost/40 border-accent-ghostLight"
-            : "bg-white/[0.04] border-white/10"
-        }`}
+        className="relative inline-flex h-[22px] w-10 shrink-0 rounded-full transition-all duration-[150ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight mt-0.5"
+        style={{
+          background: checked ? "var(--c-ghost-soft)" : "var(--c-surface-1)",
+          border: `1px solid ${checked ? "var(--c-ghost-line)" : "var(--c-border-2)"}`,
+        }}
       >
         <span
           aria-hidden="true"
-          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-            checked ? "translate-x-5" : "translate-x-0.5"
-          } translate-y-0.5`}
+          className="inline-block h-4 w-4 rounded-full bg-white shadow transition-[left] duration-[150ms] ease-out absolute top-[2px]"
+          style={{ left: checked ? 20 : 2, boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
         />
       </button>
     </label>
@@ -60,28 +61,50 @@ function RadioRow<T extends string>({
   name: string;
 }) {
   return (
-    <div role="radiogroup" className="flex gap-2 flex-wrap">
+    <div role="radiogroup" className="flex gap-1.5 flex-wrap">
       {options.map((opt) => {
-        const selected = opt.value === value;
+        const sel = opt.value === value;
         return (
           <button
             key={opt.value}
             type="button"
             role="radio"
-            aria-checked={selected}
+            aria-checked={sel}
             onClick={() => onChange(opt.value)}
-            className={`px-3 py-1.5 rounded-full text-sm border transition-colors focus:outline-none focus-visible:ring-focus ${
-              selected
-                ? "bg-accent-ghost/30 border-accent-ghostLight text-white"
-                : "bg-white/[0.04] border-white/10 text-slate-300 hover:bg-white/[0.08]"
-            }`}
             data-group={name}
+            className="px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all duration-[120ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+            style={{
+              background: sel ? "var(--c-ghost-soft)" : "var(--c-surface-1)",
+              border: `1px solid ${sel ? "var(--c-ghost-line)" : "var(--c-border-2)"}`,
+              color: sel ? "#DDD6FE" : "var(--c-fg-2)",
+              cursor: "pointer",
+            }}
           >
             {opt.label}
           </button>
         );
       })}
     </div>
+  );
+}
+
+function SettingsCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <section
+      className="rounded-[14px] p-6 mb-4"
+      style={{
+        background: "var(--c-surface-1)",
+        border: "1px solid var(--c-border-1)",
+      }}
+    >
+      <h2 className="text-[15px] font-semibold tracking-[-0.005em] m-0" style={{ color: "var(--c-fg-0)" }}>
+        {title}
+      </h2>
+      {description && (
+        <p className="text-[13px] mt-1 mb-4" style={{ color: "var(--c-fg-2)" }}>{description}</p>
+      )}
+      {children}
+    </section>
   );
 }
 
@@ -99,60 +122,39 @@ export function PreferencesForm() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <GlassCard radius="panel" className="p-6">
-        <h2 className="text-lg font-semibold text-slate-100 mb-1">
-          Email notifications
-        </h2>
-        <p className="text-sm text-slate-400 mb-2">
-          Get emailed when important events happen.
-        </p>
-        <div className="divide-y divide-white/5">
-          <Toggle
-            label="Deploy failed"
-            description="Notify me when a deploy fails to build or start."
-            checked={prefs.notify_on_fail}
-            onChange={(v) => save({ notify_on_fail: v })}
-          />
-          <Toggle
-            label="First deploy"
-            description="Notify me the first time a new app deploys successfully."
-            checked={prefs.notify_on_first_deploy}
-            onChange={(v) => save({ notify_on_first_deploy: v })}
-          />
-          <Toggle
-            label="Container crashed"
-            description="Notify me when a running container exits unexpectedly."
-            checked={prefs.notify_on_crash}
-            onChange={(v) => save({ notify_on_crash: v })}
-          />
-          <Toggle
-            label="Rollback performed"
-            description="Notify me when an app is manually rolled back."
-            checked={prefs.notify_on_rollback}
-            onChange={(v) => save({ notify_on_rollback: v })}
-          />
-          <Toggle
-            label="Update available"
-            description="Email me when a self-app update is available."
-            checked={prefs.notify_on_update_available}
-            onChange={(v) => save({ notify_on_update_available: v })}
-          />
+    <div className="flex flex-col">
+      <SettingsCard
+        title="Email notifications"
+        description="Get emailed when important events happen."
+      >
+        <div style={{ borderTop: "1px solid var(--c-border-1)" }}>
+          {[
+            ["notify_on_fail", "Deploy failed", "Notify me when a deploy fails to build or start."],
+            ["notify_on_first_deploy", "First deploy", "Notify me the first time a new app deploys successfully."],
+            ["notify_on_crash", "Container crashed", "Notify me when a running container exits unexpectedly."],
+            ["notify_on_rollback", "Rollback performed", "Notify me when an app is manually rolled back."],
+            ["notify_on_update_available", "Update available", "Email me when a self-app update is available."],
+          ].map(([key, label, desc]) => (
+            <Toggle
+              key={key}
+              label={label}
+              description={desc}
+              checked={prefs[key as keyof typeof prefs] as boolean}
+              onChange={(v) => save({ [key]: v })}
+            />
+          ))}
+          {/* Remove border from last item */}
+          <style>{`label:last-child { border-bottom: none !important; }`}</style>
         </div>
-      </GlassCard>
+      </SettingsCard>
 
-      <GlassCard radius="panel" className="p-6">
-        <h2 className="text-lg font-semibold text-slate-100 mb-1">
-          Appearance
-        </h2>
-        <p className="text-sm text-slate-400 mb-4">
-          How the dashboard renders and animates.
-        </p>
-        <div className="space-y-5">
+      <SettingsCard
+        title="Appearance"
+        description="How the dashboard renders and animates."
+      >
+        <div className="flex flex-col gap-5">
           <div>
-            <div className="text-sm font-medium text-slate-200 mb-2">
-              Layout mode
-            </div>
+            <div className="text-[13px] font-medium mb-2" style={{ color: "var(--c-fg-1)" }}>Layout mode</div>
             <RadioRow
               name="layout_mode"
               value={prefs.layout_mode}
@@ -164,9 +166,7 @@ export function PreferencesForm() {
             />
           </div>
           <div>
-            <div className="text-sm font-medium text-slate-200 mb-2">
-              Reduced motion
-            </div>
+            <div className="text-[13px] font-medium mb-2" style={{ color: "var(--c-fg-1)" }}>Reduced motion</div>
             <RadioRow
               name="reduced_motion"
               value={prefs.reduced_motion}
@@ -179,45 +179,62 @@ export function PreferencesForm() {
             />
           </div>
         </div>
-      </GlassCard>
+      </SettingsCard>
 
-      <GlassCard radius="panel" className="p-6">
-        <h2 className="text-lg font-semibold text-slate-100 mb-1">
-          Pinned apps
-        </h2>
-        <p className="text-sm text-slate-400 mb-4">
-          These apps stay at the top of your dashboard.
-        </p>
+      <SettingsCard
+        title="Pinned apps"
+        description="These apps stay at the top of your dashboard."
+      >
         {prefs.pinned_apps.length === 0 ? (
-          <p className="text-sm text-slate-400">No pinned apps.</p>
+          <p className="text-[13px] m-0" style={{ color: "var(--c-fg-3)" }}>No pinned apps.</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="flex flex-col gap-1.5 list-none p-0 m-0">
             {prefs.pinned_apps.map((name) => (
               <li
                 key={name}
-                className="flex items-center justify-between p-3 rounded-lg bg-white/[0.04] border border-white/[0.08]"
+                className="flex items-center justify-between px-3 py-2.5 rounded-md"
+                style={{
+                  background: "var(--c-surface-2)",
+                  border: "1px solid var(--c-border-1)",
+                }}
               >
-                <span className="font-mono text-sm text-slate-200">
-                  {name}
-                </span>
+                <span className="font-mono text-[13px]" style={{ color: "var(--c-fg-1)" }}>{name}</span>
                 <button
                   type="button"
                   aria-label={`Unpin ${name}`}
-                  onClick={() =>
-                    save({
-                      pinned_apps: prefs.pinned_apps.filter((n) => n !== name),
-                    })
-                  }
-                  className="h-8 w-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-slate-200 focus:outline-none focus-visible:ring-focus"
+                  onClick={() => save({ pinned_apps: prefs.pinned_apps.filter((n) => n !== name) })}
+                  className="h-7 w-7 rounded flex items-center justify-center transition-colors duration-[120ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+                  style={{ color: "var(--c-fg-3)", background: "transparent", border: "none", cursor: "pointer" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--c-surface-3)"; e.currentTarget.style.color = "var(--c-fg-1)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--c-fg-3)"; }}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </li>
             ))}
           </ul>
         )}
-      </GlassCard>
+      </SettingsCard>
 
+      <SettingsCard
+        title="Danger zone"
+        description="Irreversible account actions."
+      >
+        <div className="flex gap-2">
+          <a
+            href="/api/auth/logout"
+            className="inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+            style={{
+              background: "rgba(239,68,68,0.10)",
+              color: "#FCA5A5",
+              border: "1px solid rgba(248,113,113,0.28)",
+              textDecoration: "none",
+            }}
+          >
+            Sign out
+          </a>
+        </div>
+      </SettingsCard>
     </div>
   );
 }
