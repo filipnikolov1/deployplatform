@@ -216,12 +216,12 @@ export function ActivityRow({ event, isLast }: Props) {
             </time>
           </div>
           {event.commitMessage && (
-            <p className="mb-1 line-clamp-1 text-sm text-slate-300/78">
+            <p className="mb-1 line-clamp-2 break-words text-sm text-slate-300/78" title={event.commitMessage}>
               {event.commitMessage}
             </p>
           )}
           {event.errorMessage && (
-            <p className="mb-1 line-clamp-1 text-sm text-red-300/85">
+            <p className="mb-1 line-clamp-2 break-words text-sm text-red-300/85" title={event.errorMessage}>
               {event.errorMessage}
             </p>
           )}

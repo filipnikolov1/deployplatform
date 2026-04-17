@@ -95,13 +95,17 @@ function AppRow({ app, onOpen }: { app: Deployment; onOpen: (name: string) => vo
         className="hidden md:table-cell py-3 px-3.5"
         style={{ borderTop: "1px solid var(--c-border-1)" }}
       >
-        <span
-          className="inline-flex items-center gap-1.5 text-xs"
-          style={{ color: "var(--c-fg-2)" }}
-        >
-          <GitBranch className="h-3 w-3" />
-          {app.branch ?? "main"}
-        </span>
+        {app.branch ? (
+          <span
+            className="inline-flex items-center gap-1.5 text-xs"
+            style={{ color: "var(--c-fg-2)" }}
+          >
+            <GitBranch className="h-3 w-3" />
+            {app.branch}
+          </span>
+        ) : (
+          <span className="text-white/30">—</span>
+        )}
       </td>
 
       {/* Port */}

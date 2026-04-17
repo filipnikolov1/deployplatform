@@ -1,9 +1,11 @@
 package com.filipnikolov.launchpad.selfapp.bootstrap;
 
+import com.filipnikolov.launchpad.deployment.dto.CreateDeploymentRequest;
 import com.filipnikolov.launchpad.deployment.model.Deployment;
 import com.filipnikolov.launchpad.deployment.model.DeploymentEventStatus;
 import com.filipnikolov.launchpad.deployment.model.DeploymentEventType;
 import com.filipnikolov.launchpad.deployment.model.DeploymentStatus;
+import com.filipnikolov.launchpad.deployment.model.TriggerSource;
 import com.filipnikolov.launchpad.deployment.repository.DeploymentRepository;
 import com.filipnikolov.launchpad.deployment.service.DeploymentEventService;
 import com.filipnikolov.launchpad.selfapp.model.PendingSelfUpdate;
@@ -78,6 +80,15 @@ public class SelfAppBootstrap {
         List<PendingSelfUpdate> pending = pendingRepo.findByAppName(appName);
         for (PendingSelfUpdate p : pending) {
             if (runningSha.equals(p.getTargetSha())) {
+                Deployment d = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName).orElse(null);
+                if (d != null) {
+                    CreateDeploymentRequest ctx = new CreateDeploymentRequest(
+                            appName, d.getRepoUrl(), p.getTargetImage(), d.getContainerPort(),
+                            d.getBranch(), p.getTargetSha(), runningMessage,
+                            d.getCommitAuthor(), null, TriggerSource.SELF_UPDATE);
+                    eventService.record(DeploymentEventType.DEPLOY_FINISHED,
+                            DeploymentEventStatus.SUCCESS, appName, ctx, null, null);
+                }
                 eventService.record(DeploymentEventType.UPDATE_SUCCESS,
                         DeploymentEventStatus.SUCCESS, appName, null, null,
                         "Reconciled after self-update to " + p.getTargetSha());
