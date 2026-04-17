@@ -1,16 +1,15 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { GlassCard } from "@/components/primitives/GlassCard";
-import { Button } from "@/components/primitives/Button";
-import { Input } from "@/components/primitives/Input";
-import { Rocket } from "lucide-react";
+import { KeyRound, Loader2, Rocket } from "lucide-react";
 
 export function LoginCard() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,34 +33,93 @@ export function LoginCard() {
   }
 
   return (
-    <GlassCard
-      variant="panel"
-      className="w-full max-w-md border-white/[0.12] bg-black/35 p-8 shadow-[0_28px_70px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.08)]"
+    <div
+      className="w-full max-w-[380px] rounded-[14px] p-7"
+      style={{
+        background: "var(--c-surface-1)",
+        border: "1px solid var(--c-border-2)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+      }}
     >
-      <div className="mb-6 flex flex-col items-center gap-3 rounded-card border border-white/[0.08] bg-white/[0.03] px-5 py-6">
-        <div className="rounded-2xl border border-sky-200/20 bg-sky-300/10 p-3">
-          <Rocket className="h-7 w-7 text-sky-200" aria-hidden="true" />
+      {/* Logo row */}
+      <div className="flex items-center gap-2.5 mb-5">
+        <div
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+          style={{ background: "linear-gradient(135deg, var(--c-ghost), var(--c-ghost-light))" }}
+        >
+          <Rocket className="h-[18px] w-[18px] text-white" aria-hidden />
         </div>
-        <div className="glass-kicker">Secure Access</div>
-        <h1 className="text-3xl font-semibold text-text-primary">Launchpad</h1>
-        <p className="text-center text-sm text-slate-300/70">
-          Enter the dashboard password to open the control surface.
-        </p>
+        <div>
+          <div
+            className="text-base font-semibold tracking-[-0.01em]"
+            style={{ color: "var(--c-fg-0)" }}
+          >
+            Launchpad
+          </div>
+          <div className="text-[11px]" style={{ color: "var(--c-fg-3)" }}>
+            Deploy dashboard
+          </div>
+        </div>
       </div>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <Input
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          error={error ?? undefined}
-          autoFocus
-        />
-        <Button type="submit" loading={loading}>
-          Launch
-        </Button>
+
+      <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
+        {/* Password input */}
+        <div>
+          <label
+            htmlFor="login-pw"
+            className="block text-[11px] font-semibold uppercase tracking-[0.12em] mb-1.5"
+            style={{ color: "var(--c-fg-2)" }}
+          >
+            Password
+          </label>
+          <div className="relative">
+            <span
+              className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ color: "var(--c-fg-2)" }}
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+            </span>
+            <input
+              id="login-pw"
+              type="password"
+              autoComplete="current-password"
+              autoFocus
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder="••••••••"
+              className="w-full pl-[34px] pr-3 py-2.5 text-sm rounded-md outline-none transition-[border-color] duration-[120ms]"
+              style={{
+                background: "var(--c-surface-1)",
+                border: `1px solid ${focused ? "var(--c-ghost-line)" : "var(--c-border-2)"}`,
+                color: "var(--c-fg-1)",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+          {error && (
+            <p className="mt-1.5 text-xs text-red-400">{error}</p>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-[filter] duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+          style={{
+            background: "var(--c-ghost-soft)",
+            border: "1px solid var(--c-ghost-line)",
+            color: "#DDD6FE",
+            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.7 : 1,
+          }}
+        >
+          {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+          {loading ? "Signing in…" : "Sign in"}
+        </button>
       </form>
-    </GlassCard>
+    </div>
   );
 }
