@@ -31,36 +31,37 @@ export function HealthChecklist() {
   const { status, isLoading } = useSetupStatus();
 
   if (isLoading || !status) {
-    return (
-      <div className="h-24 rounded-lg bg-white/[0.02] animate-pulse" />
-    );
+    return <div className="h-24 rounded-md skeleton-shimmer" style={{ background: "var(--c-surface-1)" }} />;
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="flex flex-col gap-2 list-none p-0 m-0">
       {rows.map((row) => {
         const ok = status[row.key];
-        const Icon = ok ? CheckCircle2 : XCircle;
         return (
           <li
             key={row.key}
-            className="flex items-start gap-3 p-3 rounded-lg bg-white/[0.04] border border-white/[0.08]"
+            className="flex items-start gap-3 rounded-md px-3.5 py-3"
+            style={{
+              background: "var(--c-surface-2)",
+              border: "1px solid var(--c-border-1)",
+            }}
           >
-            <Icon
-              className={`h-5 w-5 mt-0.5 shrink-0 ${
-                ok ? "text-emerald-400" : "text-red-400"
-              }`}
-              aria-hidden="true"
-            />
-            <div className="flex-1">
-              <div className="text-sm font-medium text-slate-100">
-                {row.label}
-              </div>
-              <div className="text-xs text-slate-400 mt-0.5">
-                {row.description}
-              </div>
+            {ok ? (
+              <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-green-400" aria-hidden />
+            ) : (
+              <XCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-400" aria-hidden />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-medium" style={{ color: "var(--c-fg-1)" }}>{row.label}</div>
+              <div className="text-xs mt-0.5" style={{ color: "var(--c-fg-3)" }}>{row.description}</div>
             </div>
-            <span className="sr-only">{ok ? "OK" : "Not configured"}</span>
+            <span
+              className="text-[10px] font-semibold uppercase tracking-[0.08em]"
+              style={{ color: ok ? "#86EFAC" : "#FCA5A5" }}
+            >
+              {ok ? "OK" : "Action needed"}
+            </span>
           </li>
         );
       })}
