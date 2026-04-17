@@ -16,6 +16,7 @@ type FilterKey =
   | "builds"
   | "failures"
   | "rollbacks"
+  | "updates"
   | "ignored";
 
 const filterMap: Record<FilterKey, DeploymentEventType[] | null> = {
@@ -24,7 +25,18 @@ const filterMap: Record<FilterKey, DeploymentEventType[] | null> = {
   builds: ["BUILD_STARTED", "BUILD_FINISHED"],
   failures: ["FAILED", "CRASHED"],
   rollbacks: ["MANUAL_ROLLBACK", "PIN_RELEASED"],
+  updates: ["UPDATE_AVAILABLE", "UPDATE_TRIGGERED", "UPDATE_SUCCESS", "UPDATE_FAILED", "SELF_APP_BOOTSTRAPPED"],
   ignored: ["WEBHOOK_IGNORED"],
+};
+
+const FILTER_LABELS: Record<FilterKey, string> = {
+  all: "All events",
+  deploys: "Deploys",
+  builds: "Builds",
+  failures: "Failures",
+  rollbacks: "Rollbacks",
+  updates: "Self-updates",
+  ignored: "Ignored",
 };
 
 export default function ActivityPage() {
@@ -38,58 +50,81 @@ export default function ActivityPage() {
   return (
     <ToastProvider>
       <AppShell>
-        <div className="mx-auto max-w-5xl py-6">
-          <section className="px-1 sm:px-0">
-            <header className="glass-page-header">
-              <div className="glass-kicker">Signal Feed</div>
-              <h1 className="glass-title">Activity</h1>
-              <p className="glass-subtitle">
-                Recent deploys, failures, rollbacks, and automation events across the stack.
+        <div className="flex flex-col">
+          {/* Page header */}
+          <div
+            className="flex items-end justify-between gap-4 pb-5 mb-6 flex-wrap"
+            style={{ borderBottom: "1px solid var(--c-border-1)" }}
+          >
+            <div>
+              <h1
+                className="text-2xl font-semibold tracking-[-0.01em] m-0"
+                style={{ color: "var(--c-fg-0)", lineHeight: 1.2 }}
+              >
+                Activity
+              </h1>
+              <p className="mt-1.5 text-[13px]" style={{ color: "var(--c-fg-2)" }}>
+                Recent deploys, failures, rollbacks, and automation events.
               </p>
-            </header>
+            </div>
+          </div>
 
-            <div
-              className="mb-7 flex flex-wrap gap-2.5"
-              role="group"
-              aria-label="Filter events"
-            >
-              {(Object.keys(filterMap) as FilterKey[]).map((key) => (
+          {/* Filter pills */}
+          <div className="flex flex-wrap gap-1.5 mb-5" role="group" aria-label="Filter events">
+            {(Object.keys(filterMap) as FilterKey[]).map((key) => {
+              const sel = filter === key;
+              return (
                 <button
                   key={key}
+                  type="button"
                   onClick={() => setFilter(key)}
-                  aria-pressed={filter === key}
-                  className={`rounded-full border px-4 py-2.5 text-sm font-medium backdrop-blur-xl transition-colors focus:outline-none focus-visible:ring-focus ${
-                    filter === key
-                      ? "border-white/[0.14] bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                      : "border-white/[0.08] bg-black/30 text-slate-300/75 hover:bg-black/45"
-                  }`}
+                  aria-pressed={sel}
+                  className="rounded-full px-3.5 py-[7px] text-[13px] font-medium transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+                  style={{
+                    background: sel ? "var(--c-ghost-soft)" : "var(--c-surface-1)",
+                    border: `1px solid ${sel ? "var(--c-ghost-line)" : "var(--c-border-1)"}`,
+                    color: sel ? "#DDD6FE" : "var(--c-fg-2)",
+                    cursor: "pointer",
+                  }}
                 >
-                  {key[0].toUpperCase() + key.slice(1)}
+                  {FILTER_LABELS[key]}
                 </button>
-              ))}
-            </div>
+              );
+            })}
+          </div>
 
-            <div aria-live="polite">
-              {isLoading ? (
-                <div className="glass-card-strong h-32 animate-pulse" />
-              ) : filtered.length === 0 ? (
-                <EmptyState>
-                  <EmptyState.Media />
-                  <EmptyState.Title>No activity yet</EmptyState.Title>
-                  <EmptyState.Description>
-                    Deploys and build events will appear here
-                  </EmptyState.Description>
-                  <EmptyState.Actions>
-                    <Link href="/setup">
-                      <Button>Deploy your first app</Button>
-                    </Link>
-                  </EmptyState.Actions>
-                </EmptyState>
-              ) : (
+          {/* Content */}
+          <div aria-live="polite">
+            {isLoading ? (
+              <div
+                className="h-32 rounded-[14px] skeleton-shimmer"
+                style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
+              />
+            ) : filtered.length === 0 ? (
+              <EmptyState>
+                <EmptyState.Media />
+                <EmptyState.Title>No activity yet</EmptyState.Title>
+                <EmptyState.Description>
+                  Deploys and build events will appear here
+                </EmptyState.Description>
+                <EmptyState.Actions>
+                  <Link href="/setup">
+                    <Button>Deploy your first app</Button>
+                  </Link>
+                </EmptyState.Actions>
+              </EmptyState>
+            ) : (
+              <div
+                className="rounded-[14px] overflow-hidden"
+                style={{
+                  background: "var(--c-surface-1)",
+                  border: "1px solid var(--c-border-1)",
+                }}
+              >
                 <ActivityTimeline events={filtered} />
-              )}
-            </div>
-          </section>
+              </div>
+            )}
+          </div>
         </div>
       </AppShell>
     </ToastProvider>
