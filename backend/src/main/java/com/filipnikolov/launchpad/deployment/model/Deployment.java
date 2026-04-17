@@ -1,5 +1,6 @@
 package com.filipnikolov.launchpad.deployment.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -52,6 +53,11 @@ public class Deployment {
 
     @Column(name = "is_self_app", nullable = false)
     private boolean selfApp = false;
+
+    @JsonProperty("isSelfApp")
+    public boolean isSelfApp() {
+        return selfApp;
+    }
 
     @Column(name = "latest_known_image")
     private String latestKnownImage;
