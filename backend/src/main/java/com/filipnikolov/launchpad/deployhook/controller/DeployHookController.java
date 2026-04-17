@@ -124,6 +124,7 @@ public class DeployHookController {
                 d.setLatestKnownImage(imageName);
                 d.setLatestKnownSha(commitSha);
                 d.setLatestKnownMessage(commitMessage);
+                if (branch != null) d.setBranch(branch);
                 d.setUpdatedAt(LocalDateTime.now());
                 deploymentRepository.save(d);
             }
