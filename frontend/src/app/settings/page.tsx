@@ -8,17 +8,28 @@ export default function SettingsPage() {
   return (
     <ToastProvider>
       <AppShell>
-        <div className="mx-auto max-w-4xl py-6">
-          <section className="px-1 sm:px-0">
-            <header className="glass-page-header">
-              <div className="glass-kicker">Refinement</div>
-              <h1 className="glass-title">Settings</h1>
-              <p className="glass-subtitle">
-                Notifications, appearance, and dashboard behavior tuned inside the same glass surface.
+        <div className="flex flex-col">
+          {/* Page header */}
+          <div
+            className="flex items-end justify-between gap-4 pb-5 mb-6 flex-wrap"
+            style={{ borderBottom: "1px solid var(--c-border-1)" }}
+          >
+            <div>
+              <h1
+                className="text-2xl font-semibold tracking-[-0.01em] m-0"
+                style={{ color: "var(--c-fg-0)", lineHeight: 1.2 }}
+              >
+                Settings
+              </h1>
+              <p className="mt-1.5 text-[13px]" style={{ color: "var(--c-fg-2)" }}>
+                Notifications, appearance, and dashboard behavior.
               </p>
-            </header>
+            </div>
+          </div>
+
+          <div className="max-w-[720px]">
             <PreferencesForm />
-          </section>
+          </div>
         </div>
       </AppShell>
     </ToastProvider>

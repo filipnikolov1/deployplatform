@@ -1,28 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useApps } from "@/hooks/useApps";
-import { usePreferences } from "@/hooks/usePreferences";
-import { AppCard } from "./AppCard";
-import { AppCardSkeleton } from "./AppCardSkeleton";
-import { AppDetailModal } from "@/components/detail/AppDetailModal";
+import { AppDetailDrawer } from "@/components/detail/AppDetailDrawer";
 import { StatusHero, type HeroFilter } from "./StatusHero";
+import { SelfAppsBand } from "./SelfAppsBand";
+import { AppTable } from "./AppTable";
 import { EmptyState } from "./EmptyState";
 import { Button } from "@/components/primitives/Button";
 import { toAppStatus } from "@/lib/statusConfig";
 
 export function AppGrid() {
   const { apps, isLoading, error } = useApps();
-  const { prefs } = usePreferences();
   const [openAppName, setOpenAppName] = useState<string | null>(null);
   const [filter, setFilter] = useState<HeroFilter>("all");
+
+  const selfApps = apps?.filter((a) => a.isSelfApp) ?? [];
+  const regularApps = apps?.filter((a) => !a.isSelfApp) ?? [];
 
   const filteredApps =
     apps?.filter((app) => {
       const status = toAppStatus(app.status);
-      if (filter === "all") return true;
+      if (filter === "all") return !app.isSelfApp; // self-apps shown in band, not table when "all"
       if (filter === "running") return status === "RUNNING";
       if (filter === "building") return status === "BUILDING";
       if (filter === "failed") return status === "FAILED" || status === "CRASHED";
@@ -31,51 +31,66 @@ export function AppGrid() {
 
   const counts = {
     all: apps?.length ?? 0,
-    running:
-      apps?.filter((app) => toAppStatus(app.status) === "RUNNING").length ?? 0,
-    building:
-      apps?.filter((app) => toAppStatus(app.status) === "BUILDING").length ?? 0,
-    failed:
-      apps?.filter((app) => {
-        const status = toAppStatus(app.status);
-        return status === "FAILED" || status === "CRASHED";
-      }).length ?? 0,
-    stopped:
-      apps?.filter((app) => {
-        const status = toAppStatus(app.status);
-        return status === "STOPPED" || status === "PENDING";
-      }).length ?? 0,
+    running: apps?.filter((a) => toAppStatus(a.status) === "RUNNING").length ?? 0,
+    building: apps?.filter((a) => toAppStatus(a.status) === "BUILDING").length ?? 0,
+    failed: apps?.filter((a) => {
+      const s = toAppStatus(a.status);
+      return s === "FAILED" || s === "CRASHED";
+    }).length ?? 0,
+    stopped: apps?.filter((a) => {
+      const s = toAppStatus(a.status);
+      return s === "STOPPED" || s === "PENDING";
+    }).length ?? 0,
   };
 
   return (
-    <div className="flex flex-col gap-6 sm:gap-7">
-      <div className="glass-page-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex flex-col">
+      {/* Page header */}
+      <div
+        className="flex items-end justify-between gap-4 pb-5 mb-6 flex-wrap"
+        style={{ borderBottom: "1px solid var(--c-border-1)" }}
+      >
         <div>
-          <div className="glass-kicker">Control Surface</div>
-          <h1 className="glass-title">Apps</h1>
-          <p className="glass-subtitle">
-            Live deployment status, actions, and rollout visibility in one place.
+          <h1
+            className="text-2xl font-semibold tracking-[-0.01em] m-0"
+            style={{ color: "var(--c-fg-0)", lineHeight: 1.2 }}
+          >
+            Apps
+          </h1>
+          <p className="mt-1.5 text-[13px]" style={{ color: "var(--c-fg-2)" }}>
+            Live deployment status, actions, and rollout visibility.
           </p>
         </div>
-        <span className="font-mono text-sm text-slate-300/70 tabular-nums">
-          {apps ? `${apps.length} total` : ""}
-        </span>
+        {apps && (
+          <span
+            className="font-mono text-sm tabular-nums"
+            style={{ color: "var(--c-fg-3)" }}
+          >
+            {apps.length} total
+          </span>
+        )}
       </div>
+
       <StatusHero activeFilter={filter} onFilterChange={setFilter} counts={counts} />
 
       {error && (
-        <div role="alert" className="text-sm text-red-400">
+        <div role="alert" className="mb-4 text-sm text-red-400">
           Failed to load apps. Will retry.
         </div>
       )}
 
       {isLoading && !apps ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <AppCardSkeleton key={i} />
+        /* Loading skeleton */
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-12 rounded-[10px] skeleton-shimmer"
+              style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
+            />
           ))}
         </div>
-      ) : filteredApps.length === 0 ? (
+      ) : !apps || apps.length === 0 ? (
         <EmptyState>
           <EmptyState.Media />
           <EmptyState.Title>No apps deployed yet</EmptyState.Title>
@@ -88,45 +103,34 @@ export function AppGrid() {
             </Link>
           </EmptyState.Actions>
         </EmptyState>
+      ) : filter === "all" ? (
+        /* Default view: self-apps band + regular apps table */
+        <>
+          {selfApps.length > 0 && (
+            <SelfAppsBand apps={selfApps} onOpen={setOpenAppName} />
+          )}
+          <AppTable apps={regularApps} onOpen={setOpenAppName} />
+        </>
       ) : (
-        <motion.div
-          layout
-          className={
-            prefs.layout_mode === "list"
-              ? "flex flex-col gap-4"
-              : filteredApps.length <= 2
-                ? "flex flex-wrap gap-6"
-                : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          }
-        >
-          <AnimatePresence mode="popLayout">
-            {filteredApps.map((app, index) => (
-              <motion.div
-                key={app.appName}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: index * 0.04, duration: 0.2 }}
-                className={
-                  prefs.layout_mode !== "list" && filteredApps.length <= 2
-                    ? "w-full max-w-md"
-                    : ""
-                }
-              >
-                <AppCard
-                  app={app}
-                  onOpen={setOpenAppName}
-                  mode={prefs.layout_mode}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        /* Filtered view: show all matching as table */
+        filteredApps.length === 0 ? (
+          <div
+            className="py-10 text-center text-sm rounded-[14px]"
+            style={{
+              color: "var(--c-fg-3)",
+              background: "var(--c-surface-1)",
+              border: "1px solid var(--c-border-1)",
+            }}
+          >
+            No apps match this filter.
+          </div>
+        ) : (
+          <AppTable apps={filteredApps} onOpen={setOpenAppName} />
+        )
       )}
 
       {openAppName && (
-        <AppDetailModal
+        <AppDetailDrawer
           appName={openAppName}
           onClose={() => setOpenAppName(null)}
         />

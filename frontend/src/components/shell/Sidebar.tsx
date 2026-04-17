@@ -3,48 +3,107 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, Rocket, ScrollText, Settings } from "lucide-react";
-import { GlassCard } from "@/components/primitives/GlassCard";
+
+const items = [
+  { href: "/", label: "Apps", icon: LayoutGrid },
+  { href: "/activity", label: "Activity", icon: ScrollText },
+  { href: "/setup", label: "Setup", icon: Rocket },
+  { href: "/settings", label: "Settings", icon: Settings },
+] as const;
 
 export function Sidebar() {
   const pathname = usePathname();
-  const items = [
-    { href: "/", label: "Apps", icon: LayoutGrid },
-    { href: "/activity", label: "Activity", icon: ScrollText },
-    { href: "/setup", label: "Setup", icon: Rocket },
-    { href: "/settings", label: "Settings", icon: Settings },
-  ];
 
   return (
-    <aside className="hidden sm:flex fixed left-4 top-4 bottom-4 w-16 z-10">
-      <GlassCard variant="panel" className="flex flex-col items-center gap-4 w-full py-4">
-        <nav aria-label="Primary">
-          <div className="flex flex-col gap-2">
-            {items.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={isActive ? "page" : undefined}
-                  aria-label={item.label}
-                  className={`group relative flex items-center justify-center h-12 w-12 rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-accent-ghost/30 text-white before:content-[''] before:absolute before:left-0 before:w-[3px] before:h-full before:bg-accent-ghostLight before:rounded-r"
-                      : "bg-accent-ghost/10 text-slate-400 hover:bg-accent-ghost/20 hover:text-slate-200"
-                  }`}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="sr-only">{item.label}</span>
-                  <span className="absolute left-full ml-2 px-2 py-1 rounded bg-black/80 border border-white/10 text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none">
-                    {item.label}
-                  </span>
-                </Link>
-              );
-            })}
+    <aside
+      className="hidden md:flex fixed left-0 top-0 bottom-0 z-10 flex-col"
+      style={{
+        width: "var(--sidebar-width)",
+        borderRight: "1px solid var(--c-border-1)",
+        background: "rgba(8,8,14,0.72)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+      }}
+    >
+      {/* Logo / wordmark */}
+      <div
+        className="flex items-center gap-2.5 px-5 py-[22px]"
+        style={{ borderBottom: "1px solid var(--c-border-1)" }}
+      >
+        <div
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+          style={{ background: "linear-gradient(135deg, var(--c-ghost), var(--c-ghost-light))" }}
+        >
+          <Rocket className="h-4 w-4 text-white" aria-hidden />
+        </div>
+        <span className="text-[15px] font-semibold tracking-[-0.01em]" style={{ color: "var(--c-fg-0)" }}>
+          Launchpad
+        </span>
+      </div>
+
+      {/* Nav items */}
+      <nav className="flex flex-col gap-0.5 p-2.5" aria-label="Primary">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive ? "page" : undefined}
+              className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+              style={{
+                background: isActive ? "var(--c-ghost-soft)" : "transparent",
+                color: isActive ? "#DDD6FE" : "var(--c-fg-2)",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = "var(--c-surface-2)";
+                  e.currentTarget.style.color = "var(--c-fg-1)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--c-fg-2)";
+                }
+              }}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer user strip */}
+      <div
+        className="mt-auto p-3"
+        style={{ borderTop: "1px solid var(--c-border-1)" }}
+      >
+        <div
+          className="flex items-center gap-2.5 rounded-md px-2.5 py-2"
+          style={{
+            background: "var(--c-surface-1)",
+            border: "1px solid var(--c-border-1)",
+          }}
+        >
+          <div
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+            style={{ background: "linear-gradient(135deg, #7C3AED, #3B82F6)" }}
+          >
+            OP
           </div>
-        </nav>
-      </GlassCard>
+          <div className="min-w-0">
+            <div className="truncate text-[13px] font-medium" style={{ color: "var(--c-fg-1)" }}>
+              Ops
+            </div>
+            <div className="truncate text-[11px]" style={{ color: "var(--c-fg-3)" }}>
+              launchpad.dev
+            </div>
+          </div>
+        </div>
+      </div>
     </aside>
   );
 }

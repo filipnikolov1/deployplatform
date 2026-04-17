@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Rocket } from "lucide-react";
-import { GlassCard } from "@/components/primitives/GlassCard";
-import { Input } from "@/components/primitives/Input";
 import { CodeBlock } from "./CodeBlock";
 import { HealthChecklist } from "./HealthChecklist";
 import { useDeployUrl } from "@/hooks/useDeployUrl";
@@ -14,6 +11,32 @@ import {
   type TechStack,
 } from "@/lib/setup/workflow-generators";
 
+function SetupStep({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
+  return (
+    <section
+      className="rounded-[14px] p-6 mb-3.5"
+      style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
+    >
+      <div className="flex items-center gap-3 mb-4">
+        <span
+          className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-full text-[12px] font-semibold tabular-nums shrink-0"
+          style={{
+            background: "var(--c-ghost-soft)",
+            border: "1px solid var(--c-ghost-line)",
+            color: "#DDD6FE",
+          }}
+        >
+          {number}
+        </span>
+        <h2 className="text-[15px] font-semibold tracking-[-0.005em] m-0" style={{ color: "var(--c-fg-0)" }}>
+          {title}
+        </h2>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export function SetupGuide() {
   const { url, isLoading } = useDeployUrl();
   const [appName, setAppName] = useState("my-app");
@@ -21,131 +44,113 @@ export function SetupGuide() {
   const [stack, setStack] = useState<TechStack>("nodejs");
   const [port, setPort] = useState("3000");
   const [curlTemplate, setCurlTemplate] = useState<string>("");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(
-          `/api/deploy-hook/curl-template?app=${encodeURIComponent(appName)}`,
-        );
+        const res = await fetch(`/api/deploy-hook/curl-template?app=${encodeURIComponent(appName)}`);
         if (!res.ok) return;
         const text = await res.text();
         if (!cancelled) setCurlTemplate(text);
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
     };
     if (appName) void load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [appName]);
 
-  const workflow = useMemo(
-    () => generateWorkflow(appName, branch, stack, port),
-    [appName, branch, stack, port],
-  );
+  const workflow = useMemo(() => generateWorkflow(appName, branch, stack, port), [appName, branch, stack, port]);
   const dockerfile = useMemo(() => generateDockerfile(stack), [stack]);
 
-  return (
-    <div className="space-y-6">
-      <div className="glass-page-header">
-        <div className="flex items-center gap-4">
-          <div className="rounded-2xl border border-sky-200/20 bg-sky-300/10 p-3">
-            <Rocket className="h-5 w-5 text-sky-200" />
-          </div>
-          <div>
-            <div className="glass-kicker">First Deploy</div>
-            <h1 className="glass-title text-3xl sm:text-3xl">Setup Guide</h1>
-            <p className="glass-subtitle">
-              Configure repository, workflow, and Docker image publishing.
-            </p>
-          </div>
-        </div>
-      </div>
+  const field = (id: string, label: string, value: string, onChange: (v: string) => void, inputMode?: "numeric") => (
+    <div>
+      <label
+        htmlFor={id}
+        className="block text-[11px] font-semibold uppercase tracking-[0.12em] mb-1.5"
+        style={{ color: "var(--c-fg-2)" }}
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocusedField(id)}
+        onBlur={() => setFocusedField(null)}
+        inputMode={inputMode}
+        className="w-full px-3 py-2.5 text-sm rounded-md outline-none transition-[border-color] duration-[120ms]"
+        style={{
+          background: "var(--c-surface-1)",
+          border: `1px solid ${focusedField === id ? "var(--c-ghost-line)" : "var(--c-border-2)"}`,
+          color: "var(--c-fg-1)",
+          fontFamily: "inherit",
+        }}
+      />
+    </div>
+  );
 
-      <GlassCard radius="panel" className="p-6">
-        <h2 className="mb-2 text-lg font-semibold text-slate-100">
-          1) Repository
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="md:col-span-2">
-            <Input
-              label="App name"
-              value={appName}
-              onChange={(e) =>
-                setAppName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
-              }
-            />
-          </div>
-          <Input
-            label="Branch"
-            value={branch}
-            onChange={(e) => setBranch(e.target.value)}
-          />
-          <Input
-            label="Port"
-            value={port}
-            inputMode="numeric"
-            onChange={(e) => setPort(e.target.value)}
-          />
+  return (
+    <div>
+      <SetupStep number={1} title="Repository">
+        <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-3 mb-4">
+          {field("setup-app-name", "App name", appName, (v) => setAppName(v.toLowerCase().replace(/[^a-z0-9-]/g, "")))}
+          {field("setup-branch", "Branch", branch, setBranch)}
+          {field("setup-port", "Port", port, setPort, "numeric")}
         </div>
-        <div className="mt-4">
-          <p className="mb-2 pl-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300/72">
+        <div>
+          <p
+            className="text-[11px] font-semibold uppercase tracking-[0.12em] mb-2"
+            style={{ color: "var(--c-fg-2)" }}
+          >
             Deploy hook endpoint
           </p>
-          <CodeBlock code={isLoading ? "Loading deploy URL..." : url} language="text" />
+          <CodeBlock code={isLoading ? "Loading deploy URL…" : url} language="url" />
         </div>
-      </GlassCard>
+      </SetupStep>
 
-      <GlassCard radius="panel" className="p-6">
-        <h2 className="text-lg font-semibold text-slate-100 mb-2">2) Tech stack</h2>
+      <SetupStep number={2} title="Tech stack">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {techStackOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setStack(option.value)}
-              className={`rounded-2xl px-3 py-2.5 text-sm border backdrop-blur-xl transition-colors ${
-                stack === option.value
-                  ? "border-sky-200/30 bg-sky-300/12 text-sky-100"
-                  : "border-white/[0.10] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
+          {techStackOptions.map((option) => {
+            const sel = stack === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setStack(option.value)}
+                className="rounded-md px-3 py-3 text-[13px] font-medium transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+                style={{
+                  background: sel ? "var(--c-ghost-soft)" : "var(--c-surface-2)",
+                  border: `1px solid ${sel ? "var(--c-ghost-line)" : "var(--c-border-2)"}`,
+                  color: sel ? "#DDD6FE" : "var(--c-fg-1)",
+                  cursor: "pointer",
+                }}
+              >
+                {option.label}
+              </button>
+            );
+          })}
         </div>
-      </GlassCard>
+      </SetupStep>
 
-      <GlassCard radius="panel" className="p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-slate-100">3) Workflow</h2>
-        <CodeBlock code={workflow} language="yaml" />
-      </GlassCard>
+      <SetupStep number={3} title="GitHub Actions workflow">
+        <CodeBlock code={workflow} language=".github/workflows/deploy.yml" />
+      </SetupStep>
 
-      <GlassCard radius="panel" className="p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-slate-100">4) Dockerfile</h2>
-        <CodeBlock code={dockerfile} language="dockerfile" />
-      </GlassCard>
+      <SetupStep number={4} title="Dockerfile">
+        <CodeBlock code={dockerfile} language="Dockerfile" />
+      </SetupStep>
 
-      <GlassCard radius="panel" className="p-6 space-y-3">
-        <h2 className="text-lg font-semibold text-slate-100">
-          5) Manual deploy (curl)
-        </h2>
-        <p className="text-sm text-slate-400">
+      <SetupStep number={5} title="Manual deploy (curl)">
+        <p className="text-[13px] mb-3" style={{ color: "var(--c-fg-2)" }}>
           Copy this command to trigger a deploy from your terminal for testing.
         </p>
-        <CodeBlock
-          code={curlTemplate || "# loading template…"}
-          language="bash"
-        />
-      </GlassCard>
+        <CodeBlock code={curlTemplate || "# loading template…"} language="bash" />
+      </SetupStep>
 
-      <GlassCard radius="panel" className="p-6 space-y-3">
-        <h2 className="text-lg font-semibold text-slate-100">Health checklist</h2>
+      <SetupStep number={6} title="Health checklist">
         <HealthChecklist />
-      </GlassCard>
+      </SetupStep>
     </div>
   );
 }

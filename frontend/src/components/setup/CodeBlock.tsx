@@ -16,37 +16,55 @@ export function CodeBlock({ code, language, label = "Copy" }: Props) {
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* noop */
-    }
+      setTimeout(() => setCopied(false), 1800);
+    } catch { /* noop */ }
   };
 
   return (
     <div className="relative">
-      <div className="absolute top-2 right-2 z-10">
-        <button
-          type="button"
-          onClick={handleCopy}
-          aria-label={label}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-white/[0.12] bg-white/[0.04] text-xs text-slate-200 hover:bg-white/[0.08] focus:outline-none focus-visible:ring-focus"
-        >
-          {copied ? (
-            <>
-              <Check className="h-3.5 w-3.5 text-green-400" />
-              <span className="text-green-400">Copied</span>
-            </>
-          ) : (
-            <>
-              <Copy className="h-3.5 w-3.5" />
-              <span>Copy</span>
-            </>
-          )}
-        </button>
-      </div>
-      <div className="rounded-lg bg-black/40 border border-white/[0.08] p-4 overflow-x-auto">
-        <pre className="text-xs text-slate-200 font-mono leading-relaxed">
-          <code data-language={language}>{code}</code>
+      {/* Copy button */}
+      <button
+        type="button"
+        onClick={handleCopy}
+        aria-label={label}
+        className="absolute top-2.5 right-2.5 z-10 inline-flex items-center gap-1.5 rounded px-2.5 py-[5px] text-[11.5px] font-medium transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+        style={{
+          background: copied ? "rgba(34,197,94,0.12)" : "var(--c-surface-2)",
+          border: `1px solid ${copied ? "rgba(34,197,94,0.28)" : "var(--c-border-2)"}`,
+          color: copied ? "#86EFAC" : "var(--c-fg-1)",
+        }}
+      >
+        {copied ? (
+          <>
+            <Check className="h-3 w-3" />
+            Copied
+          </>
+        ) : (
+          <>
+            <Copy className="h-3 w-3" />
+            Copy
+          </>
+        )}
+      </button>
+
+      {/* Code area */}
+      <div
+        className="rounded-[10px] p-4 overflow-x-auto"
+        style={{
+          background: "#040408",
+          border: "1px solid var(--c-border-1)",
+        }}
+      >
+        {language && (
+          <span
+            className="block mb-4 text-[10px] font-semibold uppercase tracking-[0.12em]"
+            style={{ color: "var(--c-fg-3)", fontFamily: "inherit" }}
+          >
+            {language}
+          </span>
+        )}
+        <pre className="text-xs text-slate-300 font-mono leading-relaxed m-0" style={{ whiteSpace: "pre" }}>
+          <code>{code}</code>
         </pre>
       </div>
     </div>
