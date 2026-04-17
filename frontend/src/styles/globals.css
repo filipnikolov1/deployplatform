@@ -4,6 +4,38 @@
 
 :root {
   color-scheme: dark;
+
+  /* ── Clean variant design tokens ── */
+  --c-bg-body:    #020202;
+  --c-surface-1:  rgba(255,255,255,0.025);
+  --c-surface-2:  rgba(255,255,255,0.045);
+  --c-surface-3:  rgba(255,255,255,0.065);
+  --c-border-1:   rgba(255,255,255,0.06);
+  --c-border-2:   rgba(255,255,255,0.10);
+  --c-border-3:   rgba(255,255,255,0.14);
+
+  --c-fg-0: #F8FAFC;
+  --c-fg-1: #E2E8F0;
+  --c-fg-2: #94A3B8;
+  --c-fg-3: #64748B;
+
+  --c-ghost:      #7C3AED;
+  --c-ghost-light:#A78BFA;
+  --c-ghost-soft: rgba(124,58,237,0.18);
+  --c-ghost-line: rgba(167,139,250,0.32);
+
+  --c-running:  #22C55E;
+  --c-building: #F59E0B;
+  --c-failed:   #EF4444;
+  --c-stopped:  #64748B;
+
+  --c-radius-sm: 6px;
+  --c-radius-md: 8px;
+  --c-radius-lg: 10px;
+  --c-radius-xl: 14px;
+  --c-radius-pill: 9999px;
+
+  --sidebar-width: 220px;
 }
 
 html, body {
@@ -119,6 +151,35 @@ input, textarea, select, button {
 
   .glass-control::placeholder {
     color: rgba(148, 163, 184, 0.72);
+  }
+}
+
+/* ── Clean variant animations ── */
+@keyframes lp-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes lp-slidein {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes lp-spin {
+  to { transform: rotate(360deg); }
+}
+
+.lp-fadein  { animation: lp-fadein  160ms ease-out; }
+.lp-slidein { animation: lp-slidein 220ms cubic-bezier(0.2,0.8,0.2,1); }
+
+/* ── Sidebar layout helpers ── */
+.sidebar-layout {
+  padding-left: var(--sidebar-width);
+}
+
+@media (max-width: 767px) {
+  .sidebar-layout {
+    padding-left: 0;
   }
 }
 
