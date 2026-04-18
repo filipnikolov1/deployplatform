@@ -3,6 +3,7 @@
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 import { BackendUpdatingOverlay } from "./BackendUpdatingOverlay";
+import { FrontendUpdatingOverlay } from "./FrontendUpdatingOverlay";
 import { useUpdateAvailableNotifier } from "@/hooks/useUpdateAvailableNotifier";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -32,6 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
       <BottomNav />
       <BackendUpdatingOverlay />
+      <FrontendUpdatingOverlay />
     </div>
   );
 }
