@@ -35,6 +35,7 @@ import { DeployHistoryList } from "./DeployHistoryList";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { AppDetailSkeleton } from "./AppDetailSkeleton";
 import { statusConfig, toAppStatus } from "@/lib/statusConfig";
+import { clearBackendUpdatePending, markBackendUpdatePending } from "@/lib/self-update";
 import type { Deployment } from "@/types/deployment";
 
 interface Props {
@@ -171,15 +172,31 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
     if (updating || !app) return;
     setUpdating(true);
     try {
+      if (app.appName === "launchpad-backend") {
+        markBackendUpdatePending();
+      }
       const res = await fetch(`/api/self-apps/${encodeURIComponent(app.appName)}/update`, { method: "POST" });
-      if (!res.ok) { toast.error("Update failed"); setUpdating(false); return; }
+      if (!res.ok) {
+        if (app.appName === "launchpad-backend") {
+          clearBackendUpdatePending();
+        }
+        toast.error("Update failed");
+        setUpdating(false);
+        return;
+      }
       toast.success("Update triggered — restarting");
       mutateApp();
       setTimeout(() => {
         setUpdating(false);
         onClose();
       }, 1500);
-    } catch { toast.error("Update failed"); setUpdating(false); }
+    } catch {
+      if (app.appName === "launchpad-backend") {
+        clearBackendUpdatePending();
+      }
+      toast.error("Update failed");
+      setUpdating(false);
+    }
   };
 
   const handleDownloadLogs = async () => {
