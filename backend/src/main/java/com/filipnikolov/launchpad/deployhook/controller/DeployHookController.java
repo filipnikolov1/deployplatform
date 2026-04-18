@@ -114,7 +114,7 @@ public class DeployHookController {
 
         CreateDeploymentRequest req = new CreateDeploymentRequest(
                 appName, repoUrl, imageName, containerPort,
-                branch, commitSha, commitMessage, commitAuthor, commitTs, trigger);
+                branch, commitSha, commitMessage, commitAuthor, commitTs, null, trigger);
 
         Optional<Deployment> existing = deploymentRepository.findByAppName(appName);
         if (existing.isPresent() && existing.get().getPinnedImage() != null) {

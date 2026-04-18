@@ -17,6 +17,9 @@ public class Deployment {
 
     private String appName;
 
+    @Column(length = 63)
+    private String subdomain;
+
     private String repoUrl;
 
     private String imageName;

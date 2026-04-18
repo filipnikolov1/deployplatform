@@ -58,4 +58,10 @@ public interface DeploymentService {
      * Releases the pinned image so future webhook deploys take effect again.
      */
     Deployment unpin(String appName);
+
+    /**
+     * Sets a custom Traefik subdomain for the app. Pass null to revert to the default (appName).
+     * Triggers a restart if the app is currently running so the new label takes effect.
+     */
+    Deployment updateSubdomain(String appName, String subdomain);
 }
