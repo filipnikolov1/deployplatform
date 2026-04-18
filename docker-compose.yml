@@ -41,6 +41,7 @@ services:
 
   launchpad:
     image: filipn123/launchpad-backend:latest
+    container_name: launchpad-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -69,6 +70,7 @@ services:
 
   launchpad-frontend:
     image: filipn123/launchpad-frontend:latest
+    container_name: launchpad-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
