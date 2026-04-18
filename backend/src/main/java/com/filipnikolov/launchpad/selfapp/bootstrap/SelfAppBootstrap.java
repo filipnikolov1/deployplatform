@@ -19,12 +19,15 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 @RequiredArgsConstructor
 public class SelfAppBootstrap {
 
     private static final Logger log = LoggerFactory.getLogger(SelfAppBootstrap.class);
+    private static final Pattern GIT_TAG_PATTERN = Pattern.compile(":git-([A-Fa-f0-9]{7,64})$");
 
     private final DeploymentRepository deploymentRepository;
     private final DeploymentEventService eventService;
@@ -36,14 +39,20 @@ public class SelfAppBootstrap {
     @Value("${LAUNCHPAD_GIT_MESSAGE:local build}")
     private String runningMessage;
 
+    @Value("${LAUNCHPAD_BACKEND_IMAGE:filipn123/launchpad-backend:latest}")
+    private String backendImage;
+
+    @Value("${LAUNCHPAD_FRONTEND_IMAGE:filipn123/launchpad-frontend:latest}")
+    private String frontendImage;
+
     @PostConstruct
     public void bootstrap() {
         if ("dev".equals(runningSha)) {
             log.info("Skipping self-app bootstrap (LAUNCHPAD_GIT_SHA not set — running outside compose)");
             return;
         }
-        ensureSelfApp("launchpad-backend", "filipn123/launchpad-backend:git-" + runningSha);
-        ensureSelfApp("launchpad-frontend", "filipn123/launchpad-frontend:latest");
+        ensureSelfApp("launchpad-backend", backendImage);
+        ensureSelfApp("launchpad-frontend", frontendImage);
         reconcilePendingUpdates("launchpad-backend");
     }
 
@@ -60,6 +69,7 @@ public class SelfAppBootstrap {
                     return newD;
                 });
         d.setSelfApp(true);
+        d.setImageName(image);
         if (d.getPinnedImage() == null) {
             d.setPinnedImage(image);
             d.setPinnedAt(LocalDateTime.now());
@@ -67,6 +77,8 @@ public class SelfAppBootstrap {
         if (appName.equals("launchpad-backend")) {
             d.setCommitSha(runningSha);
             d.setCommitMessage(runningMessage);
+        } else {
+            extractGitSha(image).ifPresent(d::setCommitSha);
         }
         d.setUpdatedAt(LocalDateTime.now());
         deploymentRepository.save(d);
@@ -102,5 +114,16 @@ public class SelfAppBootstrap {
             }
             pendingRepo.delete(p);
         }
+    }
+
+    private java.util.Optional<String> extractGitSha(String image) {
+        if (image == null) {
+            return java.util.Optional.empty();
+        }
+        Matcher matcher = GIT_TAG_PATTERN.matcher(image);
+        if (!matcher.find()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(matcher.group(1));
     }
 }

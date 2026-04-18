@@ -40,7 +40,7 @@ services:
       - traefik
 
   launchpad:
-    image: filipn123/launchpad-backend:latest
+    image: ${LAUNCHPAD_BACKEND_IMAGE:-filipn123/launchpad-backend:latest}
     container_name: launchpad-backend
     build:
       context: ./backend
@@ -51,6 +51,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/launchpad
       DOCKER_SOCKET: unix:///var/run/docker.sock
       OLLAMA_BASE_URL: http://ollama:11434
+      UPDATER_BASE_URL: http://launchpad-updater:8080
     volumes:
       - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
     depends_on:
@@ -69,7 +70,7 @@ services:
       - "traefik.http.services.launchpad.loadbalancer.server.port=8082"
 
   launchpad-frontend:
-    image: filipn123/launchpad-frontend:latest
+    image: ${LAUNCHPAD_FRONTEND_IMAGE:-filipn123/launchpad-frontend:latest}
     container_name: launchpad-frontend
     build:
       context: ./frontend
@@ -94,9 +95,12 @@ services:
     build:
       context: ./updater
       dockerfile: Dockerfile
+    environment:
+      COMPOSE_PROJECT_NAME: launchpad
     volumes:
       - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
       - ./docker-compose.yml:/workspace/docker-compose.yml:ro
+      - ./.env:/workspace/.env:ro
     networks:
       - traefik
     restart: unless-stopped
