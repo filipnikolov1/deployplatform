@@ -13,5 +13,7 @@ public interface PendingSelfUpdateRepository extends JpaRepository<PendingSelfUp
 
     List<PendingSelfUpdate> findByAppName(String appName);
 
+    void deleteByAppNameAndTargetSha(String appName, String targetSha);
+
     List<PendingSelfUpdate> findByTriggeredAtBefore(LocalDateTime cutoff);
 }
