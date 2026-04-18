@@ -57,8 +57,10 @@ public class SelfAppBootstrap {
     }
 
     private void ensureSelfApp(String appName, String image) {
+        final boolean[] created = {false};
         Deployment d = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
                 .orElseGet(() -> {
+                    created[0] = true;
                     Deployment newD = new Deployment();
                     newD.setAppName(appName);
                     newD.setRepoUrl("https://github.com/filipnikolov1/launchpad");
@@ -83,9 +85,11 @@ public class SelfAppBootstrap {
         d.setUpdatedAt(LocalDateTime.now());
         deploymentRepository.save(d);
 
-        eventService.record(DeploymentEventType.SELF_APP_BOOTSTRAPPED,
-                DeploymentEventStatus.SUCCESS, appName, null, null, null);
-        log.info("Self-app bootstrapped: {}", appName);
+        if (created[0]) {
+            eventService.record(DeploymentEventType.SELF_APP_BOOTSTRAPPED,
+                    DeploymentEventStatus.SUCCESS, appName, null, null, null);
+            log.info("Self-app bootstrapped: {}", appName);
+        }
     }
 
     private void reconcilePendingUpdates(String appName) {

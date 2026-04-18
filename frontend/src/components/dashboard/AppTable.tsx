@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronRight, GitBranch, Layers } from "lucide-react";
+import { getDisplayImageName } from "@/lib/image-display";
 import { formatRelative } from "@/lib/time";
 import { statusConfig, toAppStatus } from "@/lib/statusConfig";
 import type { Deployment } from "@/types/deployment";
@@ -14,6 +15,7 @@ interface AppTableProps {
 
 function AppRow({ app, onOpen }: { app: Deployment; onOpen: (name: string) => void }) {
   const [hover, setHover] = useState(false);
+  const displayImageName = getDisplayImageName(app);
   const status = toAppStatus(app.status);
   const config = statusConfig[status];
   const dotColor = status === "RUNNING" ? "#22C55E"
@@ -87,7 +89,7 @@ function AppRow({ app, onOpen }: { app: Deployment; onOpen: (name: string) => vo
           maxWidth: 220,
         }}
       >
-        {app.imageName}
+        {displayImageName}
       </td>
 
       {/* Branch */}

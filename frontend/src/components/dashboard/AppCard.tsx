@@ -10,6 +10,7 @@ import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useCommitsAhead } from "@/hooks/useCommitsAhead";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useToast } from "@/hooks/useToast";
+import { getDisplayImageName } from "@/lib/image-display";
 import { statusConfig, toAppStatus } from "@/lib/statusConfig";
 import type { Deployment } from "@/types/deployment";
 
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function AppCard({ app, onOpen, mode = "grid" }: Props) {
+  const displayImageName = getDisplayImageName(app);
   const prefersReducedMotion = usePrefersReducedMotion();
   const { commitsAhead } = useCommitsAhead(app.appName);
   const { prefs } = usePreferences();
@@ -241,7 +243,7 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
             <Icon className="h-3 w-3" />
             {config.label}
           </span>
-          <span className="text-slate-400 font-mono truncate">{app.imageName}</span>
+          <span className="text-slate-400 font-mono truncate">{displayImageName}</span>
           <span className="text-slate-300 tabular-nums">port {app.containerPort}</span>
           <span className="text-slate-400 inline-flex items-center gap-1">
             <Clock className="h-3 w-3" />
@@ -272,7 +274,7 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
 
           <div className="flex items-center justify-between gap-2 pt-3 pb-3 border-t border-white/[0.08] mt-3">
             <span className="text-xs text-slate-400 truncate font-mono">
-              {app.imageName}
+              {displayImageName}
             </span>
           </div>
 

@@ -34,6 +34,7 @@ import { EnvVarsTab } from "./EnvVarsTab";
 import { DeployHistoryList } from "./DeployHistoryList";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { AppDetailSkeleton } from "./AppDetailSkeleton";
+import { getDisplayImageParts } from "@/lib/image-display";
 import { statusConfig, toAppStatus } from "@/lib/statusConfig";
 import { clearBackendUpdatePending, markBackendUpdatePending } from "@/lib/self-update";
 import type { Deployment } from "@/types/deployment";
@@ -348,11 +349,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                   ? app.repoUrl.replace(/\.git$/, "").replace(/^https?:\/\/(github\.com\/)?/, "")
                   : null;
                 const repoHref = app.repoUrl ? app.repoUrl.replace(/\.git$/, "") : null;
-                const [imageRepo, imageTag] = (() => {
-                  const idx = app.imageName.lastIndexOf(":");
-                  if (idx === -1) return [app.imageName, null];
-                  return [app.imageName.slice(0, idx), app.imageName.slice(idx + 1)];
-                })();
+                const displayImage = getDisplayImageParts(app);
                 const commitHref = app.commitSha && app.repoUrl
                   ? `${app.repoUrl.replace(/\.git$/, "")}/commit/${app.commitSha}`
                   : null;
@@ -363,20 +360,20 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                   >
                     {/* Image */}
                     <InfoRow icon={Container} label="Image">
-                      <span className="font-mono truncate">{imageRepo}</span>
-                      {imageTag && (
+                      <span className="font-mono truncate">{displayImage.repo}</span>
+                      {displayImage.tag && (
                         <span
                           className="shrink-0 font-mono rounded px-1.5 py-0.5 text-[10px]"
                           style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border-2)" }}
                         >
-                          {imageTag}
+                          {displayImage.tag}
                         </span>
                       )}
                       <button
                         type="button"
                         aria-label="Copy image name"
                         onClick={() => {
-                          void navigator.clipboard.writeText(app.imageName);
+                          void navigator.clipboard.writeText(displayImage.full);
                           toast.success("Copied");
                         }}
                         className="shrink-0 flex items-center justify-center rounded p-0.5 transition-colors hover:bg-white/10"
