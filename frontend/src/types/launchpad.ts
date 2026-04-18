@@ -38,6 +38,7 @@ export interface DeploymentEvent {
   triggeredBy: TriggerSource;
   createdAt: string; // ISO 8601
   finishedAt: string | null;
+  availableLocally?: boolean | null;
 }
 
 // Matches backend-makeover.md §2
