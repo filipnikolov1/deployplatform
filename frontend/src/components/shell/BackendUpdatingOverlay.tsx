@@ -6,8 +6,10 @@ import { Button } from "@/components/primitives/Button";
 import {
   clearBackendUpdatePending,
   hasPendingBackendUpdate,
+  markBackendUpdatePending,
   subscribeToBackendUpdateState,
 } from "@/lib/self-update";
+import { useSelfAppPending } from "@/hooks/useSelfAppPending";
 
 const POLL_INTERVAL_MS = 1500;
 
@@ -17,10 +19,17 @@ export function BackendUpdatingOverlay() {
   const [pendingUpdate, setPendingUpdate] = useState(false);
   const [phase, setPhase] = useState<OverlayPhase>("hidden");
   const phaseRef = useRef<OverlayPhase>("hidden");
+  const { pending: serverPending } = useSelfAppPending("launchpad-backend");
 
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    if (serverPending && !hasPendingBackendUpdate()) {
+      markBackendUpdatePending();
+    }
+  }, [serverPending]);
 
   useEffect(() => {
     const syncPendingState = () => {

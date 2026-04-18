@@ -29,6 +29,8 @@ import { useToast } from "@/hooks/useToast";
 import { useEvents } from "@/hooks/useEvents";
 import { useContainerStats } from "@/hooks/useContainerStats";
 import { useCommitsAhead } from "@/hooks/useCommitsAhead";
+import { useSelfAppPending } from "@/hooks/useSelfAppPending";
+import { Loader2 } from "lucide-react";
 import { BuildLogViewer } from "./BuildLogViewer";
 import { EnvVarsTab } from "./EnvVarsTab";
 import { DeployHistoryList } from "./DeployHistoryList";
@@ -121,8 +123,15 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
   const { events } = useEvents({ appName, limit: 20 });
   const { stats } = useContainerStats(appName);
   const { commitsAhead } = useCommitsAhead(appName);
+  const { pending, refresh: refreshPending } = useSelfAppPending(
+    app?.isSelfApp ? app.appName : null,
+  );
   const toast = useToast();
   const { mutate } = useSWRConfig();
+
+  useEffect(() => {
+    if (pending) setUpdating(false);
+  }, [pending]);
 
   const titleId = `drawer-${appName}`;
 
@@ -170,13 +179,18 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
   };
 
   const handleUpdate = async () => {
-    if (updating || !app) return;
+    if (updating || pending || !app) return;
     setUpdating(true);
     try {
       if (app.appName === "launchpad-backend") {
         markBackendUpdatePending();
       }
       const res = await fetch(`/api/self-apps/${encodeURIComponent(app.appName)}/update`, { method: "POST" });
+      if (res.status === 409) {
+        toast.info("Update already in progress");
+        void refreshPending();
+        return;
+      }
       if (!res.ok) {
         if (app.appName === "launchpad-backend") {
           clearBackendUpdatePending();
@@ -185,12 +199,9 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
         setUpdating(false);
         return;
       }
-      toast.success("Update triggered — restarting");
+      toast.success("Update triggered");
       mutateApp();
-      setTimeout(() => {
-        setUpdating(false);
-        onClose();
-      }, 1500);
+      void refreshPending();
     } catch {
       if (app.appName === "launchpad-backend") {
         clearBackendUpdatePending();
@@ -220,6 +231,14 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
   };
 
   const hasUpdate = app?.isSelfApp && !!app.latestKnownSha && app.commitSha !== app.latestKnownSha;
+  const isUpdating = !!pending || updating;
+  const updateLabel = pending?.phase === "RECREATING"
+    ? "Restarting container…"
+    : pending?.phase === "PULLING"
+      ? "Pulling image…"
+      : updating
+        ? "Starting update…"
+        : "Update to latest";
 
   const status = app ? toAppStatus(app.status) : "STOPPED";
   const config = statusConfig[status];
@@ -594,14 +613,14 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
               className="flex flex-wrap items-center gap-2 px-6 py-3"
               style={{ borderBottom: "1px solid var(--c-border-1)" }}
             >
-              {hasUpdate ? (
+              {hasUpdate || isUpdating ? (
                 <ActionButton
                   onClick={handleUpdate}
-                  disabled={updating}
-                  loading={updating}
+                  disabled={isUpdating}
+                  loading={isUpdating}
                   variant="primary"
                 >
-                  {updating ? "Updating…" : "Update to latest"}
+                  {updateLabel}
                 </ActionButton>
               ) : (
                 <ActionButton
@@ -630,8 +649,40 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
               </ActionButton>
             </div>
 
-            {/* ── Update available banner ── */}
-            {hasUpdate && (
+            {/* ── Update status banner ── */}
+            {isUpdating ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="mx-6 mt-4 flex items-center gap-4 rounded-[10px] p-4"
+                style={{
+                  background: "rgba(139,92,246,0.08)",
+                  border: "1px solid rgba(139,92,246,0.25)",
+                }}
+              >
+                <div
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                  style={{
+                    background: "rgba(139,92,246,0.15)",
+                    border: "1px solid rgba(139,92,246,0.30)",
+                  }}
+                >
+                  <Loader2 className="h-5 w-5 animate-spin text-violet-200" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-violet-100">{updateLabel}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono">
+                    <span className="text-violet-100/60">target</span>
+                    <span className="text-violet-100">
+                      {(pending?.targetSha ?? app.latestKnownSha ?? "").slice(0, 7) || "—"}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-violet-100/70 font-sans">
+                    This may take a minute while the new image is pulled and the container restarts.
+                  </div>
+                </div>
+              </div>
+            ) : hasUpdate ? (
               <div
                 role="status"
                 aria-live="polite"
@@ -664,7 +715,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                   )}
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* ── Telemetry strip ── */}
             <div
