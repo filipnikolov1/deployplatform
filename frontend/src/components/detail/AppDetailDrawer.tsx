@@ -7,6 +7,7 @@ import useSWR, { useSWRConfig } from "swr";
 import {
   ArrowRight,
   ArrowUpCircle,
+  Check,
   Clock,
   Container,
   Copy,
@@ -17,6 +18,7 @@ import {
   GitCommit,
   Globe,
   HardDrive,
+  Pencil,
   Plug,
   RotateCcw,
   TrendingUp,
@@ -104,6 +106,10 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
   const [downloadingLogs, setDownloadingLogs] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [editingSubdomain, setEditingSubdomain] = useState(false);
+  const [subdomainInput, setSubdomainInput] = useState("");
+  const [subdomainError, setSubdomainError] = useState<string | null>(null);
+  const [savingSubdomain, setSavingSubdomain] = useState(false);
 
   const { data: app } = useSWR<Deployment>(
     `/api/apps/${encodeURIComponent(appName)}`,
@@ -319,7 +325,8 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
               {/* ── Info grid ── */}
               {(() => {
                 const baseDomain = process.env.NEXT_PUBLIC_APP_BASE_DOMAIN ?? "localhost";
-                const publicUrl = `http://${app.appName}.${baseDomain}`;
+                const effectiveSubdomain = app.subdomain ?? app.appName;
+                const publicUrl = `http://${effectiveSubdomain}.${baseDomain}`;
                 const repoDisplay = app.repoUrl
                   ? app.repoUrl.replace(/\.git$/, "").replace(/^https?:\/\/(github\.com\/)?/, "")
                   : null;
@@ -365,16 +372,110 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                     {/* Page URL — hidden for self-apps */}
                     {!app.isSelfApp && (
                       <InfoRow icon={Globe} label="URL">
-                        <a
-                          href={publicUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 truncate hover:opacity-80"
-                          style={{ color: "#C4B5FD" }}
-                        >
-                          {publicUrl.replace(/^https?:\/\//, "")}
-                          <ExternalLink className="h-3 w-3 shrink-0" />
-                        </a>
+                        {editingSubdomain ? (
+                          <span className="flex flex-col gap-1 flex-1 min-w-0">
+                            <span className="flex items-center gap-1.5">
+                              <input
+                                autoFocus
+                                value={subdomainInput}
+                                onChange={(e) => {
+                                  setSubdomainInput(e.target.value);
+                                  setSubdomainError(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape") {
+                                    setEditingSubdomain(false);
+                                    setSubdomainError(null);
+                                  }
+                                }}
+                                className="flex-1 min-w-0 rounded px-2 py-0.5 text-xs font-mono outline-none focus-visible:ring-1 focus-visible:ring-accent-ghostLight"
+                                style={{
+                                  background: "var(--c-surface-2)",
+                                  border: "1px solid var(--c-border-2)",
+                                  color: "var(--c-fg-1)",
+                                }}
+                                placeholder={app.appName}
+                              />
+                              <span className="shrink-0 text-[10px]" style={{ color: "var(--c-fg-3)" }}>.{baseDomain}</span>
+                              <button
+                                type="button"
+                                disabled={savingSubdomain}
+                                onClick={async () => {
+                                  const val = subdomainInput.trim();
+                                  const SUBDOMAIN_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+                                  if (val !== "" && !SUBDOMAIN_RE.test(val)) {
+                                    setSubdomainError("Only lowercase letters, digits, and hyphens; must start and end with alphanumeric");
+                                    return;
+                                  }
+                                  setSavingSubdomain(true);
+                                  try {
+                                    const res = await fetch(`/api/apps/${encodeURIComponent(app.appName)}/subdomain`, {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ subdomain: val || null }),
+                                    });
+                                    if (!res.ok) {
+                                      const data = await res.json().catch(() => ({}));
+                                      const msg = (data as { error?: string }).error ?? "Failed to update subdomain";
+                                      toast.error(msg);
+                                    } else {
+                                      toast.success("Subdomain updated");
+                                      setEditingSubdomain(false);
+                                      mutateApp();
+                                    }
+                                  } catch {
+                                    toast.error("Failed to update subdomain");
+                                  } finally {
+                                    setSavingSubdomain(false);
+                                  }
+                                }}
+                                className="shrink-0 flex items-center justify-center rounded p-0.5 transition-colors hover:bg-white/10"
+                                style={{ color: "#86EFAC" }}
+                                aria-label="Save subdomain"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setEditingSubdomain(false); setSubdomainError(null); }}
+                                className="shrink-0 flex items-center justify-center rounded p-0.5 transition-colors hover:bg-white/10"
+                                style={{ color: "var(--c-fg-3)" }}
+                                aria-label="Cancel"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </span>
+                            {subdomainError && (
+                              <span className="text-[10px]" style={{ color: "#FCA5A5" }}>{subdomainError}</span>
+                            )}
+                          </span>
+                        ) : (
+                          <>
+                            <a
+                              href={publicUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 truncate hover:opacity-80"
+                              style={{ color: "#C4B5FD" }}
+                            >
+                              {publicUrl.replace(/^https?:\/\//, "")}
+                              <ExternalLink className="h-3 w-3 shrink-0" />
+                            </a>
+                            <button
+                              type="button"
+                              aria-label="Edit subdomain"
+                              onClick={() => {
+                                setSubdomainInput(app.subdomain ?? "");
+                                setSubdomainError(null);
+                                setEditingSubdomain(true);
+                              }}
+                              className="shrink-0 flex items-center justify-center rounded p-0.5 transition-colors hover:bg-white/10"
+                              style={{ color: "var(--c-fg-3)" }}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                          </>
+                        )}
                       </InfoRow>
                     )}
 
