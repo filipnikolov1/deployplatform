@@ -112,6 +112,17 @@ public class DockerServiceImpl implements DockerService {
     }
 
     @Override
+    public boolean imageExistsLocally(String imageName) {
+        if (imageName == null || imageName.isBlank()) return false;
+        try {
+            dockerClient.inspectImageCmd(imageName).exec();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
     public boolean isContainerRunning(String containerName) {
         try {
             return Boolean.TRUE.equals(

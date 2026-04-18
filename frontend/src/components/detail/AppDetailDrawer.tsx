@@ -727,7 +727,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                 )
               )}
               {tab === "history" && (
-                <DeployHistoryList appName={app.appName} events={events} />
+                <DeployHistoryList appName={app.appName} events={events} currentImage={app.imageName} />
               )}
             </div>
           </>

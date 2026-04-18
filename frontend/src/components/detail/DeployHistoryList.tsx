@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSWRConfig } from "swr";
-import { RotateCcw, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { RotateCcw, CheckCircle2, XCircle, Clock, HardDrive, Download } from "lucide-react";
 import type { DeploymentEvent } from "@/types/launchpad";
 import { RollbackConfirmDialog } from "./RollbackConfirmDialog";
 import { useToast } from "@/hooks/useToast";
@@ -10,9 +10,10 @@ import { useToast } from "@/hooks/useToast";
 interface Props {
   appName: string;
   events: DeploymentEvent[];
+  currentImage?: string | null;
 }
 
-export function DeployHistoryList({ appName, events }: Props) {
+export function DeployHistoryList({ appName, events, currentImage }: Props) {
   const toast = useToast();
   const { mutate } = useSWRConfig();
   const [rollbackTarget, setRollbackTarget] =
@@ -75,6 +76,9 @@ export function DeployHistoryList({ appName, events }: Props) {
         {deploys.map((event) => {
           const isSuccess = event.status === "SUCCESS";
           const Icon = isSuccess ? CheckCircle2 : XCircle;
+          const isCurrent = !!currentImage && event.imageName === currentImage;
+          const local = event.availableLocally === true;
+          const remote = event.availableLocally === false;
           return (
             <li
               key={event.id}
@@ -114,18 +118,45 @@ export function DeployHistoryList({ appName, events }: Props) {
                           rollback
                         </span>
                       )}
+                      {isCurrent && (
+                        <span className="inline-flex items-center rounded-full border border-sky-300/20 bg-sky-500/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-sky-100">
+                          current
+                        </span>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setRollbackTarget(event)}
-                      aria-label={`Roll back ${appName} to ${
-                        event.commitSha?.slice(0, 7) ?? "this version"
-                      }`}
-                      className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-black/30 px-3 py-1.5 text-xs text-slate-200 transition-colors hover:bg-black/45 focus:outline-none focus-visible:ring-focus"
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                      Rollback
-                    </button>
+                    {!isCurrent && (
+                      <div className="flex shrink-0 items-center gap-2">
+                        {local && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-200"
+                            title="Image is cached locally — rollback is instant"
+                          >
+                            <HardDrive className="h-3 w-3" />
+                            available locally
+                          </span>
+                        )}
+                        {remote && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full border border-amber-300/20 bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-100"
+                            title="Image not cached locally — rollback will re-pull from the registry"
+                          >
+                            <Download className="h-3 w-3" />
+                            requires re-pull
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setRollbackTarget(event)}
+                          aria-label={`Roll back ${appName} to ${
+                            event.commitSha?.slice(0, 7) ?? "this version"
+                          }`}
+                          className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-black/30 px-3 py-1.5 text-xs text-slate-200 transition-colors hover:bg-black/45 focus:outline-none focus-visible:ring-focus"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Rollback
+                        </button>
+                      </div>
+                    )}
                   </div>
                   {event.commitSha && (
                     <span className="mb-2 inline-flex rounded-md border border-white/[0.08] bg-black/30 px-2 py-1 font-mono text-xs text-slate-300">
