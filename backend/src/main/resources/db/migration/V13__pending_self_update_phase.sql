@@ -1,0 +1,2 @@
+ALTER TABLE pending_self_update
+    ADD COLUMN phase VARCHAR(16) NOT NULL DEFAULT 'PULLING';
