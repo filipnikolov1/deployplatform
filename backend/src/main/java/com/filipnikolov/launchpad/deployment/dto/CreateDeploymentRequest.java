@@ -14,5 +14,6 @@ public record CreateDeploymentRequest(
         String commitMessage,
         String commitAuthor,
         LocalDateTime commitTimestamp,
+        String subdomain,
         TriggerSource triggeredBy
 ) {}

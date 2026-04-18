@@ -17,6 +17,7 @@ export interface Deployment {
   commitMessage?: string | null;
   createdAt: string;
   updatedAt: string;
+  subdomain?: string | null;
   isSelfApp?: boolean;
   latestKnownImage?: string | null;
   latestKnownSha?: string | null;

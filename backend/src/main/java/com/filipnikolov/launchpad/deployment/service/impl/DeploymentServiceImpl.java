@@ -25,12 +25,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class DeploymentServiceImpl implements DeploymentService {
 
     private static final Logger log = LoggerFactory.getLogger(DeploymentServiceImpl.class);
+    private static final Pattern SUBDOMAIN_PATTERN = Pattern.compile("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$");
 
     private final DeploymentRepository deploymentRepository;
     private final DeploymentEventRepository eventRepository;
@@ -62,6 +64,9 @@ public class DeploymentServiceImpl implements DeploymentService {
         deployment.setCommitMessage(req.commitMessage());
         deployment.setCommitAuthor(req.commitAuthor());
         deployment.setCommitTimestamp(req.commitTimestamp());
+        if (req.subdomain() != null) {
+            deployment.setSubdomain(req.subdomain());
+        }
         deployment.setStatus(DeploymentStatus.PENDING);
         deployment.setUpdatedAt(LocalDateTime.now());
         deploymentRepository.save(deployment);
@@ -73,7 +78,7 @@ public class DeploymentServiceImpl implements DeploymentService {
 
         try {
             Map<String, String> envVars = envVarService.getEnvVars(req.appName());
-            dockerService.pullAndRun(req.imageName(), req.appName(), deployment.getContainerPort(), envVars);
+            dockerService.pullAndRun(req.imageName(), req.appName(), deployment.getSubdomain(), deployment.getContainerPort(), envVars);
             deployment.setStatus(DeploymentStatus.RUNNING);
             long duration = System.currentTimeMillis() - startedAt;
             eventService.record(DeploymentEventType.DEPLOY_FINISHED, DeploymentEventStatus.SUCCESS,
@@ -133,7 +138,7 @@ public class DeploymentServiceImpl implements DeploymentService {
 
         try {
             Map<String, String> envVars = envVarService.getEnvVars(appName);
-            dockerService.pullAndRun(deployment.getImageName(), appName, deployment.getContainerPort(), envVars);
+            dockerService.pullAndRun(deployment.getImageName(), appName, deployment.getSubdomain(), deployment.getContainerPort(), envVars);
             deployment.setStatus(DeploymentStatus.RUNNING);
             long duration = System.currentTimeMillis() - startedAt;
             eventService.record(DeploymentEventType.RESTARTED, DeploymentEventStatus.SUCCESS,
@@ -205,7 +210,7 @@ public class DeploymentServiceImpl implements DeploymentService {
 
         try {
             dockerService.pullAndRun(target.getImageName(), appName,
-                    d.getContainerPort(), envVarService.getEnvVars(appName));
+                    d.getSubdomain(), d.getContainerPort(), envVarService.getEnvVars(appName));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Rollback interrupted", e);
@@ -221,7 +226,7 @@ public class DeploymentServiceImpl implements DeploymentService {
         CreateDeploymentRequest ctx = new CreateDeploymentRequest(
                 appName, d.getRepoUrl(), target.getImageName(), d.getContainerPort(),
                 target.getBranch(), target.getCommitSha(), target.getCommitMessage(),
-                target.getCommitAuthor(), null, TriggerSource.ROLLBACK);
+                target.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.ROLLBACK);
         eventService.record(DeploymentEventType.MANUAL_ROLLBACK, DeploymentEventStatus.SUCCESS,
                 appName, ctx, null, null);
 
@@ -241,6 +246,44 @@ public class DeploymentServiceImpl implements DeploymentService {
         return d;
     }
 
+    @Override
+    @Transactional
+    public Deployment updateSubdomain(String appName, String subdomain) {
+        Deployment deployment = getDeployment(appName);
+
+        if (subdomain != null) {
+            if (!SUBDOMAIN_PATTERN.matcher(subdomain).matches()) {
+                throw new IllegalArgumentException("Invalid subdomain");
+            }
+            // Reject if another live deployment already owns this subdomain
+            deploymentRepository.findBySubdomainAndDeletedAtIsNull(subdomain)
+                    .filter(other -> !other.getId().equals(deployment.getId()))
+                    .ifPresent(other -> { throw new IllegalArgumentException("Subdomain already in use"); });
+            // Reject if another live deployment has this as its app name (unless it's the same row)
+            deploymentRepository.findByAppNameAndDeletedAtIsNull(subdomain)
+                    .filter(other -> !other.getId().equals(deployment.getId()))
+                    .ifPresent(other -> { throw new IllegalArgumentException("Subdomain already in use"); });
+        }
+
+        String oldSubdomain = deployment.getSubdomain();
+        String oldDisplay = oldSubdomain != null ? oldSubdomain : "(default)";
+        String newDisplay = subdomain != null ? subdomain : "(default)";
+
+        deployment.setSubdomain(subdomain);
+        deployment.setUpdatedAt(LocalDateTime.now());
+        deploymentRepository.save(deployment);
+
+        if (deployment.getStatus() == DeploymentStatus.RUNNING) {
+            restartDeployment(appName);
+        }
+
+        eventService.record(DeploymentEventType.SUBDOMAIN_CHANGED, DeploymentEventStatus.SUCCESS,
+                appName, contextFor(deployment, TriggerSource.MANUAL), null,
+                "subdomain changed: " + oldDisplay + " \u2192 " + newDisplay);
+
+        return getDeployment(appName);
+    }
+
     private CreateDeploymentRequest contextFor(Deployment d, TriggerSource trigger) {
         return new CreateDeploymentRequest(
                 d.getAppName(),
@@ -252,6 +295,7 @@ public class DeploymentServiceImpl implements DeploymentService {
                 d.getCommitMessage(),
                 d.getCommitAuthor(),
                 d.getCommitTimestamp(),
+                d.getSubdomain(),
                 trigger);
     }
 }

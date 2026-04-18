@@ -36,4 +36,9 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
      * Looks up a live deployment by app name (excludes soft-deleted rows).
      */
     Optional<Deployment> findByAppNameAndDeletedAtIsNull(String appName);
+
+    /**
+     * Looks up a live deployment by subdomain (excludes soft-deleted rows).
+     */
+    Optional<Deployment> findBySubdomainAndDeletedAtIsNull(String subdomain);
 }

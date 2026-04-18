@@ -16,13 +16,14 @@ public interface DockerService {
      * container with the same name, and starts a new one with Traefik labels and env vars.
      *
      * @param imageName     the Docker image to pull (e.g. "filipnikolov/myapp:latest")
-     * @param appName       the container name and Traefik subdomain identifier
+     * @param appName       the container name and internal Traefik router/service identifier
+     * @param subdomain     the Traefik Host() label value; if null or blank, falls back to appName
      * @param containerPort the port the app listens on inside the container
      * @param envVars       environment variables to inject into the container
      * @return the container ID of the newly started container
      * @throws InterruptedException if the pull operation is interrupted
      */
-    String pullAndRun(String imageName, String appName, int containerPort, Map<String, String> envVars) throws InterruptedException;
+    String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars) throws InterruptedException;
 
     /**
      * Stops and removes a container by name. Silently ignores if the container

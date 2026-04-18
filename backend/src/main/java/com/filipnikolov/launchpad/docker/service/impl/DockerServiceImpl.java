@@ -49,7 +49,7 @@ public class DockerServiceImpl implements DockerService {
     }
 
     @Override
-    public String pullAndRun(String imageName, String appName, int containerPort, Map<String, String> envVars) throws InterruptedException {
+    public String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars) throws InterruptedException {
         var pullCmd = dockerClient.pullImageCmd(imageName);
         if (authConfig != null) {
             pullCmd.withAuthConfig(authConfig);
@@ -87,6 +87,8 @@ public class DockerServiceImpl implements DockerService {
 
         stopAndRemoveContainer(appName);
 
+        String effectiveHost = (subdomain == null || subdomain.isBlank()) ? appName : subdomain;
+
         List<String> env = envVars.entrySet().stream()
                 .map(e -> e.getKey() + "=" + e.getValue())
                 .toList();
@@ -96,7 +98,7 @@ public class DockerServiceImpl implements DockerService {
                 .withEnv(env)
                 .withLabels(Map.of(
                         "traefik.enable", "true",
-                        "traefik.http.routers." + appName + ".rule", "Host(`" + appName + "." + traefikDomain + "`)",
+                        "traefik.http.routers." + appName + ".rule", "Host(`" + effectiveHost + "." + traefikDomain + "`)",
                         "traefik.http.routers." + appName + ".entrypoints", "web",
                         "traefik.http.services." + appName + ".loadbalancer.server.port", String.valueOf(containerPort)
                 ))

@@ -55,9 +55,15 @@ public class GitHubServiceImpl implements GitHubService {
             return new CommitsAhead(null, List.of(), compareUrl);
         }
 
+        String[] ownerRepo = slug.split("/", 2);
+        if (ownerRepo.length != 2) {
+            return new CommitsAhead(null, List.of(), compareUrl);
+        }
+
         try {
             Map<String, Object> resp = client.get()
-                    .uri("/repos/{slug}/compare/{base}...{head}", slug, base, head)
+                    .uri("/repos/{owner}/{repo}/compare/{base}...{head}",
+                            ownerRepo[0], ownerRepo[1], base, head)
                     .header("Authorization", "Bearer " + token)
                     .retrieve()
                     .body(Map.class);

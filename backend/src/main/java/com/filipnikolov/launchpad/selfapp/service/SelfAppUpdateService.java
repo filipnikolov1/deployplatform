@@ -114,7 +114,7 @@ public class SelfAppUpdateService {
             CreateDeploymentRequest historyCtx = new CreateDeploymentRequest(
                     appName, d.getRepoUrl(), targetImage, d.getContainerPort(),
                     d.getBranch(), targetSha, targetMessage,
-                    d.getCommitAuthor(), null, TriggerSource.SELF_UPDATE);
+                    d.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.SELF_UPDATE);
             eventService.record(DeploymentEventType.DEPLOY_FINISHED, DeploymentEventStatus.SUCCESS,
                     appName, historyCtx, null, null);
         }

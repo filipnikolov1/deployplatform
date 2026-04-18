@@ -126,6 +126,28 @@ public class DeploymentController {
     }
 
     /**
+     * Sets a custom Traefik subdomain for the app, or clears it (null body value reverts to default).
+     */
+    @PatchMapping("/{appName}/subdomain")
+    public ResponseEntity<?> updateSubdomain(
+            @PathVariable String appName,
+            @RequestBody Map<String, String> body) {
+        var maybeHandle = lockService.tryLock("app:" + appName);
+        if (maybeHandle.isEmpty()) {
+            return ResponseEntity.status(409).body(Map.of("error", "locked"));
+        }
+        try (var handle = maybeHandle.get()) {
+            try {
+                String sub = body.get("subdomain");
+                return ResponseEntity.ok(deploymentService.updateSubdomain(appName,
+                        sub == null || sub.isBlank() ? null : sub));
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            }
+        }
+    }
+
+    /**
      * Returns live container stats (cpu, memory, uptime, restart count).
      */
     @GetMapping("/{appName}/stats")

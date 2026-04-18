@@ -85,7 +85,7 @@ public class SelfAppBootstrap {
                     CreateDeploymentRequest ctx = new CreateDeploymentRequest(
                             appName, d.getRepoUrl(), p.getTargetImage(), d.getContainerPort(),
                             d.getBranch(), p.getTargetSha(), runningMessage,
-                            d.getCommitAuthor(), null, TriggerSource.SELF_UPDATE);
+                            d.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.SELF_UPDATE);
                     eventService.record(DeploymentEventType.DEPLOY_FINISHED,
                             DeploymentEventStatus.SUCCESS, appName, ctx, null, null);
                 }
