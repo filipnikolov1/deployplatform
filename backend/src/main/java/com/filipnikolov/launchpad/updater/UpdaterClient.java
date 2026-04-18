@@ -2,6 +2,7 @@ package com.filipnikolov.launchpad.updater;
 
 import com.filipnikolov.launchpad.updater.dto.UpdateRequest;
 import com.filipnikolov.launchpad.updater.dto.UpdateResponse;
+import com.filipnikolov.launchpad.updater.dto.UpdaterStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,12 +38,24 @@ public class UpdaterClient {
                     .retrieve()
                     .body(UpdateResponse.class);
             if (resp == null) {
-                return new UpdateResponse("error", "empty response from updater");
+                return new UpdateResponse("error", null, "empty response from updater");
             }
             return resp;
         } catch (Exception e) {
             log.error("Updater update call failed: {}", e.getMessage(), e);
-            return new UpdateResponse("error", e.getMessage());
+            return new UpdateResponse("error", null, e.getMessage());
+        }
+    }
+
+    public UpdaterStatus status(String service) {
+        try {
+            return restClient.get()
+                    .uri("/status/{service}", service)
+                    .retrieve()
+                    .body(UpdaterStatus.class);
+        } catch (Exception e) {
+            log.warn("Updater status fetch failed for {}: {}", service, e.getMessage());
+            return null;
         }
     }
 }
