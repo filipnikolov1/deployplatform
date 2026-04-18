@@ -45,32 +45,34 @@ export function AiAnalysisPanel({ appName, onClose }: Props) {
   return (
     <GlassCard
       radius="card"
-      className="p-4"
+      className="flex min-h-0 flex-1 flex-col p-4"
       aria-busy={state.kind === "loading"}
     >
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex shrink-0 items-center justify-between">
         <span className="text-sm font-semibold text-purple-300">AI Analysis</span>
         <Button variant="icon" aria-label="Close analysis" onClick={onClose}>
           <X size={16} />
         </Button>
       </div>
-      {state.kind === "loading" && (
-        <div className="flex flex-col gap-2" aria-label="Analyzing logs">
-          <Skeleton variant="line" className="h-3 w-11/12" />
-          <Skeleton variant="line" className="h-3 w-9/12" />
-          <Skeleton variant="line" className="h-3 w-10/12" />
-        </div>
-      )}
-      {state.kind === "ok" && (
-        <pre className="whitespace-pre-wrap font-sans text-sm leading-[1.5] text-slate-200">
-          {state.text}
-        </pre>
-      )}
-      {state.kind === "err" && (
-        <div role="alert" className="text-sm text-red-400">
-          {state.msg}
-        </div>
-      )}
+      <div className="min-h-0 flex-1 overflow-auto">
+        {state.kind === "loading" && (
+          <div className="flex flex-col gap-2" aria-label="Analyzing logs">
+            <Skeleton variant="line" className="h-3 w-11/12" />
+            <Skeleton variant="line" className="h-3 w-9/12" />
+            <Skeleton variant="line" className="h-3 w-10/12" />
+          </div>
+        )}
+        {state.kind === "ok" && (
+          <pre className="whitespace-pre-wrap font-sans text-sm leading-[1.5] text-slate-200">
+            {state.text}
+          </pre>
+        )}
+        {state.kind === "err" && (
+          <div role="alert" className="text-sm text-red-400">
+            {state.msg}
+          </div>
+        )}
+      </div>
     </GlassCard>
   );
 }

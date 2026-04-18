@@ -39,7 +39,7 @@ export function BuildLogViewer({ appName }: Props) {
   const empty = lines.length === 0;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <div className="relative flex h-full min-h-0 flex-col gap-3">
       <div className="flex items-center justify-between">
         <span className="font-mono text-xs text-slate-400">
           {status === "connecting" && "connecting…"}
@@ -56,7 +56,7 @@ export function BuildLogViewer({ appName }: Props) {
         </Button>
       </div>
 
-      <GlassCard radius="card" className="p-0">
+      <GlassCard radius="card" className="flex min-h-0 flex-1 overflow-hidden p-0">
         <pre
           ref={paneRef}
           className="flex-1 min-h-0 overflow-auto whitespace-pre px-4 py-3 font-mono text-xs leading-[1.4] text-green-300 tabular-nums"
@@ -70,7 +70,17 @@ export function BuildLogViewer({ appName }: Props) {
       </GlassCard>
 
       {analysisOpen && (
-        <AiAnalysisPanel appName={appName} onClose={() => setAnalysisOpen(false)} />
+        <div className="absolute inset-0 z-20 flex items-start justify-center">
+          <button
+            type="button"
+            aria-label="Close analysis"
+            onClick={() => setAnalysisOpen(false)}
+            className="absolute inset-0 cursor-default bg-black/50 backdrop-blur-sm"
+          />
+          <div className="relative z-10 mx-4 mt-10 flex max-h-[calc(100%-3rem)] w-full max-w-2xl flex-col overflow-hidden">
+            <AiAnalysisPanel appName={appName} onClose={() => setAnalysisOpen(false)} />
+          </div>
+        </div>
       )}
     </div>
   );
