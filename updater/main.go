@@ -4,12 +4,18 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 )
 
 var allowedServices = map[string]bool{
 	"launchpad":          true,
 	"launchpad-frontend": true,
+}
+
+var imageEnvByService = map[string]string{
+	"launchpad":          "LAUNCHPAD_BACKEND_IMAGE",
+	"launchpad-frontend": "LAUNCHPAD_FRONTEND_IMAGE",
 }
 
 type updateRequest struct {
@@ -63,7 +69,9 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("recreating service %s", req.Service)
-	if out, err := exec.Command("docker", "compose", "-f", "/workspace/docker-compose.yml", "up", "-d", "--no-deps", req.Service).CombinedOutput(); err != nil {
+	cmd := exec.Command("docker", "compose", "--env-file", "/workspace/.env", "-f", "/workspace/docker-compose.yml", "up", "-d", "--force-recreate", "--no-deps", req.Service)
+	cmd.Env = append(os.Environ(), imageEnvByService[req.Service]+"="+req.Image)
+	if out, err := cmd.CombinedOutput(); err != nil {
 		log.Printf("recreate failed: %s", string(out))
 		writeJSON(w, http.StatusInternalServerError, updateResponse{Status: "error", Error: "recreate failed: " + err.Error()})
 		return
