@@ -42,6 +42,13 @@ public interface DockerService {
     boolean isContainerRunning(String containerName);
 
     /**
+     * Returns true if the given image (e.g. "repo/app:git-abc123") is present in the
+     * local Docker image cache, false otherwise. Used to mark rollback targets that
+     * would require a re-pull vs. those that can roll back instantly.
+     */
+    boolean imageExistsLocally(String imageName);
+
+    /**
      * Fetches the last {@code tailLines} lines of stdout+stderr from a running container.
      * Returns an empty list if the container does not exist, has never started,
      * or the log fetch fails for any reason.

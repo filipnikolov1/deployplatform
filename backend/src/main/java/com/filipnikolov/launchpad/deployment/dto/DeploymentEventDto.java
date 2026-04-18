@@ -21,9 +21,14 @@ public record DeploymentEventDto(
         String errorMessage,
         TriggerSource triggeredBy,
         LocalDateTime createdAt,
-        LocalDateTime finishedAt
+        LocalDateTime finishedAt,
+        Boolean availableLocally
 ) {
     public static DeploymentEventDto from(DeploymentEvent e) {
+        return from(e, null);
+    }
+
+    public static DeploymentEventDto from(DeploymentEvent e, Boolean availableLocally) {
         return new DeploymentEventDto(
                 e.getId(),
                 e.getAppName(),
@@ -38,6 +43,7 @@ public record DeploymentEventDto(
                 e.getErrorMessage(),
                 e.getTriggeredBy(),
                 e.getCreatedAt(),
-                e.getFinishedAt());
+                e.getFinishedAt(),
+                availableLocally);
     }
 }

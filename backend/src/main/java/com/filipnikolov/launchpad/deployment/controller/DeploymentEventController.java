@@ -2,23 +2,28 @@ package com.filipnikolov.launchpad.deployment.controller;
 
 import com.filipnikolov.launchpad.deployment.dto.DeploymentEventDto;
 import com.filipnikolov.launchpad.deployment.service.DeploymentEventService;
+import com.filipnikolov.launchpad.docker.service.DockerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
 public class DeploymentEventController {
 
     private final DeploymentEventService eventService;
+    private final DockerService dockerService;
 
     @GetMapping("/api/apps/{name}/events")
     public List<DeploymentEventDto> listForApp(@PathVariable String name,
                                                @RequestParam(defaultValue = "20") int limit) {
+        Map<String, Boolean> cache = new HashMap<>();
         return eventService.listForApp(name, limit).stream()
-                .map(DeploymentEventDto::from)
+                .map(e -> DeploymentEventDto.from(e, availabilityFor(e.getImageName(), cache)))
                 .toList();
     }
 
@@ -35,5 +40,10 @@ public class DeploymentEventController {
                 .map(DeploymentEventDto::from)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    private Boolean availabilityFor(String imageName, Map<String, Boolean> cache) {
+        if (imageName == null || imageName.isBlank()) return null;
+        return cache.computeIfAbsent(imageName, dockerService::imageExistsLocally);
     }
 }
