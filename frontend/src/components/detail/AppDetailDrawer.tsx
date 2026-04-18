@@ -38,7 +38,6 @@ import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { AppDetailSkeleton } from "./AppDetailSkeleton";
 import { getDisplayImageParts } from "@/lib/image-display";
 import { statusConfig, toAppStatus } from "@/lib/statusConfig";
-import { clearBackendUpdatePending, markBackendUpdatePending } from "@/lib/self-update";
 import type { Deployment } from "@/types/deployment";
 
 interface Props {
@@ -182,9 +181,6 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
     if (updating || pending || !app) return;
     setUpdating(true);
     try {
-      if (app.appName === "launchpad-backend") {
-        markBackendUpdatePending();
-      }
       const res = await fetch(`/api/self-apps/${encodeURIComponent(app.appName)}/update`, { method: "POST" });
       if (res.status === 409) {
         toast.info("Update already in progress");
@@ -192,9 +188,6 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
         return;
       }
       if (!res.ok) {
-        if (app.appName === "launchpad-backend") {
-          clearBackendUpdatePending();
-        }
         toast.error("Update failed");
         setUpdating(false);
         return;
@@ -203,9 +196,6 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
       mutateApp();
       void refreshPending();
     } catch {
-      if (app.appName === "launchpad-backend") {
-        clearBackendUpdatePending();
-      }
       toast.error("Update failed");
       setUpdating(false);
     }
