@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useApps } from "@/hooks/useApps";
 import { AppDetailDrawer } from "@/components/detail/AppDetailDrawer";
 import { StatusHero, type HeroFilter } from "./StatusHero";
@@ -15,6 +16,19 @@ export function AppGrid() {
   const { apps, isLoading, error } = useApps();
   const [openAppName, setOpenAppName] = useState<string | null>(null);
   const [filter, setFilter] = useState<HeroFilter>("all");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const appParam = searchParams.get("app");
+    if (appParam) setOpenAppName(appParam);
+  }, [searchParams]);
+
+  const handleDrawerClose = () => {
+    setOpenAppName(null);
+    if (searchParams.get("app")) router.replace(pathname);
+  };
 
   const selfApps = apps?.filter((a) => a.isSelfApp) ?? [];
   const regularApps = apps?.filter((a) => !a.isSelfApp) ?? [];
@@ -132,7 +146,7 @@ export function AppGrid() {
       {openAppName && (
         <AppDetailDrawer
           appName={openAppName}
-          onClose={() => setOpenAppName(null)}
+          onClose={handleDrawerClose}
         />
       )}
     </div>
