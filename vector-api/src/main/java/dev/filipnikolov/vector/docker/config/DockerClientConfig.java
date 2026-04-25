@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.net.URI;
+import java.time.Duration;
 
 @Configuration
 public class DockerClientConfig {
@@ -22,6 +23,8 @@ public class DockerClientConfig {
 
         ZerodepDockerHttpClient httpClient = new ZerodepDockerHttpClient.Builder()
                 .dockerHost(URI.create(dockerSocket))
+                .connectionTimeout(Duration.ofSeconds(5))
+                .responseTimeout(Duration.ofSeconds(30))
                 .build();
 
         return DockerClientImpl.getInstance(config, httpClient);
