@@ -8,6 +8,7 @@ import dev.filipnikolov.vector.deployment.model.DeploymentStatus;
 import dev.filipnikolov.vector.deployment.repository.DeploymentRepository;
 import dev.filipnikolov.vector.deployment.service.DeploymentEventService;
 import dev.filipnikolov.vector.exception.ResourceNotFoundException;
+import dev.filipnikolov.vector.monitoring.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ class DeploymentTransactionHelper {
 
     private final DeploymentRepository deploymentRepository;
     private final DeploymentEventService eventService;
+    private final NotificationService notificationService;
 
     @Value("${app.default-port:3000}")
     private int defaultContainerPort;
@@ -71,6 +73,7 @@ class DeploymentTransactionHelper {
         } else {
             eventService.record(DeploymentEventType.FAILED, DeploymentEventStatus.FAILURE,
                     appName, req, durationMs, error);
+            notificationService.sendDeployFailedAlert(appName);
         }
     }
 

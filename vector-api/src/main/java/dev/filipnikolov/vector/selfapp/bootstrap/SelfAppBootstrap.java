@@ -47,6 +47,7 @@ public class SelfAppBootstrap {
 
     @PostConstruct
     public void bootstrap() {
+        reconcileStuckPending();
         if ("dev".equals(runningSha)) {
             log.info("Skipping self-app bootstrap (VECTOR_GIT_SHA not set — running outside compose)");
             return;
@@ -54,6 +55,20 @@ public class SelfAppBootstrap {
         ensureSelfApp("vector-api", backendImage);
         ensureSelfApp("vector-web", frontendImage);
         reconcilePendingUpdates("vector-api");
+    }
+
+    private void reconcileStuckPending() {
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(5);
+        deploymentRepository.findByStatusAndDeletedAtIsNull(DeploymentStatus.PENDING).stream()
+                .filter(d -> d.getUpdatedAt() != null && d.getUpdatedAt().isBefore(cutoff))
+                .forEach(d -> {
+                    d.setStatus(DeploymentStatus.FAILED);
+                    d.setUpdatedAt(LocalDateTime.now());
+                    deploymentRepository.save(d);
+                    eventService.record(DeploymentEventType.FAILED, DeploymentEventStatus.FAILURE,
+                            d.getAppName(), null, null, "Deployment stuck in PENDING — marked FAILED on startup");
+                    log.warn("Marked stuck PENDING deployment as FAILED: {}", d.getAppName());
+                });
     }
 
     private void ensureSelfApp(String appName, String image) {
