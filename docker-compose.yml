@@ -28,16 +28,16 @@ services:
       timeout: 5s
       retries: 5
 
-  ollama:
-    image: ollama/ollama
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: unless-stopped
-    networks:
-      - traefik
+  # ollama:                         # Optional — uncomment to run local LLM fallback
+  #   image: ollama/ollama          # Requires vector.ai.provider=ollama in application.properties
+  #   container_name: ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   restart: unless-stopped
+  #   networks:
+  #     - traefik
 
   vector-api:
     image: ${VECTOR_BACKEND_IMAGE:-filipn123/vector-api:latest}
@@ -50,7 +50,6 @@ services:
     environment:
       VECTOR_DB_URL: jdbc:postgresql://postgres:5432/launchpad
       VECTOR_DOCKER_SOCKET: unix:///var/run/docker.sock
-      VECTOR_OLLAMA_BASE_URL: http://ollama:11434
       UPDATER_BASE_URL: http://vector-updater:8080
     volumes:
       - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
@@ -112,4 +111,4 @@ networks:
 
 volumes:
   postgres_data:
-  ollama_data:
+  # ollama_data:    # Uncomment if ollama service is re-enabled

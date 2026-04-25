@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.ai.controller;
 
-import dev.filipnikolov.vector.ai.service.OllamaService;
+import dev.filipnikolov.vector.ai.AiProvider;
+import dev.filipnikolov.vector.ai.AiRequest;
 import dev.filipnikolov.vector.deployment.service.DeploymentService;
 import dev.filipnikolov.vector.docker.service.DockerService;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
@@ -23,18 +25,19 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 public class AiController {
 
     private static final int MAX_PROMPT_CHARS = 4000;
+    private static final int MAX_LOG_BYTES = 8 * 1024;
 
-    private final OllamaService ollamaService;
+    private final AiProvider aiProvider;
     private final DockerService dockerService;
     private final DeploymentService deploymentService;
     private final int logTailLines;
 
     public AiController(
-            OllamaService ollamaService,
+            AiProvider aiProvider,
             DockerService dockerService,
             DeploymentService deploymentService,
             @Value("${vector.ai.log-tail-lines}") int logTailLines) {
-        this.ollamaService = ollamaService;
+        this.aiProvider = aiProvider;
         this.dockerService = dockerService;
         this.deploymentService = deploymentService;
         this.logTailLines = logTailLines;
@@ -53,7 +56,7 @@ public class AiController {
         }
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_PLAIN)
-                .body(ollamaService.ask(prompt));
+                .body(aiProvider.analyze(new AiRequest(prompt)).text());
     }
 
     @GetMapping(value = "/logs/analyze", produces = MediaType.TEXT_PLAIN_VALUE)
@@ -62,7 +65,6 @@ public class AiController {
             throw new ResponseStatusException(BAD_REQUEST, "app query parameter must not be blank");
         }
 
-        // Throws ResourceNotFoundException -> 404 via GlobalExceptionHandler
         deploymentService.getDeployment(appName);
 
         List<String> logLines = dockerService.getContainerLogs(appName, logTailLines);
@@ -72,9 +74,21 @@ public class AiController {
                     .body("No logs available for this app yet.");
         }
 
-        String joined = String.join("\n", logLines);
+        String truncated = truncateToTailBytes(String.join("\n", logLines), MAX_LOG_BYTES);
+        String prompt = "You are a DevOps assistant. Analyze this deployment log "
+                + "and explain what went wrong in 2-3 sentences: " + truncated;
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_PLAIN)
-                .body(ollamaService.analyzeLog(joined));
+                .body(aiProvider.analyze(new AiRequest(prompt)).text());
+    }
+
+    private static String truncateToTailBytes(String content, int maxBytes) {
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length <= maxBytes) {
+            return content;
+        }
+        byte[] tail = new byte[maxBytes];
+        System.arraycopy(bytes, bytes.length - maxBytes, tail, 0, maxBytes);
+        return new String(tail, StandardCharsets.UTF_8);
     }
 }
