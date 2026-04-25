@@ -1,12 +1,8 @@
 package dev.filipnikolov.vector.deployhook.controller;
 
+import dev.filipnikolov.vector.common.lock.ActionLockService;
 import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
-import dev.filipnikolov.vector.deployment.model.Deployment;
-import dev.filipnikolov.vector.deployment.model.DeploymentEventStatus;
-import dev.filipnikolov.vector.deployment.model.DeploymentEventType;
 import dev.filipnikolov.vector.deployment.model.TriggerSource;
-import dev.filipnikolov.vector.deployment.repository.DeploymentRepository;
-import dev.filipnikolov.vector.deployment.service.DeploymentEventService;
 import dev.filipnikolov.vector.deployment.service.DeploymentService;
 import dev.filipnikolov.vector.deployhook.auth.service.DeployHookAuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,8 +34,7 @@ public class DeployHookController {
 
     private final DeploymentService deploymentService;
     private final DeployHookAuthService deployHookAuthService;
-    private final DeploymentRepository deploymentRepository;
-    private final DeploymentEventService eventService;
+    private final ActionLockService actionLockService;
 
     @Value("${app.default-port:3000}")
     private int defaultContainerPort;
@@ -116,28 +111,13 @@ public class DeployHookController {
                 appName, repoUrl, imageName, containerPort,
                 branch, commitSha, commitMessage, commitAuthor, commitTs, null, trigger);
 
-        Optional<Deployment> existing = deploymentRepository.findByAppName(appName);
-        if (existing.isPresent() && existing.get().getPinnedImage() != null) {
-            Deployment d = existing.get();
-            String pinnedImage = d.getPinnedImage();
-            if (d.isSelfApp()) {
-                d.setLatestKnownImage(imageName);
-                d.setLatestKnownSha(commitSha);
-                d.setLatestKnownMessage(commitMessage);
-                if (branch != null) d.setBranch(branch);
-                d.setUpdatedAt(LocalDateTime.now());
-                deploymentRepository.save(d);
-            }
-            eventService.record(DeploymentEventType.UPDATE_AVAILABLE, DeploymentEventStatus.SUCCESS,
-                    appName, req, null, "New version available: " + imageName);
-            log.info("Update available for pinned app {} — new image {}", appName, imageName);
-            return ResponseEntity.status(202).body(Map.of(
-                    "status", "update_available",
-                    "pinnedImage", pinnedImage,
-                    "availableImage", imageName));
+        Optional<ActionLockService.LockHandle> maybeLock = actionLockService.tryLock(appName);
+        if (maybeLock.isEmpty()) {
+            log.warn("Deploy lock held for {}, returning 409", appName);
+            return ResponseEntity.status(409).body(Map.of("error", "Deployment already in progress for " + appName));
         }
 
-        deploymentService.createDeployment(req);
-        return ResponseEntity.ok().build();
+        deploymentService.handleWebhookDeployAsync(req, maybeLock.get());
+        return ResponseEntity.status(202).body(Map.of("status", "accepted", "appName", appName));
     }
 }

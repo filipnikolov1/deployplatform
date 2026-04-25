@@ -1,5 +1,6 @@
 package dev.filipnikolov.vector.deployment.service;
 
+import dev.filipnikolov.vector.common.lock.ActionLockService;
 import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
 import dev.filipnikolov.vector.deployment.model.Deployment;
 
@@ -64,4 +65,11 @@ public interface DeploymentService {
      * Triggers a restart if the app is currently running so the new label takes effect.
      */
     Deployment updateSubdomain(String appName, String subdomain);
+
+    /**
+     * Handles a webhook deploy request asynchronously. Checks for pinned image before deploying.
+     * The caller must supply the already-acquired lock handle; this method releases it in a
+     * finally block when the deploy (or pinned-image recording) completes.
+     */
+    void handleWebhookDeployAsync(CreateDeploymentRequest req, ActionLockService.LockHandle lock);
 }
