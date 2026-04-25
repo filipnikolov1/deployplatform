@@ -4,9 +4,11 @@ import dev.filipnikolov.vector.monitoring.service.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.Duration;
 import java.util.Map;
 
 /**
@@ -31,7 +33,11 @@ public class NotificationServiceImpl implements NotificationService {
         this.fromEmail = fromEmail;
         this.toEmail = toEmail;
 
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setReadTimeout(Duration.ofSeconds(10));
+
         this.restClient = RestClient.builder()
+                .requestFactory(factory)
                 .baseUrl("https://api.resend.com")
                 .defaultHeader("Authorization", "Bearer " + apiKey)
                 .defaultHeader("Content-Type", "application/json")
