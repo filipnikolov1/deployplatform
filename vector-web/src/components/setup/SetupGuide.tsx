@@ -14,7 +14,7 @@ import {
 function SetupStep({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
   return (
     <section
-      className="rounded-[14px] p-6 mb-3.5"
+      className="rounded-xl p-6 mb-3.5"
       style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
     >
       <div className="flex items-center gap-3 mb-4">

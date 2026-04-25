@@ -91,7 +91,7 @@ function RadioRow<T extends string>({
 function SettingsCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <section
-      className="rounded-[14px] p-6 mb-4"
+      className="rounded-xl p-6 mb-4"
       style={{
         background: "var(--c-surface-1)",
         border: "1px solid var(--c-border-1)",

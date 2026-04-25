@@ -143,7 +143,7 @@ export function AppTable({ apps, onOpen, title = "All apps" }: AppTableProps) {
         <span className="text-xs" style={{ color: "var(--c-fg-3)" }}>{apps.length}</span>
       </div>
       <div
-        className="overflow-hidden rounded-[14px]"
+        className="overflow-hidden rounded-xl"
         style={{
           border: "1px solid var(--c-border-1)",
           background: "var(--c-surface-1)",

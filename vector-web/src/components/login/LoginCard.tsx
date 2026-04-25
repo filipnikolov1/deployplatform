@@ -34,7 +34,7 @@ export function LoginCard() {
 
   return (
     <div
-      className="w-full max-w-[380px] rounded-[14px] p-7"
+      className="w-full max-w-[380px] rounded-xl p-7"
       style={{
         background: "var(--c-surface-1)",
         border: "1px solid var(--c-border-2)",

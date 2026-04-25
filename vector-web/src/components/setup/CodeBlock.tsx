@@ -49,7 +49,7 @@ export function CodeBlock({ code, language, label = "Copy" }: Props) {
 
       {/* Code area */}
       <div
-        className="rounded-[10px] p-4 overflow-x-auto"
+        className="rounded-lg p-4 overflow-x-auto"
         style={{
           background: "var(--c-bg-body)",
           border: "1px solid var(--c-border-1)",

@@ -99,7 +99,7 @@ export function AppGrid() {
           {Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
-              className="h-12 rounded-[10px] skeleton-shimmer"
+              className="h-12 rounded-lg skeleton-shimmer"
               style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
             />
           ))}
@@ -129,7 +129,7 @@ export function AppGrid() {
         /* Filtered view: show all matching as table */
         filteredApps.length === 0 ? (
           <div
-            className="py-10 text-center text-sm rounded-[14px]"
+            className="py-10 text-center text-sm rounded-xl"
             style={{
               color: "var(--c-fg-3)",
               background: "var(--c-surface-1)",

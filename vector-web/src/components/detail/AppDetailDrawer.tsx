@@ -626,7 +626,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
               <div
                 role="status"
                 aria-live="polite"
-                className="mx-6 mt-4 flex items-center gap-4 rounded-[10px] p-4"
+                className="mx-6 mt-4 flex items-center gap-4 rounded-lg p-4"
                 style={{
                   background: "var(--c-accent-soft)",
                   border: "1px solid var(--c-accent-line)",
@@ -658,7 +658,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
               <div
                 role="status"
                 aria-live="polite"
-                className="mx-6 mt-4 flex items-center gap-4 rounded-[10px] p-4"
+                className="mx-6 mt-4 flex items-center gap-4 rounded-lg p-4"
                 style={{
                   background: "var(--c-status-building-bg)",
                   border: "1px solid var(--c-status-building-line)",

@@ -23,7 +23,7 @@ function SelfAppCard({ app, onOpen }: { app: Deployment; onOpen: (name: string) 
       onClick={() => onOpen(app.appName)}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      className="block w-full text-left rounded-[10px] p-3.5 transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
+      className="block w-full text-left rounded-lg p-3.5 transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
       style={{
         background: hover ? "var(--c-surface-2)" : "var(--c-surface-1)",
         border: "1px solid var(--c-border-2)",

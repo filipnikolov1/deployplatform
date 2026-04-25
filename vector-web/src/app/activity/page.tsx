@@ -92,7 +92,7 @@ function ActivityContent() {
       <div aria-live="polite">
         {isLoading ? (
           <div
-            className="h-32 rounded-[14px] skeleton-shimmer"
+            className="h-32 rounded-xl skeleton-shimmer"
             style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
           />
         ) : filtered.length === 0 ? (
@@ -110,7 +110,7 @@ function ActivityContent() {
           </EmptyState>
         ) : (
           <div
-            className="rounded-[14px] overflow-hidden"
+            className="rounded-xl overflow-hidden"
             style={{
               background: "var(--c-surface-1)",
               border: "1px solid var(--c-border-1)",
