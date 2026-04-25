@@ -71,4 +71,8 @@ public class Deployment {
     @Column(name = "latest_known_message", columnDefinition = "TEXT")
     private String latestKnownMessage;
 
+    private LocalDateTime lastDeployedAt;
+
+    private Long buildDurationMs;
+
 }
