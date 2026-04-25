@@ -6,15 +6,16 @@ import { BackendUpdatingOverlay } from "./BackendUpdatingOverlay";
 import { FrontendUpdatingOverlay } from "./FrontendUpdatingOverlay";
 import { useUpdateAvailableNotifier } from "@/hooks/useUpdateAvailableNotifier";
 import { useDeployProgressNotifier } from "@/hooks/useDeployProgressNotifier";
+import { EventStreamProvider } from "@/hooks/useEventStream";
+import type { ReactNode } from "react";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+function AppShellInner({ children }: { children: ReactNode }) {
   useUpdateAvailableNotifier();
   useDeployProgressNotifier();
 
   return (
     <div className="min-h-dvh">
       <Sidebar />
-      {/* On md+: offset by sidebar width. On mobile: full width with bottom nav padding */}
       <main
         className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-8 sm:pb-6 md:pl-8"
         style={{
@@ -22,7 +23,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           paddingBottom: "calc(env(safe-area-inset-bottom) + 112px)",
         }}
       >
-        {/* On small screens (no sidebar) reset to normal padding */}
         <style>{`
           @media (max-width: 767px) {
             main { padding-left: 1rem !important; }
@@ -37,5 +37,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <BackendUpdatingOverlay />
       <FrontendUpdatingOverlay />
     </div>
+  );
+}
+
+export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <EventStreamProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </EventStreamProvider>
   );
 }
