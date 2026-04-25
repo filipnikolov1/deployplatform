@@ -33,7 +33,7 @@ export async function GET(
     {
       headers: { "X-API-Key": apiKey, Accept: "text/event-stream" },
       cache: "no-store",
-      signal: req.signal,
+      signal: AbortSignal.any([AbortSignal.timeout(10_000), req.signal]),
     },
   );
 
