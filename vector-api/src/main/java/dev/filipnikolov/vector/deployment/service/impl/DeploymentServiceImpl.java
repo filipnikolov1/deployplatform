@@ -1,5 +1,6 @@
 package dev.filipnikolov.vector.deployment.service.impl;
 
+import dev.filipnikolov.vector.common.lock.ActionLockService;
 import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
 import dev.filipnikolov.vector.deployment.model.Deployment;
 import dev.filipnikolov.vector.deployment.model.DeploymentEventStatus;
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,61 +41,28 @@ public class DeploymentServiceImpl implements DeploymentService {
     private final DockerService dockerService;
     private final EnvVarService envVarService;
     private final DeploymentEventService eventService;
+    private final DeploymentTransactionHelper txHelper;
 
     @Value("${app.default-port:3000}")
     private int defaultContainerPort;
 
     @Override
-    @Transactional
     public Deployment createDeployment(CreateDeploymentRequest req) {
         long startedAt = System.currentTimeMillis();
-
-        Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(req.appName())
-                .orElseGet(() -> {
-                    Deployment newDeployment = new Deployment();
-                    newDeployment.setAppName(req.appName());
-                    newDeployment.setCreatedAt(LocalDateTime.now());
-                    return newDeployment;
-                });
-
-        deployment.setRepoUrl(req.repoUrl());
-        deployment.setImageName(req.imageName());
-        deployment.setContainerPort(req.containerPort() != null ? req.containerPort() : defaultContainerPort);
-        deployment.setBranch(req.branch());
-        deployment.setCommitSha(req.commitSha());
-        deployment.setCommitMessage(req.commitMessage());
-        deployment.setCommitAuthor(req.commitAuthor());
-        deployment.setCommitTimestamp(req.commitTimestamp());
-        if (req.subdomain() != null) {
-            deployment.setSubdomain(req.subdomain());
-        }
-        deployment.setStatus(DeploymentStatus.PENDING);
-        deployment.setUpdatedAt(LocalDateTime.now());
-        deploymentRepository.save(deployment);
-
-        eventService.record(DeploymentEventType.DEPLOY_TRIGGERED, DeploymentEventStatus.IN_PROGRESS,
-                req.appName(), req, null, null);
-        eventService.record(DeploymentEventType.DEPLOY_STARTED, DeploymentEventStatus.IN_PROGRESS,
-                req.appName(), req, null, null);
-
+        Deployment deployment = txHelper.preCreate(req);
         try {
             Map<String, String> envVars = envVarService.getEnvVars(req.appName());
-            dockerService.pullAndRun(req.imageName(), req.appName(), deployment.getSubdomain(), deployment.getContainerPort(), envVars);
-            deployment.setStatus(DeploymentStatus.RUNNING);
+            dockerService.pullAndRun(req.imageName(), req.appName(),
+                    deployment.getSubdomain(), deployment.getContainerPort(), envVars);
             long duration = System.currentTimeMillis() - startedAt;
-            eventService.record(DeploymentEventType.DEPLOY_FINISHED, DeploymentEventStatus.SUCCESS,
-                    req.appName(), req, duration, null);
+            txHelper.postCreate(req.appName(), DeploymentStatus.RUNNING, req, duration, null);
             log.info("Deployment successful: {}", req.appName());
         } catch (Exception e) {
-            deployment.setStatus(DeploymentStatus.FAILED);
             long duration = System.currentTimeMillis() - startedAt;
-            eventService.record(DeploymentEventType.FAILED, DeploymentEventStatus.FAILURE,
-                    req.appName(), req, duration, e.getMessage());
+            txHelper.postCreate(req.appName(), DeploymentStatus.FAILED, req, duration, e.getMessage());
             log.error("Deployment failed for {}: {}", req.appName(), e.getMessage(), e);
         }
-
-        deployment.setUpdatedAt(LocalDateTime.now());
-        return deploymentRepository.save(deployment);
+        return getDeployment(req.appName());
     }
 
     @Override
@@ -125,35 +94,23 @@ public class DeploymentServiceImpl implements DeploymentService {
     }
 
     @Override
-    @Transactional
     public Deployment restartDeployment(String appName) {
-        Deployment deployment = getDeployment(appName);
         long startedAt = System.currentTimeMillis();
-
-        deployment.setStatus(DeploymentStatus.PENDING);
-        deployment.setUpdatedAt(LocalDateTime.now());
-        deploymentRepository.save(deployment);
-
+        Deployment deployment = txHelper.preRestart(appName);
         CreateDeploymentRequest ctx = contextFor(deployment, TriggerSource.RESTART);
-
         try {
             Map<String, String> envVars = envVarService.getEnvVars(appName);
-            dockerService.pullAndRun(deployment.getImageName(), appName, deployment.getSubdomain(), deployment.getContainerPort(), envVars);
-            deployment.setStatus(DeploymentStatus.RUNNING);
+            dockerService.pullAndRun(deployment.getImageName(), appName,
+                    deployment.getSubdomain(), deployment.getContainerPort(), envVars);
             long duration = System.currentTimeMillis() - startedAt;
-            eventService.record(DeploymentEventType.RESTARTED, DeploymentEventStatus.SUCCESS,
-                    appName, ctx, duration, null);
+            txHelper.postRestart(appName, DeploymentStatus.RUNNING, ctx, duration, null);
             log.info("Restart successful: {}", appName);
         } catch (Exception e) {
-            deployment.setStatus(DeploymentStatus.FAILED);
             long duration = System.currentTimeMillis() - startedAt;
-            eventService.record(DeploymentEventType.RESTARTED, DeploymentEventStatus.FAILURE,
-                    appName, ctx, duration, e.getMessage());
+            txHelper.postRestart(appName, DeploymentStatus.FAILED, ctx, duration, e.getMessage());
             log.error("Restart failed for {}: {}", appName, e.getMessage(), e);
         }
-
-        deployment.setUpdatedAt(LocalDateTime.now());
-        return deploymentRepository.save(deployment);
+        return getDeployment(appName);
     }
 
     @Override
@@ -247,31 +204,27 @@ public class DeploymentServiceImpl implements DeploymentService {
     }
 
     @Override
-    @Transactional
     public Deployment updateSubdomain(String appName, String subdomain) {
-        Deployment deployment = getDeployment(appName);
-
         if (subdomain != null) {
             if (!SUBDOMAIN_PATTERN.matcher(subdomain).matches()) {
                 throw new IllegalArgumentException("Invalid subdomain");
             }
-            // Reject if another live deployment already owns this subdomain
+            Deployment current = getDeployment(appName);
+            Long currentId = current.getId();
             deploymentRepository.findBySubdomainAndDeletedAtIsNull(subdomain)
-                    .filter(other -> !other.getId().equals(deployment.getId()))
+                    .filter(other -> !other.getId().equals(currentId))
                     .ifPresent(other -> { throw new IllegalArgumentException("Subdomain already in use"); });
-            // Reject if another live deployment has this as its app name (unless it's the same row)
             deploymentRepository.findByAppNameAndDeletedAtIsNull(subdomain)
-                    .filter(other -> !other.getId().equals(deployment.getId()))
+                    .filter(other -> !other.getId().equals(currentId))
                     .ifPresent(other -> { throw new IllegalArgumentException("Subdomain already in use"); });
         }
 
-        String oldSubdomain = deployment.getSubdomain();
+        Deployment current = getDeployment(appName);
+        String oldSubdomain = current.getSubdomain();
         String oldDisplay = oldSubdomain != null ? oldSubdomain : "(default)";
         String newDisplay = subdomain != null ? subdomain : "(default)";
 
-        deployment.setSubdomain(subdomain);
-        deployment.setUpdatedAt(LocalDateTime.now());
-        deploymentRepository.save(deployment);
+        Deployment deployment = txHelper.saveSubdomainChange(appName, subdomain);
 
         if (deployment.getStatus() == DeploymentStatus.RUNNING) {
             restartDeployment(appName);
@@ -279,9 +232,23 @@ public class DeploymentServiceImpl implements DeploymentService {
 
         eventService.record(DeploymentEventType.SUBDOMAIN_CHANGED, DeploymentEventStatus.SUCCESS,
                 appName, contextFor(deployment, TriggerSource.MANUAL), null,
-                "subdomain changed: " + oldDisplay + " \u2192 " + newDisplay);
+                "subdomain changed: " + oldDisplay + " → " + newDisplay);
 
         return getDeployment(appName);
+    }
+
+    @Override
+    @Async("deployExecutor")
+    public void handleWebhookDeployAsync(CreateDeploymentRequest req, ActionLockService.LockHandle lock) {
+        try {
+            if (txHelper.handlePinnedWebhook(req)) {
+                log.info("Update available for pinned app {} — new image {}", req.appName(), req.imageName());
+                return;
+            }
+            createDeployment(req);
+        } finally {
+            lock.close();
+        }
     }
 
     private CreateDeploymentRequest contextFor(Deployment d, TriggerSource trigger) {
