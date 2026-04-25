@@ -1,16 +1,15 @@
-# Stage 1: Build
-FROM eclipse-temurin:21-jdk AS build
-WORKDIR /app
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN ./mvnw dependency:go-offline -q
-COPY src/ src/
-RUN ./mvnw package -DskipTests -q
+# Build command: docker build -f vector-api/Dockerfile .
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /src
+COPY pom.xml .
+COPY vector-events/ vector-events/
+COPY vector-ai/ vector-ai/
+COPY vector-api/ vector-api/
+RUN mvn -pl vector-api -am clean package -DskipTests -q
 
-# Stage 2: Run
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /src/vector-api/target/vector-api-*.jar app.jar
 EXPOSE 8082
 ARG VECTOR_GIT_SHA=dev
 ARG VECTOR_GIT_MESSAGE=local
