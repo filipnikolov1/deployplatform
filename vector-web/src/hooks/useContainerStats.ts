@@ -12,8 +12,9 @@ const fetcher = async (url: string): Promise<ContainerStats> => {
 export function useContainerStats(appName: string): {
   stats: ContainerStats | null;
   isLoading: boolean;
+  error: Error | null;
 } {
-  const { data, isLoading } = useSWR<ContainerStats>(
+  const { data, isLoading, error } = useSWR<ContainerStats>(
     appName ? `/api/apps/${encodeURIComponent(appName)}/stats` : null,
     fetcher,
     {
@@ -23,5 +24,5 @@ export function useContainerStats(appName: string): {
     },
   );
 
-  return { stats: data ?? null, isLoading };
+  return { stats: data ?? null, isLoading, error: error ?? null };
 }

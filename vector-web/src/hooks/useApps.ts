@@ -18,7 +18,7 @@ export function useApps() {
     },
   );
   return {
-    apps: data,
+    apps: data ?? [],
     isLoading,
     error,
     refresh: mutate,
