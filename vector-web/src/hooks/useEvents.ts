@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import type { DeploymentEvent } from "@/types/launchpad";
+import type { DeploymentEvent } from "@/types/vector";
 
 interface UseEventsArgs {
   appName?: string;

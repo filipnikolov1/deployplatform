@@ -3,7 +3,7 @@
 import { X } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useToast } from "@/hooks/useToast";
-import type { UserPreferences } from "@/types/launchpad";
+import type { UserPreferences } from "@/types/vector";
 
 function Toggle({
   checked,

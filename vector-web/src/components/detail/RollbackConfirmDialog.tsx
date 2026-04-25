@@ -4,7 +4,7 @@ import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/primitives/Button";
 import { GlassCard } from "@/components/primitives/GlassCard";
 import { Modal } from "@/components/primitives/Modal";
-import type { DeploymentEvent } from "@/types/launchpad";
+import type { DeploymentEvent } from "@/types/vector";
 
 interface Props {
   appName: string;

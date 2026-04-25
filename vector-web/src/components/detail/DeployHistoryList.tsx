@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSWRConfig } from "swr";
 import { RotateCcw, CheckCircle2, XCircle, Clock, HardDrive, Download } from "lucide-react";
-import type { DeploymentEvent } from "@/types/launchpad";
+import type { DeploymentEvent } from "@/types/vector";
 import { RollbackConfirmDialog } from "./RollbackConfirmDialog";
 import { useToast } from "@/hooks/useToast";
 

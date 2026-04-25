@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import type { ContainerStats } from "@/types/launchpad";
+import type { ContainerStats } from "@/types/vector";
 
 const fetcher = async (url: string): Promise<ContainerStats> => {
   const res = await fetch(url);

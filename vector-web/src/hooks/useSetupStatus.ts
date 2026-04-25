@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import type { SetupStatus } from "@/types/launchpad";
+import type { SetupStatus } from "@/types/vector";
 
 const fetcher = async (url: string): Promise<SetupStatus> => {
   const res = await fetch(url);

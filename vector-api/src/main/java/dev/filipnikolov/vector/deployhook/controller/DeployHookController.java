@@ -60,7 +60,7 @@ public class DeployHookController {
     @PostMapping
     public ResponseEntity<?> handleDeploy(
             @RequestHeader("X-Signature-256") String signature,
-            @RequestHeader(value = "X-Launchpad-Trigger", required = false) String triggerHeader,
+            @RequestHeader(value = "X-Vector-Trigger", required = false) String triggerHeader,
             @RequestBody String rawBody) {
 
         if (!deployHookAuthService.isValidSignature(rawBody, signature)) {

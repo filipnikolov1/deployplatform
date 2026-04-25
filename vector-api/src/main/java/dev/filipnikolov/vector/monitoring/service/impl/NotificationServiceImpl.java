@@ -24,7 +24,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     public NotificationServiceImpl(
             @Value("${resend.api-key:}") String apiKey,
-            @Value("${resend.from:Launchpad <onboarding@resend.dev>}") String fromEmail,
+            @Value("${resend.from:Vector <onboarding@resend.dev>}") String fromEmail,
             @Value("${resend.to:}") String toEmail) {
 
         this.apiKey = apiKey;
@@ -52,7 +52,7 @@ public class NotificationServiceImpl implements NotificationService {
                     .body(Map.of(
                             "from", fromEmail,
                             "to", toEmail,
-                            "subject", "Launchpad Alert: " + appName + " is down",
+                            "subject", "Vector Alert: " + appName + " is down",
                             "text", "The application '" + appName + "' is not responding and has been marked as DOWN."
                     ))
                     .retrieve()

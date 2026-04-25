@@ -13,7 +13,7 @@ import {
 import type {
   DeploymentEvent,
   DeploymentEventType,
-} from "@/types/launchpad";
+} from "@/types/vector";
 
 interface Props {
   event: DeploymentEvent;

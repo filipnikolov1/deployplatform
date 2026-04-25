@@ -138,7 +138,7 @@ export function SelfAppsBand({ apps, onOpen }: SelfAppsBandProps) {
         </h2>
         <span className="text-xs" style={{ color: "var(--c-fg-3)" }}>{apps.length}</span>
         <span className="ml-auto text-xs" style={{ color: "var(--c-fg-3)" }}>
-          Apps that run Launchpad itself
+          Apps that run Vector itself
         </span>
       </div>
       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>

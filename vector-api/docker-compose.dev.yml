@@ -34,9 +34,9 @@ services:
     networks:
       - traefik
 
-  launchpad-updater:
+  vector-updater:
     build:
-      context: ../updater
+      context: ../vector-updater
       dockerfile: Dockerfile
     ports:
       - "8085:8080"

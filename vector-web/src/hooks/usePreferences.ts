@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import useSWR from "swr";
-import type { UserPreferences } from "@/types/launchpad";
+import type { UserPreferences } from "@/types/vector";
 
 interface MeResponse {
   email: string;

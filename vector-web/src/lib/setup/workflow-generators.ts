@@ -53,14 +53,14 @@ jobs:
             \${{ secrets.DOCKERHUB_USERNAME }}/${safe}:latest
             \${{ steps.meta.outputs.image_sha_tag }}
 
-  notify-launchpad:
+  notify-vector:
     runs-on: ubuntu-latest
     needs: build-push
     steps:
       - name: Post to deploy-hook
         env:
-          HOOK_URL: \${{ secrets.LAUNCHPAD_DEPLOY_HOOK_URL }}
-          HOOK_KEY: \${{ secrets.LAUNCHPAD_DEPLOY_KEY }}
+          HOOK_URL: \${{ secrets.VECTOR_DEPLOY_HOOK_URL }}
+          HOOK_KEY: \${{ secrets.VECTOR_DEPLOY_KEY }}
           IMAGE: \${{ needs.build-push.outputs.image_sha_tag }}
           SHA: \${{ github.sha }}
           BRANCH: \${{ github.ref_name }}

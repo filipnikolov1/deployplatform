@@ -27,7 +27,7 @@ describe("GET /api/apps", () => {
       }),
     );
     const req = new Request("http://localhost/api/apps", {
-      headers: { cookie: `launchpad-session=${token}` },
+      headers: { cookie: `vector-session=${token}` },
     });
     const res = await GET(req);
     expect(res.status).toBe(200);

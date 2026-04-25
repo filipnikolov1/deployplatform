@@ -7,8 +7,8 @@ const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", displa
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Launchpad",
-  description: "Ops dashboard for Launchpad deployments",
+  title: "Vector",
+  description: "Ops dashboard for Vector deployments",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

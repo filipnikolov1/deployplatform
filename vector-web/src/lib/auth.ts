@@ -81,7 +81,7 @@ export async function verifySession(secret: string, token: string): Promise<Sess
 export function buildSessionCookie(token: string, maxAgeSeconds: number): string {
   const isProd = process.env.NODE_ENV === "production";
   const parts = [
-    `launchpad-session=${token}`,
+    `vector-session=${token}`,
     "HttpOnly",
     "Path=/",
     "SameSite=Strict",
@@ -91,5 +91,5 @@ export function buildSessionCookie(token: string, maxAgeSeconds: number): string
   return parts.join("; ");
 }
 
-export const SESSION_COOKIE_NAME = "launchpad-session";
+export const SESSION_COOKIE_NAME = "vector-session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days

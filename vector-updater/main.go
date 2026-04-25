@@ -17,13 +17,13 @@ import (
 const keepImageTags = 3
 
 var allowedServices = map[string]bool{
-	"launchpad":          true,
-	"launchpad-frontend": true,
+	"vector":     true,
+	"vector-web": true,
 }
 
 var imageEnvByService = map[string]string{
-	"launchpad":          "LAUNCHPAD_BACKEND_IMAGE",
-	"launchpad-frontend": "LAUNCHPAD_FRONTEND_IMAGE",
+	"vector":     "VECTOR_BACKEND_IMAGE",
+	"vector-web": "VECTOR_FRONTEND_IMAGE",
 }
 
 type phase string
@@ -82,7 +82,7 @@ func main() {
 	mux.HandleFunc("/update", handleUpdate)
 	mux.HandleFunc("/status/", handleStatus)
 
-	log.Println("launchpad-updater listening on :8080")
+	log.Println("vector-updater listening on :8080")
 	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatal(err)
 	}

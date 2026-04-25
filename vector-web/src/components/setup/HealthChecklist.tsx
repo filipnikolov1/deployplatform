@@ -13,12 +13,12 @@ const rows: Row[] = [
   {
     key: "secretConfigured",
     label: "Deploy-hook secret configured",
-    description: "LAUNCHPAD_SECRET is set on the server.",
+    description: "VECTOR_SECRET is set on the server.",
   },
   {
     key: "dockerReachable",
     label: "Docker daemon reachable",
-    description: "Launchpad can pull images and run containers.",
+    description: "Vector can pull images and run containers.",
   },
   {
     key: "githubTokenConfigured",

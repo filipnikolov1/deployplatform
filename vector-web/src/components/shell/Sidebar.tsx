@@ -37,7 +37,7 @@ export function Sidebar() {
           <Rocket className="h-4 w-4 text-white" aria-hidden />
         </div>
         <span className="text-[15px] font-semibold tracking-[-0.01em]" style={{ color: "var(--c-fg-0)" }}>
-          Launchpad
+          Vector
         </span>
       </div>
 
@@ -99,7 +99,7 @@ export function Sidebar() {
               Ops
             </div>
             <div className="truncate text-[11px]" style={{ color: "var(--c-fg-3)" }}>
-              launchpad.dev
+              filipnikolov.dev
             </div>
           </div>
         </div>

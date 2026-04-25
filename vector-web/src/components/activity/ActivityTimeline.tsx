@@ -1,4 +1,4 @@
-import type { DeploymentEvent } from "@/types/launchpad";
+import type { DeploymentEvent } from "@/types/vector";
 import { ActivityRow } from "./ActivityRow";
 
 interface Props {

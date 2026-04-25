@@ -8,7 +8,7 @@ import { useEvents } from "@/hooks/useEvents";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Button } from "@/components/primitives/Button";
-import type { DeploymentEventType } from "@/types/launchpad";
+import type { DeploymentEventType } from "@/types/vector";
 
 type FilterKey =
   | "all"

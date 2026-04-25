@@ -25,7 +25,7 @@ describe("POST /api/auth/login", () => {
     const res = await postJSON({ password: "letmein" });
     expect(res.status).toBe(200);
     const setCookie = res.headers.get("set-cookie") ?? "";
-    expect(setCookie).toMatch(/launchpad-session=/);
+    expect(setCookie).toMatch(/vector-session=/);
     expect(setCookie).toMatch(/HttpOnly/);
   });
 

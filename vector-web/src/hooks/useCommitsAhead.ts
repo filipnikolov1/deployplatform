@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import type { CommitsAhead } from "@/types/launchpad";
+import type { CommitsAhead } from "@/types/vector";
 
 const fetcher = async (url: string): Promise<CommitsAhead> => {
   const res = await fetch(url);

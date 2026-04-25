@@ -5,9 +5,9 @@ import { UpdatingOverlayView } from "./UpdatingOverlayView";
 
 export function FrontendUpdatingOverlay() {
   const view = useUpdatingOverlay({
-    appName: "launchpad-frontend",
+    appName: "vector-web",
     probeUrl: "/favicon.ico",
-    cacheKey: "launchpad:frontend-pending",
+    cacheKey: "vector:frontend-pending",
   });
 
   return (
@@ -19,7 +19,7 @@ export function FrontendUpdatingOverlay() {
         waitingTitle: "Frontend is updating. Please wait…",
         readyTitle: "Frontend is back online.",
         waitingDescription:
-          "Launchpad is restarting its frontend container. Keep this tab open — the dashboard will let you know when it's ready to refresh.",
+          "Vector is restarting its frontend container. Keep this tab open — the dashboard will let you know when it's ready to refresh.",
         readyDescription:
           "The new frontend is serving. Refresh this page to load the updated bundle.",
         waitingFooter: "Waiting for frontend to come back online…",

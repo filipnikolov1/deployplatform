@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useEvents } from "@/hooks/useEvents";
 import { useToast } from "@/hooks/useToast";
 
-const STORAGE_KEY = "launchpad:lastSeenUpdateAt";
+const STORAGE_KEY = "vector:lastSeenUpdateAt";
 
 export function useUpdateAvailableNotifier() {
   const { events } = useEvents({ limit: 10 });

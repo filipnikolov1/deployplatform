@@ -31,7 +31,7 @@ describe("proxyToBackend", () => {
 
   it("returns 401 when session signature is invalid", async () => {
     const res = await proxyToBackend(
-      makeRequest({ cookie: "launchpad-session=not-a-real-token" }),
+      makeRequest({ cookie: "vector-session=not-a-real-token" }),
       "/api/apps",
     );
     expect(res.status).toBe(401);
@@ -50,7 +50,7 @@ describe("proxyToBackend", () => {
     );
 
     const res = await proxyToBackend(
-      makeRequest({ cookie: `launchpad-session=${token}` }),
+      makeRequest({ cookie: `vector-session=${token}` }),
       "/api/apps",
     );
 
@@ -73,7 +73,7 @@ describe("proxyToBackend", () => {
     );
 
     const res = await proxyToBackend(
-      makeRequest({ cookie: `launchpad-session=${token}` }),
+      makeRequest({ cookie: `vector-session=${token}` }),
       "/api/apps/nope",
     );
 

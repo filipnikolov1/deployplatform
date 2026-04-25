@@ -55,7 +55,7 @@ export function LoginCard() {
             className="text-base font-semibold tracking-[-0.01em]"
             style={{ color: "var(--c-fg-0)" }}
           >
-            Launchpad
+            Vector
           </div>
           <div className="text-[11px]" style={{ color: "var(--c-fg-3)" }}>
             Deploy dashboard

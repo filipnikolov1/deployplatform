@@ -35,7 +35,7 @@ describe("SSE build log proxy", () => {
       }),
     );
     const req = new Request("http://l/api/apps/x/logs/runtime", {
-      headers: { cookie: `launchpad-session=${token}` },
+      headers: { cookie: `vector-session=${token}` },
     });
     const res = await GET(req, { params: { appName: "x" } });
     expect(res.status).toBe(200);
