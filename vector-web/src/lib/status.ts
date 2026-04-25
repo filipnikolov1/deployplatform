@@ -6,11 +6,11 @@ export interface StatusTokens {
 }
 
 export const STATUS_TOKENS: Record<DeploymentStatus, StatusTokens> = {
-  RUNNING: { color: "#22C55E", label: "Running" },
-  FAILED: { color: "#EF4444", label: "Failed" },
-  STOPPED: { color: "#F59E0B", label: "Stopped" },
-  PENDING: { color: "#64748B", label: "Pending" },
-  DOWN: { color: "#64748B", label: "Down" },
+  RUNNING: { color: "var(--c-status-running)", label: "Running" },
+  FAILED:  { color: "var(--c-status-failed)",  label: "Failed" },
+  STOPPED: { color: "var(--c-status-building)", label: "Stopped" },
+  PENDING: { color: "var(--c-status-stopped)",  label: "Pending" },
+  DOWN:    { color: "var(--c-status-stopped)",  label: "Down" },
 };
 
 export function statusTokens(status: DeploymentStatus): StatusTokens {
