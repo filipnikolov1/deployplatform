@@ -33,10 +33,10 @@ function Toggle({
         aria-checked={checked}
         aria-label={label}
         onClick={() => onChange(!checked)}
-        className="relative inline-flex h-[22px] w-10 shrink-0 rounded-full transition-all duration-[150ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight mt-0.5"
+        className="relative inline-flex h-[22px] w-10 shrink-0 rounded-full transition-all duration-[150ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-light mt-0.5"
         style={{
-          background: checked ? "var(--c-ghost-soft)" : "var(--c-surface-1)",
-          border: `1px solid ${checked ? "var(--c-ghost-line)" : "var(--c-border-2)"}`,
+          background: checked ? "var(--c-accent-soft)" : "var(--c-surface-1)",
+          border: `1px solid ${checked ? "var(--c-accent-line)" : "var(--c-border-2)"}`,
         }}
       >
         <span
@@ -72,11 +72,11 @@ function RadioRow<T extends string>({
             aria-checked={sel}
             onClick={() => onChange(opt.value)}
             data-group={name}
-            className="px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all duration-[120ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+            className="px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all duration-[120ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
             style={{
-              background: sel ? "var(--c-ghost-soft)" : "var(--c-surface-1)",
-              border: `1px solid ${sel ? "var(--c-ghost-line)" : "var(--c-border-2)"}`,
-              color: sel ? "#DDD6FE" : "var(--c-fg-2)",
+              background: sel ? "var(--c-accent-soft)" : "var(--c-surface-1)",
+              border: `1px solid ${sel ? "var(--c-accent-line)" : "var(--c-border-2)"}`,
+              color: sel ? "var(--c-accent-fg)" : "var(--c-fg-2)",
               cursor: "pointer",
             }}
           >
@@ -203,7 +203,7 @@ export function PreferencesForm() {
                   type="button"
                   aria-label={`Unpin ${name}`}
                   onClick={() => save({ pinned_apps: prefs.pinned_apps.filter((n) => n !== name) })}
-                  className="h-7 w-7 rounded flex items-center justify-center transition-colors duration-[120ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+                  className="h-7 w-7 rounded flex items-center justify-center transition-colors duration-[120ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
                   style={{ color: "var(--c-fg-3)", background: "transparent", border: "none", cursor: "pointer" }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = "var(--c-surface-3)"; e.currentTarget.style.color = "var(--c-fg-1)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--c-fg-3)"; }}
@@ -223,7 +223,7 @@ export function PreferencesForm() {
         <div className="flex gap-2">
           <a
             href="/api/auth/logout"
-            className="inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+            className="inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
             style={{
               background: "rgba(239,68,68,0.10)",
               color: "#FCA5A5",

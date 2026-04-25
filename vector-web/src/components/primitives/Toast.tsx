@@ -6,8 +6,8 @@ export type ToastVariant = "success" | "error" | "info" | "progress";
 const ICONS: Record<ToastVariant, React.ReactNode> = {
   success: <CheckCircle2 className="h-5 w-5 text-status-running" aria-hidden="true" />,
   error: <XCircle className="h-5 w-5 text-status-failed" aria-hidden="true" />,
-  info: <Info className="h-5 w-5 text-accent-ghostLight" aria-hidden="true" />,
-  progress: <Loader2 className="h-5 w-5 animate-spin text-accent-ghostLight" aria-hidden="true" />,
+  info: <Info className="h-5 w-5 text-accent-light" aria-hidden="true" />,
+  progress: <Loader2 className="h-5 w-5 animate-spin text-accent-light" aria-hidden="true" />,
 };
 
 export function Toast({
@@ -36,7 +36,7 @@ export function Toast({
         <button
           type="button"
           onClick={action.onClick}
-          className="text-xs font-medium text-accent-ghostLight hover:text-white underline underline-offset-2"
+          className="text-xs font-medium text-accent-light hover:text-white underline underline-offset-2"
         >
           {action.label}
         </button>

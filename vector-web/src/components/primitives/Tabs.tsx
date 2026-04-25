@@ -54,7 +54,7 @@ export function Tabs({ tabs, initialId, onChange }: Props) {
               onKeyDown={(e) => onKey(e, idx)}
               className={`rounded-md px-4 py-2 text-sm transition focus:outline-none focus-visible:ring-focus ${
                 selected
-                  ? "bg-accent-ghost/30 text-white"
+                  ? "bg-accent-primary/30 text-white"
                   : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
               }`}
             >
