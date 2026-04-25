@@ -41,11 +41,6 @@ const config: Config = {
           soft:       "var(--c-accent-soft)",
           line:       "var(--c-accent-line)",
           glow:       "var(--c-accent-glow)",
-          // legacy ghost names kept until Stage 2 rename
-          ghost:      "var(--c-accent-primary)",
-          ghostLight: "var(--c-accent-light)",
-          ghostSoft:  "var(--c-accent-soft)",
-          ghostLine:  "var(--c-accent-line)",
         },
         status: {
           running:        "var(--c-status-running)",
