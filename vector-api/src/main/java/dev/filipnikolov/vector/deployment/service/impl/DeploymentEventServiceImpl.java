@@ -2,8 +2,8 @@ package dev.filipnikolov.vector.deployment.service.impl;
 
 import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
 import dev.filipnikolov.vector.deployment.model.DeploymentEvent;
-import dev.filipnikolov.vector.deployment.model.DeploymentEventStatus;
-import dev.filipnikolov.vector.deployment.model.DeploymentEventType;
+import dev.filipnikolov.vector.events.DeploymentEventStatus;
+import dev.filipnikolov.vector.events.DeploymentEventType;
 import dev.filipnikolov.vector.deployment.repository.DeploymentEventRepository;
 import dev.filipnikolov.vector.deployment.service.DeploymentEventService;
 import lombok.RequiredArgsConstructor;

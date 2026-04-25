@@ -2,9 +2,9 @@ package dev.filipnikolov.vector.selfapp.service;
 
 import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
 import dev.filipnikolov.vector.deployment.model.Deployment;
-import dev.filipnikolov.vector.deployment.model.DeploymentEventStatus;
-import dev.filipnikolov.vector.deployment.model.DeploymentEventType;
-import dev.filipnikolov.vector.deployment.model.TriggerSource;
+import dev.filipnikolov.vector.events.DeploymentEventStatus;
+import dev.filipnikolov.vector.events.DeploymentEventType;
+import dev.filipnikolov.vector.events.TriggerSource;
 import dev.filipnikolov.vector.deployment.repository.DeploymentRepository;
 import dev.filipnikolov.vector.deployment.service.DeploymentEventService;
 import dev.filipnikolov.vector.selfapp.model.PendingSelfUpdate;
