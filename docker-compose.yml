@@ -68,6 +68,7 @@ services:
       - "traefik.http.routers.vector-api-deploy-hook.rule=PathPrefix(`/deploy-hook`)"
       - "traefik.http.routers.vector-api-deploy-hook.entrypoints=web"
       - "traefik.http.services.vector-api.loadbalancer.server.port=8082"
+      - "traefik.http.services.vector-api.loadbalancer.responseforwarding.flushinterval=100ms"
 
   vector-web:
     image: ${VECTOR_FRONTEND_IMAGE:-filipn123/vector-web:latest}
