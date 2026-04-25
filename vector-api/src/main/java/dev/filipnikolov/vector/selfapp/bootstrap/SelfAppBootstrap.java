@@ -33,27 +33,27 @@ public class SelfAppBootstrap {
     private final DeploymentEventService eventService;
     private final PendingSelfUpdateRepository pendingRepo;
 
-    @Value("${LAUNCHPAD_GIT_SHA:dev}")
+    @Value("${VECTOR_GIT_SHA:dev}")
     private String runningSha;
 
-    @Value("${LAUNCHPAD_GIT_MESSAGE:local build}")
+    @Value("${VECTOR_GIT_MESSAGE:local build}")
     private String runningMessage;
 
-    @Value("${LAUNCHPAD_BACKEND_IMAGE:filipn123/launchpad-backend:latest}")
+    @Value("${VECTOR_BACKEND_IMAGE:filipn123/vector-api:latest}")
     private String backendImage;
 
-    @Value("${LAUNCHPAD_FRONTEND_IMAGE:filipn123/launchpad-frontend:latest}")
+    @Value("${VECTOR_FRONTEND_IMAGE:filipn123/vector-web:latest}")
     private String frontendImage;
 
     @PostConstruct
     public void bootstrap() {
         if ("dev".equals(runningSha)) {
-            log.info("Skipping self-app bootstrap (LAUNCHPAD_GIT_SHA not set — running outside compose)");
+            log.info("Skipping self-app bootstrap (VECTOR_GIT_SHA not set — running outside compose)");
             return;
         }
-        ensureSelfApp("launchpad-backend", backendImage);
-        ensureSelfApp("launchpad-frontend", frontendImage);
-        reconcilePendingUpdates("launchpad-backend");
+        ensureSelfApp("vector-api", backendImage);
+        ensureSelfApp("vector-web", frontendImage);
+        reconcilePendingUpdates("vector-api");
     }
 
     private void ensureSelfApp(String appName, String image) {
@@ -63,11 +63,11 @@ public class SelfAppBootstrap {
                     created[0] = true;
                     Deployment newD = new Deployment();
                     newD.setAppName(appName);
-                    newD.setRepoUrl("https://github.com/filipnikolov1/launchpad");
+                    newD.setRepoUrl("https://github.com/filipnikolov1/vector-platform");
                     newD.setCreatedAt(LocalDateTime.now());
                     newD.setStatus(DeploymentStatus.RUNNING);
                     newD.setImageName(image);
-                    newD.setContainerPort(appName.equals("launchpad-backend") ? 8082 : 3000);
+                    newD.setContainerPort(appName.equals("vector-api") ? 8082 : 3000);
                     return newD;
                 });
         d.setSelfApp(true);
@@ -76,7 +76,7 @@ public class SelfAppBootstrap {
             d.setPinnedImage(image);
             d.setPinnedAt(LocalDateTime.now());
         }
-        if (appName.equals("launchpad-backend")) {
+        if (appName.equals("vector-api")) {
             d.setCommitSha(runningSha);
             d.setCommitMessage(runningMessage);
         } else {

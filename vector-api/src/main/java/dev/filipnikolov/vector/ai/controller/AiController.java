@@ -33,7 +33,7 @@ public class AiController {
             OllamaService ollamaService,
             DockerService dockerService,
             DeploymentService deploymentService,
-            @Value("${launchpad.ai.log-tail-lines}") int logTailLines) {
+            @Value("${vector.ai.log-tail-lines}") int logTailLines) {
         this.ollamaService = ollamaService;
         this.dockerService = dockerService;
         this.deploymentService = deploymentService;

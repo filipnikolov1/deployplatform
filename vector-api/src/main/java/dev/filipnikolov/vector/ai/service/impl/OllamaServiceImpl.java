@@ -26,7 +26,7 @@ public class OllamaServiceImpl implements OllamaService {
 
     public OllamaServiceImpl(
             @Qualifier("ollamaRestClient") RestClient restClient,
-            @Value("${launchpad.ai.model}") String model) {
+            @Value("${vector.ai.model}") String model) {
         this.restClient = restClient;
         this.model = model;
     }

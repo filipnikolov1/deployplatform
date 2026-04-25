@@ -20,8 +20,8 @@ public class OllamaRestClientConfig {
 
     @Bean
     public RestClient ollamaRestClient(
-            @Value("${launchpad.ai.base-url}") String baseUrl,
-            @Value("${launchpad.ai.request-timeout-seconds}") int requestTimeoutSeconds) {
+            @Value("${vector.ai.base-url}") String baseUrl,
+            @Value("${vector.ai.request-timeout-seconds}") int requestTimeoutSeconds) {
 
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(5));

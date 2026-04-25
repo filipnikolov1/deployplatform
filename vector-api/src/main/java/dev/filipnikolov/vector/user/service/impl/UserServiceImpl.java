@@ -24,7 +24,7 @@ import java.util.Map;
 public class UserServiceImpl implements UserService {
 
     private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
-    private static final String OWNER_EMAIL = "owner@launchpad.local";
+    private static final String OWNER_EMAIL = "owner@vector.local";
 
     private final UserAccountRepository repository;
 

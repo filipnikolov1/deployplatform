@@ -111,10 +111,10 @@ public class SelfAppUpdateExecutor {
 
     private void finalizeSuccess(String appName, String service, String targetImage,
                                  String targetSha, String targetMessage) {
-        // For launchpad-backend, the new container reconciles on startup via SelfAppBootstrap.
-        // This code path mostly runs for launchpad-frontend; for backend it may not be reached
+        // For vector-api, the new container reconciles on startup via SelfAppBootstrap.
+        // This code path mostly runs for vector-web; for the API it may not be reached
         // because the container is killed during recreation.
-        if (!"launchpad-frontend".equals(service)) {
+        if (!"vector-web".equals(service)) {
             return;
         }
 

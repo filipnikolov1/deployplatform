@@ -16,7 +16,7 @@ public class UpdaterClient {
 
     private final RestClient restClient;
 
-    public UpdaterClient(@Value("${updater.base-url:http://launchpad-updater:8080}") String baseUrl) {
+    public UpdaterClient(@Value("${updater.base-url:http://vector-updater:8080}") String baseUrl) {
         this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     }
 
