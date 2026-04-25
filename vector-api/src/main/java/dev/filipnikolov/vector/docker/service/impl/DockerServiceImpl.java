@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -78,7 +79,10 @@ public class DockerServiceImpl implements DockerService {
             @Override
             public void close() {}
         });
-        latch.await();
+        boolean completed = latch.await(10, TimeUnit.MINUTES);
+        if (!completed) {
+            throw new RuntimeException("Docker pull timed out after 10 minutes for image: " + imageName);
+        }
 
         Throwable err = pullError.get();
         if (err != null) {
