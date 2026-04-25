@@ -1,7 +1,6 @@
 package dev.filipnikolov.vector.exception;
 
-import dev.filipnikolov.vector.ai.exception.AiNotReadyException;
-import dev.filipnikolov.vector.ai.exception.AiUnavailableException;
+import dev.filipnikolov.vector.ai.AiProviderException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -54,20 +53,9 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler(AiUnavailableException.class)
-    public ResponseEntity<Map<String, Object>> handleAiUnavailable(AiUnavailableException e) {
-        log.warn("AI service unavailable: {}", e.getMessage());
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
-                "status", 503,
-                "error", "Service Unavailable",
-                "message", e.getMessage(),
-                "timestamp", LocalDateTime.now().toString()
-        ));
-    }
-
-    @ExceptionHandler(AiNotReadyException.class)
-    public ResponseEntity<Map<String, Object>> handleAiNotReady(AiNotReadyException e) {
-        log.warn("AI model not ready: {}", e.getMessage());
+    @ExceptionHandler(AiProviderException.class)
+    public ResponseEntity<Map<String, Object>> handleAiProvider(AiProviderException e) {
+        log.warn("AI provider error: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
                 "status", 503,
                 "error", "Service Unavailable",
