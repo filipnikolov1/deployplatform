@@ -15,4 +15,6 @@ public interface EnvVarRepository extends JpaRepository<EnvVar, Long> {
     Optional<EnvVar> findByAppNameAndVarKey(String appName, String varKey);
 
     void deleteByAppNameAndVarKey(String appName, String varKey);
+
+    void deleteByAppName(String appName);
 }
