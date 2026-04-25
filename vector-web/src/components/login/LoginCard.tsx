@@ -90,7 +90,7 @@ export function LoginCard() {
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               placeholder="••••••••"
-              className="w-full pl-[34px] pr-3 py-2.5 text-sm rounded-md outline-none transition-[border-color] duration-[120ms]"
+              className="w-full pl-[34px] pr-3 py-2.5 text-sm rounded-md outline-none transition-[border-color] duration-fast"
               style={{
                 background: "var(--c-surface-1)",
                 border: `1px solid ${focused ? "var(--c-accent-line)" : "var(--c-border-2)"}`,

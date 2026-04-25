@@ -79,7 +79,7 @@ export function SetupGuide() {
         onFocus={() => setFocusedField(id)}
         onBlur={() => setFocusedField(null)}
         inputMode={inputMode}
-        className="w-full px-3 py-2.5 text-sm rounded-md outline-none transition-[border-color] duration-[120ms]"
+        className="w-full px-3 py-2.5 text-sm rounded-md outline-none transition-[border-color] duration-fast"
         style={{
           background: "var(--c-surface-1)",
           border: `1px solid ${focusedField === id ? "var(--c-accent-line)" : "var(--c-border-2)"}`,
@@ -118,7 +118,7 @@ export function SetupGuide() {
                 key={option.value}
                 type="button"
                 onClick={() => setStack(option.value)}
-                className="rounded-md px-3 py-3 text-[13px] font-medium transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
+                className="rounded-md px-3 py-3 text-[13px] font-medium transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
                 style={{
                   background: sel ? "var(--c-accent-soft)" : "var(--c-surface-2)",
                   border: `1px solid ${sel ? "var(--c-accent-line)" : "var(--c-border-2)"}`,

@@ -72,7 +72,7 @@ function RadioRow<T extends string>({
             aria-checked={sel}
             onClick={() => onChange(opt.value)}
             data-group={name}
-            className="px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all duration-[120ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
+            className="px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
             style={{
               background: sel ? "var(--c-accent-soft)" : "var(--c-surface-1)",
               border: `1px solid ${sel ? "var(--c-accent-line)" : "var(--c-border-2)"}`,
@@ -203,7 +203,7 @@ export function PreferencesForm() {
                   type="button"
                   aria-label={`Unpin ${name}`}
                   onClick={() => save({ pinned_apps: prefs.pinned_apps.filter((n) => n !== name) })}
-                  className="h-7 w-7 rounded flex items-center justify-center transition-colors duration-[120ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
+                  className="h-7 w-7 rounded flex items-center justify-center transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
                   style={{ color: "var(--c-fg-3)", background: "transparent", border: "none", cursor: "pointer" }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = "var(--c-surface-3)"; e.currentTarget.style.color = "var(--c-fg-1)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--c-fg-3)"; }}
