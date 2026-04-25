@@ -719,7 +719,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                       role="tab"
                       aria-selected={sel}
                       onClick={() => setTab(t.id)}
-                      className="rounded-[5px] px-3.5 py-1.5 text-[13px] font-medium transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
+                      className="rounded-sm px-3.5 py-1.5 text-[13px] font-medium transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
                       style={{
                         background: sel ? "var(--c-accent-soft)" : "transparent",
                         color: sel ? "var(--c-accent-fg)" : "var(--c-fg-2)",
