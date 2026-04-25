@@ -23,7 +23,7 @@ function SelfAppCard({ app, onOpen }: { app: Deployment; onOpen: (name: string) 
       onClick={() => onOpen(app.appName)}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      className="block w-full text-left rounded-[10px] p-3.5 transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+      className="block w-full text-left rounded-[10px] p-3.5 transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
       style={{
         background: hover ? "var(--c-surface-2)" : "var(--c-surface-1)",
         border: "1px solid var(--c-border-2)",
@@ -34,11 +34,11 @@ function SelfAppCard({ app, onOpen }: { app: Deployment; onOpen: (name: string) 
         <div
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
           style={{
-            background: "var(--c-ghost-soft)",
-            border: "1px solid var(--c-ghost-line)",
+            background: "var(--c-accent-soft)",
+            border: "1px solid var(--c-accent-line)",
           }}
         >
-          <Rocket className="h-3.5 w-3.5" style={{ color: "var(--c-ghost-light)" }} />
+          <Rocket className="h-3.5 w-3.5" style={{ color: "var(--c-accent-light)" }} />
         </div>
         <div className="min-w-0 flex-1">
           <div
@@ -129,7 +129,7 @@ export function SelfAppsBand({ apps, onOpen }: SelfAppsBandProps) {
   return (
     <section className="mb-7">
       <div className="flex items-center gap-2.5 mb-2.5">
-        <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--c-ghost-light)" }} />
+        <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--c-accent-light)" }} />
         <h2
           className="text-[13px] font-semibold m-0 uppercase tracking-[0.14em]"
           style={{ color: "var(--c-fg-1)" }}
