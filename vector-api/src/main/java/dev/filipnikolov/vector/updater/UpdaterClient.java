@@ -6,8 +6,11 @@ import dev.filipnikolov.vector.updater.dto.UpdaterStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
 
 @Component
 public class UpdaterClient {
@@ -17,7 +20,10 @@ public class UpdaterClient {
     private final RestClient restClient;
 
     public UpdaterClient(@Value("${updater.base-url:http://vector-updater:8080}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setReadTimeout(Duration.ofSeconds(5));
+
+        this.restClient = RestClient.builder().requestFactory(factory).baseUrl(baseUrl).build();
     }
 
     public boolean health() {
