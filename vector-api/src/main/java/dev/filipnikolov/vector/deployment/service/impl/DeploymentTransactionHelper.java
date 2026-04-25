@@ -55,4 +55,73 @@ class DeploymentTransactionHelper {
                 req.appName(), req, null, null);
         return deployment;
     }
+
+    @Transactional
+    void postCreate(String appName, DeploymentStatus status,
+                    CreateDeploymentRequest req, long durationMs, String error) {
+        Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
+                .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
+        deployment.setStatus(status);
+        deployment.setUpdatedAt(LocalDateTime.now());
+        deploymentRepository.save(deployment);
+
+        if (status == DeploymentStatus.RUNNING) {
+            eventService.record(DeploymentEventType.DEPLOY_FINISHED, DeploymentEventStatus.SUCCESS,
+                    appName, req, durationMs, null);
+        } else {
+            eventService.record(DeploymentEventType.FAILED, DeploymentEventStatus.FAILURE,
+                    appName, req, durationMs, error);
+        }
+    }
+
+    @Transactional
+    Deployment preRestart(String appName) {
+        Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
+                .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
+        deployment.setStatus(DeploymentStatus.PENDING);
+        deployment.setUpdatedAt(LocalDateTime.now());
+        return deploymentRepository.save(deployment);
+    }
+
+    @Transactional
+    Deployment postRestart(String appName, DeploymentStatus status,
+                           CreateDeploymentRequest ctx, long durationMs, String error) {
+        Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
+                .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
+        deployment.setStatus(status);
+        deployment.setUpdatedAt(LocalDateTime.now());
+        deploymentRepository.save(deployment);
+
+        eventService.record(DeploymentEventType.RESTARTED,
+                status == DeploymentStatus.RUNNING ? DeploymentEventStatus.SUCCESS : DeploymentEventStatus.FAILURE,
+                appName, ctx, durationMs, error);
+        return deployment;
+    }
+
+    @Transactional
+    Deployment saveSubdomainChange(String appName, String subdomain) {
+        Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
+                .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
+        deployment.setSubdomain(subdomain);
+        deployment.setUpdatedAt(LocalDateTime.now());
+        return deploymentRepository.save(deployment);
+    }
+
+    @Transactional
+    boolean handlePinnedWebhook(CreateDeploymentRequest req) {
+        return deploymentRepository.findByAppName(req.appName()).map(d -> {
+            if (d.getPinnedImage() == null) return false;
+            if (d.isSelfApp()) {
+                d.setLatestKnownImage(req.imageName());
+                d.setLatestKnownSha(req.commitSha());
+                d.setLatestKnownMessage(req.commitMessage());
+                if (req.branch() != null) d.setBranch(req.branch());
+                d.setUpdatedAt(LocalDateTime.now());
+                deploymentRepository.save(d);
+            }
+            eventService.record(DeploymentEventType.UPDATE_AVAILABLE, DeploymentEventStatus.SUCCESS,
+                    req.appName(), req, null, "New version available: " + req.imageName());
+            return true;
+        }).orElse(false);
+    }
 }
