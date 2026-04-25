@@ -45,3 +45,13 @@ build/
 ### Superpowers workspaces ###
 .superpowers/
 docs/superpowers/
+
+### Planning docs (local only) ###
+/CONTEXT_CHECK.md
+/PLAN_AMENDMENTS.md
+/POST_REFACTOR_ROADMAP.md
+/REFACTOR_PLAN.md
+/REVIEW.md
+/THEME_EXPORT.md
+/THEME_UPGRADE.md
+/TIME_MACHINE_PLAN.md
