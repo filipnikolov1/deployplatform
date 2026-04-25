@@ -1,8 +1,11 @@
 package dev.filipnikolov.vector.monitoring.service.impl;
 
 import dev.filipnikolov.vector.deployment.model.Deployment;
+import dev.filipnikolov.vector.deployment.model.DeploymentEventStatus;
+import dev.filipnikolov.vector.deployment.model.DeploymentEventType;
 import dev.filipnikolov.vector.deployment.model.DeploymentStatus;
 import dev.filipnikolov.vector.deployment.repository.DeploymentRepository;
+import dev.filipnikolov.vector.deployment.service.DeploymentEventService;
 import dev.filipnikolov.vector.docker.service.DockerService;
 import dev.filipnikolov.vector.monitoring.service.NotificationService;
 import dev.filipnikolov.vector.monitoring.service.UptimeMonitorService;
@@ -31,6 +34,7 @@ public class UptimeMonitorServiceImpl implements UptimeMonitorService {
     private final DeploymentRepository deploymentRepository;
     private final NotificationService notificationService;
     private final DockerService dockerService;
+    private final DeploymentEventService eventService;
 
     @Override
     @Scheduled(fixedRate = 60000)
@@ -43,7 +47,9 @@ public class UptimeMonitorServiceImpl implements UptimeMonitorService {
                 app.setStatus(DeploymentStatus.DOWN);
                 app.setUpdatedAt(LocalDateTime.now());
                 deploymentRepository.save(app);
-                notificationService.sendDownAlert(app.getAppName());
+                eventService.record(DeploymentEventType.CRASHED, DeploymentEventStatus.FAILURE,
+                        app.getAppName(), null, null, "Container stopped unexpectedly");
+                notificationService.sendCrashedAlert(app.getAppName());
             }
         }
 
@@ -55,6 +61,9 @@ public class UptimeMonitorServiceImpl implements UptimeMonitorService {
                 app.setStatus(DeploymentStatus.RUNNING);
                 app.setUpdatedAt(LocalDateTime.now());
                 deploymentRepository.save(app);
+                eventService.record(DeploymentEventType.RESTARTED, DeploymentEventStatus.SUCCESS,
+                        app.getAppName(), null, null, "Container recovered");
+                notificationService.sendRecoveredAlert(app.getAppName());
             }
         }
     }
