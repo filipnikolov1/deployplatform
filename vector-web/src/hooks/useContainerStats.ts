@@ -4,7 +4,7 @@ import useSWR from "swr";
 import type { ContainerStats } from "@/types/vector";
 
 const fetcher = async (url: string): Promise<ContainerStats> => {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`Failed to load stats: ${res.status}`);
   return res.json();
 };
@@ -12,8 +12,9 @@ const fetcher = async (url: string): Promise<ContainerStats> => {
 export function useContainerStats(appName: string): {
   stats: ContainerStats | null;
   isLoading: boolean;
+  error: Error | null;
 } {
-  const { data, isLoading } = useSWR<ContainerStats>(
+  const { data, isLoading, error } = useSWR<ContainerStats>(
     appName ? `/api/apps/${encodeURIComponent(appName)}/stats` : null,
     fetcher,
     {
@@ -23,5 +24,5 @@ export function useContainerStats(appName: string): {
     },
   );
 
-  return { stats: data ?? null, isLoading };
+  return { stats: data ?? null, isLoading, error: error ?? null };
 }

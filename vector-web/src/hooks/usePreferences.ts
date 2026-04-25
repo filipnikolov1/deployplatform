@@ -21,7 +21,7 @@ const DEFAULT_PREFS: UserPreferences = {
 };
 
 const fetcher = async (url: string): Promise<MeResponse> => {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`Failed to load /api/me: ${res.status}`);
   const raw = await res.json();
   return {

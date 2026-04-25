@@ -14,7 +14,7 @@ export interface PendingSelfUpdate {
 }
 
 const fetcher = async (url: string): Promise<PendingSelfUpdate | null> => {
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
   if (res.status === 204) return null;
   if (!res.ok) throw new Error(`Failed to load pending update: ${res.status}`);
   return res.json();

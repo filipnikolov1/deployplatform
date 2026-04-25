@@ -50,7 +50,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         durationMs: opts?.durationMs ?? 4000,
         persistent: opts?.persistent ?? false,
       };
-      setToasts((prev) => [...prev, entry].slice(-3));
+      setToasts((prev) => [...prev, entry].slice(-6));
       return id;
     },
     [],

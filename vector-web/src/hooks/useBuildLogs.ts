@@ -29,6 +29,10 @@ export function useBuildLogs(appName: string) {
         return next;
       });
     };
+    es.addEventListener("done", () => {
+      es.close();
+      setStatus("closed");
+    });
     es.onerror = () => setStatus("error");
 
     return () => {

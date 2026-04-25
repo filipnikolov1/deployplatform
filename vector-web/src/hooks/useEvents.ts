@@ -16,7 +16,7 @@ interface UseEventsResult {
 }
 
 const fetcher = async (url: string): Promise<DeploymentEvent[]> => {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`Failed to load events: ${res.status}`);
   return res.json();
 };
