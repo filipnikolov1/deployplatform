@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import useSWR from "swr";
 import type { DeploymentEvent } from "@/types/vector";
+import { useEventStream } from "@/hooks/useEventStream";
 
 interface UseEventsArgs {
   appName?: string;
@@ -29,15 +31,23 @@ export function useEvents({
     ? `/api/apps/${encodeURIComponent(appName)}/events?limit=${limit}`
     : `/api/events?limit=${limit}`;
 
+  const { sseConnected, lastEventPayload } = useEventStream();
+
   const { data, error, isLoading, mutate } = useSWR<DeploymentEvent[]>(
     url,
     fetcher,
     {
-      refreshInterval: 10_000,
+      refreshInterval: sseConnected ? 0 : 10_000,
       revalidateOnFocus: true,
       dedupingInterval: 2_000,
     },
   );
+
+  useEffect(() => {
+    if (lastEventPayload !== null) {
+      void mutate();
+    }
+  }, [lastEventPayload, mutate]);
 
   return {
     events: data ?? [],
