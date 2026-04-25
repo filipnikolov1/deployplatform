@@ -1,0 +1,5 @@
+:root {
+  --c-font-sans: var(--font-manrope), system-ui, sans-serif;
+  --c-font-mono: var(--font-mono), ui-monospace, monospace;
+  --c-font-features-sans: "cv11";
+}
