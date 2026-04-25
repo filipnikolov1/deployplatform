@@ -10,7 +10,7 @@ interface Props {
 }
 
 const fetcher = async (url: string): Promise<Record<string, string>> => {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`Failed: ${res.status}`);
   return res.json();
 };
