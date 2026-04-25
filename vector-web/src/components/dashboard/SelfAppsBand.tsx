@@ -60,35 +60,16 @@ function SelfAppCard({ app, onOpen }: { app: Deployment; onOpen: (name: string) 
         <span
           className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] font-medium whitespace-nowrap"
           style={{
-            color: config.dotColor === "bg-green-500" ? "#86EFAC"
-              : config.dotColor === "bg-amber-500" ? "#FCD34D"
-              : config.dotColor === "bg-red-500" ? "#FCA5A5"
-              : "#CBD5E1",
-            background: status === "RUNNING" ? "rgba(34,197,94,0.10)"
-              : status === "BUILDING" ? "rgba(245,158,11,0.10)"
-              : status === "FAILED" || status === "CRASHED" ? "rgba(239,68,68,0.10)"
-              : "rgba(100,116,139,0.10)",
-            border: `1px solid ${
-              status === "RUNNING" ? "rgba(34,197,94,0.24)"
-              : status === "BUILDING" ? "rgba(245,158,11,0.28)"
-              : status === "FAILED" || status === "CRASHED" ? "rgba(239,68,68,0.28)"
-              : "rgba(100,116,139,0.24)"
-            }`,
+            color: config.fg,
+            background: config.bg,
+            border: `1px solid ${config.line}`,
           }}
         >
           <span
             className="inline-block h-1.5 w-1.5 rounded-full"
             style={{
-              background: status === "RUNNING" ? "#22C55E"
-                : status === "BUILDING" ? "#F59E0B"
-                : status === "FAILED" || status === "CRASHED" ? "#EF4444"
-                : "#64748B",
-              boxShadow: `0 0 4px ${
-                status === "RUNNING" ? "#22C55E"
-                : status === "BUILDING" ? "#F59E0B"
-                : status === "FAILED" || status === "CRASHED" ? "#EF4444"
-                : "#64748B"
-              }`,
+              background: config.dotColor,
+              boxShadow: `0 0 4px ${config.dotColor}`,
             }}
           />
           {config.label}
@@ -110,7 +91,7 @@ function SelfAppCard({ app, onOpen }: { app: Deployment; onOpen: (name: string) 
         {hasUpdate ? (
           <span
             className="inline-flex items-center gap-1 font-medium"
-            style={{ color: "#DDD6FE" }}
+            style={{ color: "var(--c-accent-fg)" }}
           >
             <ArrowUpCircle className="h-2.5 w-2.5" />
             Update available
