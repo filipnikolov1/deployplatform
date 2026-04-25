@@ -54,7 +54,7 @@ export function Sidebar() {
               className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
               style={{
                 background: isActive ? "var(--c-accent-soft)" : "transparent",
-                color: isActive ? "#DDD6FE" : "var(--c-fg-2)",
+                color: isActive ? "var(--c-accent-fg)" : "var(--c-fg-2)",
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {

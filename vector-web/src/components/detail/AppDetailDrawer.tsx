@@ -233,30 +233,12 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
   const status = app ? toAppStatus(app.status) : "STOPPED";
   const config = statusConfig[status];
 
-  const dotColor = status === "RUNNING" ? "#22C55E"
-    : status === "BUILDING" ? "#F59E0B"
-    : status === "FAILED" || status === "CRASHED" ? "#EF4444"
-    : "#64748B";
-  const chipFg = status === "RUNNING" ? "#86EFAC"
-    : status === "BUILDING" ? "#FCD34D"
-    : status === "FAILED" || status === "CRASHED" ? "#FCA5A5"
-    : "#CBD5E1";
-  const chipBg = status === "RUNNING" ? "rgba(34,197,94,0.10)"
-    : status === "BUILDING" ? "rgba(245,158,11,0.10)"
-    : status === "FAILED" || status === "CRASHED" ? "rgba(239,68,68,0.10)"
-    : "rgba(100,116,139,0.10)";
-  const chipBd = status === "RUNNING" ? "rgba(34,197,94,0.24)"
-    : status === "BUILDING" ? "rgba(245,158,11,0.28)"
-    : status === "FAILED" || status === "CRASHED" ? "rgba(239,68,68,0.28)"
-    : "rgba(100,116,139,0.24)";
-  const iconBg = status === "RUNNING" ? "rgba(34,197,94,0.10)"
-    : status === "BUILDING" ? "rgba(245,158,11,0.10)"
-    : status === "FAILED" || status === "CRASHED" ? "rgba(239,68,68,0.10)"
-    : "rgba(100,116,139,0.10)";
-  const iconBd = status === "RUNNING" ? "rgba(34,197,94,0.24)"
-    : status === "BUILDING" ? "rgba(245,158,11,0.28)"
-    : status === "FAILED" || status === "CRASHED" ? "rgba(239,68,68,0.28)"
-    : "rgba(100,116,139,0.24)";
+  const dotColor = config.dotColor;
+  const chipFg   = config.fg;
+  const chipBg   = config.bg;
+  const chipBd   = config.line;
+  const iconBg   = config.bg;
+  const iconBd   = config.line;
 
   const Icon = config.icon;
 
@@ -278,9 +260,9 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
         className="absolute top-0 right-0 bottom-0 flex flex-col lp-slidein"
         style={{
           width: "min(640px, 100vw)",
-          background: "#0A0A12",
+          background: "var(--c-bg-body)",
           borderLeft: "1px solid var(--c-border-2)",
-          boxShadow: "-24px 0 60px rgba(0,0,0,0.5)",
+          boxShadow: "var(--c-shadow-drawer)",
         }}
       >
         {!app ? (
@@ -453,7 +435,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                                   }
                                 }}
                                 className="shrink-0 flex items-center justify-center rounded p-0.5 transition-colors hover:bg-white/10"
-                                style={{ color: "#86EFAC" }}
+                                style={{ color: "var(--c-status-running-fg)" }}
                                 aria-label="Save subdomain"
                               >
                                 <Check className="h-3.5 w-3.5" />
@@ -469,7 +451,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                               </button>
                             </span>
                             {subdomainError && (
-                              <span className="text-[10px]" style={{ color: "#FCA5A5" }}>{subdomainError}</span>
+                              <span className="text-[10px]" style={{ color: "var(--c-status-failed-fg)" }}>{subdomainError}</span>
                             )}
                           </span>
                         ) : (
@@ -479,7 +461,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                               target="_blank"
                               rel="noreferrer"
                               className="inline-flex items-center gap-1 truncate hover:opacity-80"
-                              style={{ color: "#C4B5FD" }}
+                              style={{ color: "var(--c-accent-fg)" }}
                             >
                               {publicUrl.replace(/^https?:\/\//, "")}
                               <ExternalLink className="h-3 w-3 shrink-0" />
@@ -520,7 +502,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                             target="_blank"
                             rel="noreferrer"
                             className="font-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] hover:opacity-80"
-                            style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border-2)", color: "#C4B5FD" }}
+                            style={{ background: "var(--c-surface-2)", border: "1px solid var(--c-border-2)", color: "var(--c-accent-fg)" }}
                           >
                             {app.commitSha.slice(0, 7)}
                           </a>
@@ -550,7 +532,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                           target="_blank"
                           rel="noreferrer"
                           className="truncate hover:opacity-80"
-                          style={{ color: "#C4B5FD" }}
+                          style={{ color: "var(--c-accent-fg)" }}
                         >
                           {repoDisplay}
                         </a>
@@ -587,7 +569,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                           target="_blank"
                           rel="noreferrer"
                           className="hover:opacity-80"
-                          style={{ color: "#FDE68A" }}
+                          style={{ color: "var(--c-status-building-fg)" }}
                         >
                           {commitsAhead.count} commits
                         </a>
@@ -646,15 +628,15 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                 aria-live="polite"
                 className="mx-6 mt-4 flex items-center gap-4 rounded-[10px] p-4"
                 style={{
-                  background: "rgba(139,92,246,0.08)",
-                  border: "1px solid rgba(139,92,246,0.25)",
+                  background: "var(--c-accent-soft)",
+                  border: "1px solid var(--c-accent-line)",
                 }}
               >
                 <div
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
                   style={{
-                    background: "rgba(139,92,246,0.15)",
-                    border: "1px solid rgba(139,92,246,0.30)",
+                    background: "var(--c-accent-glow)",
+                    border: "1px solid var(--c-accent-line)",
                   }}
                 >
                   <Loader2 className="h-5 w-5 animate-spin text-violet-200" />
@@ -678,15 +660,15 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                 aria-live="polite"
                 className="mx-6 mt-4 flex items-center gap-4 rounded-[10px] p-4"
                 style={{
-                  background: "rgba(245,158,11,0.08)",
-                  border: "1px solid rgba(245,158,11,0.25)",
+                  background: "var(--c-status-building-bg)",
+                  border: "1px solid var(--c-status-building-line)",
                 }}
               >
                 <div
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
                   style={{
-                    background: "rgba(245,158,11,0.15)",
-                    border: "1px solid rgba(245,158,11,0.30)",
+                    background: "var(--c-status-building-bg)",
+                    border: "1px solid var(--c-status-building-line)",
                   }}
                 >
                   <ArrowUpCircle className="h-5 w-5 text-amber-200" />
