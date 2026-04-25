@@ -5,6 +5,7 @@ import dev.filipnikolov.vector.deployment.model.DeploymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,4 +42,6 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
      * Looks up a live deployment by subdomain (excludes soft-deleted rows).
      */
     Optional<Deployment> findBySubdomainAndDeletedAtIsNull(String subdomain);
+
+    List<Deployment> findByDeletedAtIsNotNullAndDeletedAtBefore(LocalDateTime cutoff);
 }

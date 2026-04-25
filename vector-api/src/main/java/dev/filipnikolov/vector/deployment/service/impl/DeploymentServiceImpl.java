@@ -80,8 +80,7 @@ public class DeploymentServiceImpl implements DeploymentService {
     @Transactional
     public void hardDeleteExpired() {
         LocalDateTime cutoff = LocalDateTime.now().minusMinutes(5);
-        deploymentRepository.findAll().stream()
-                .filter(d -> d.getDeletedAt() != null && d.getDeletedAt().isBefore(cutoff))
+        deploymentRepository.findByDeletedAtIsNotNullAndDeletedAtBefore(cutoff)
                 .forEach(d -> {
                     try {
                         dockerService.stopAndRemoveContainer(d.getAppName());
