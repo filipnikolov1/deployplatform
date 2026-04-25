@@ -35,10 +35,10 @@ export function StatusHero({ activeFilter, onFilterChange, counts }: StatusHeroP
             key={item.key}
             onClick={() => onFilterChange(item.key)}
             aria-pressed={sel}
-            className="flex flex-col gap-1.5 rounded-[10px] p-3.5 text-left transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+            className="flex flex-col gap-1.5 rounded-[10px] p-3.5 text-left transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
             style={{
               background: sel ? "var(--c-surface-3)" : "var(--c-surface-1)",
-              border: `1px solid ${sel ? "var(--c-ghost-line)" : "var(--c-border-1)"}`,
+              border: `1px solid ${sel ? "var(--c-accent-line)" : "var(--c-border-1)"}`,
             }}
           >
             <div className="flex items-center justify-between">

@@ -324,9 +324,9 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                       <span
                         className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-[0.04em]"
                         style={{
-                          color: "#DDD6FE",
-                          background: "var(--c-ghost-soft)",
-                          border: "1px solid var(--c-ghost-line)",
+                          color: "var(--c-accent-fg)",
+                          background: "var(--c-accent-soft)",
+                          border: "1px solid var(--c-accent-line)",
                         }}
                       >
                         Self-app
@@ -338,7 +338,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                   type="button"
                   aria-label="Close drawer"
                   onClick={onClose}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
                   style={{
                     background: "var(--c-surface-2)",
                     border: "1px solid var(--c-border-1)",
@@ -411,7 +411,7 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                                     setSubdomainError(null);
                                   }
                                 }}
-                                className="flex-1 min-w-0 rounded px-2 py-0.5 text-xs font-mono outline-none focus-visible:ring-1 focus-visible:ring-accent-ghostLight"
+                                className="flex-1 min-w-0 rounded px-2 py-0.5 text-xs font-mono outline-none focus-visible:ring-1 focus-visible:ring-accent-light"
                                 style={{
                                   background: "var(--c-surface-2)",
                                   border: "1px solid var(--c-border-2)",
@@ -737,10 +737,10 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                       role="tab"
                       aria-selected={sel}
                       onClick={() => setTab(t.id)}
-                      className="rounded-[5px] px-3.5 py-1.5 text-[13px] font-medium transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+                      className="rounded-[5px] px-3.5 py-1.5 text-[13px] font-medium transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
                       style={{
-                        background: sel ? "var(--c-ghost-soft)" : "transparent",
-                        color: sel ? "#DDD6FE" : "var(--c-fg-2)",
+                        background: sel ? "var(--c-accent-soft)" : "transparent",
+                        color: sel ? "var(--c-accent-fg)" : "var(--c-fg-2)",
                         border: "none",
                         cursor: "pointer",
                       }}
@@ -797,9 +797,9 @@ function ActionButton({
 }) {
   const styles = {
     primary: {
-      background: "var(--c-ghost-soft)",
-      color: "#DDD6FE",
-      border: "1px solid var(--c-ghost-line)",
+      background: "var(--c-accent-soft)",
+      color: "var(--c-accent-fg)",
+      border: "1px solid var(--c-accent-line)",
     },
     secondary: {
       background: "var(--c-surface-2)",
@@ -818,7 +818,7 @@ function ActionButton({
       type="button"
       onClick={onClick}
       disabled={disabled || loading}
-      className={`inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-[filter] duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight ${className}`}
+      className={`inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-[filter] duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light ${className}`}
       style={{
         ...styles,
         cursor: disabled || loading ? "not-allowed" : "pointer",
