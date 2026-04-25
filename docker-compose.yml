@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.6
     command:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
@@ -8,22 +8,22 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock:ro
+      - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock:ro
     networks:
       - traefik
 
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: ${DB_USERNAME:-launchpad}
-      POSTGRES_USER: ${DB_USERNAME:-launchpad}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-launchpad}
+      POSTGRES_DB: ${VECTOR_DB_USER:-launchpad}
+      POSTGRES_USER: ${VECTOR_DB_USER:-launchpad}
+      POSTGRES_PASSWORD: ${VECTOR_DB_PASS:-launchpad}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - traefik
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-launchpad}"]
+      test: ["CMD-SHELL", "pg_isready -U ${VECTOR_DB_USER:-launchpad}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -39,21 +39,21 @@ services:
     networks:
       - traefik
 
-  launchpad:
-    image: ${LAUNCHPAD_BACKEND_IMAGE:-filipn123/launchpad-backend:latest}
-    container_name: launchpad-backend
+  vector-api:
+    image: ${VECTOR_BACKEND_IMAGE:-filipn123/vector-api:latest}
+    container_name: vector-api
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: vector-api/Dockerfile
     env_file:
       - .env
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/launchpad
-      DOCKER_SOCKET: unix:///var/run/docker.sock
-      OLLAMA_BASE_URL: http://ollama:11434
-      UPDATER_BASE_URL: http://launchpad-updater:8080
+      VECTOR_DB_URL: jdbc:postgresql://postgres:5432/launchpad
+      VECTOR_DOCKER_SOCKET: unix:///var/run/docker.sock
+      VECTOR_OLLAMA_BASE_URL: http://ollama:11434
+      UPDATER_BASE_URL: http://vector-updater:8080
     volumes:
-      - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
+      - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,42 +63,42 @@ services:
       - traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.launchpad.rule=Host(`launchpad.localhost`)"
-      - "traefik.http.routers.launchpad.entrypoints=web"
-      - "traefik.http.routers.launchpad-deploy-hook.rule=PathPrefix(`/deploy-hook`)"
-      - "traefik.http.routers.launchpad-deploy-hook.entrypoints=web"
-      - "traefik.http.services.launchpad.loadbalancer.server.port=8082"
+      - "traefik.http.routers.vector-api.rule=Host(`vector-api.localhost`)"
+      - "traefik.http.routers.vector-api.entrypoints=web"
+      - "traefik.http.routers.vector-api-deploy-hook.rule=PathPrefix(`/deploy-hook`)"
+      - "traefik.http.routers.vector-api-deploy-hook.entrypoints=web"
+      - "traefik.http.services.vector-api.loadbalancer.server.port=8082"
 
-  launchpad-frontend:
-    image: ${LAUNCHPAD_FRONTEND_IMAGE:-filipn123/launchpad-frontend:latest}
-    container_name: launchpad-frontend
+  vector-web:
+    image: ${VECTOR_FRONTEND_IMAGE:-filipn123/vector-web:latest}
+    container_name: vector-web
     build:
-      context: ./frontend
+      context: ./vector-web
       dockerfile: Dockerfile
     environment:
-      BACKEND_URL: http://launchpad:8082
-      API_KEY: ${APP_API_KEY}
+      BACKEND_URL: http://vector-api:8082
+      API_KEY: ${VECTOR_API_KEY}
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
-      SESSION_SECRET: ${SESSION_SECRET}
+      SESSION_SECRET: ${VECTOR_SESSION_SECRET}
     depends_on:
-      - launchpad
+      - vector-api
     networks:
       - traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`appdashboard.localhost`)"
-      - "traefik.http.routers.dashboard.entrypoints=web"
-      - "traefik.http.services.dashboard.loadbalancer.server.port=3000"
+      - "traefik.http.routers.vector-web.rule=Host(`vector.localhost`)"
+      - "traefik.http.routers.vector-web.entrypoints=web"
+      - "traefik.http.services.vector-web.loadbalancer.server.port=3000"
 
-  launchpad-updater:
-    image: filipn123/launchpad-updater:latest
+  vector-updater:
+    image: filipn123/vector-updater:latest
     build:
-      context: ./updater
+      context: ./vector-updater
       dockerfile: Dockerfile
     environment:
-      COMPOSE_PROJECT_NAME: launchpad
+      COMPOSE_PROJECT_NAME: vector-platform
     volumes:
-      - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
+      - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
       - ./docker-compose.yml:/workspace/docker-compose.yml:ro
       - ./.env:/workspace/.env:ro
     networks:
