@@ -65,6 +65,10 @@ class DeploymentTransactionHelper {
                 .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
         deployment.setStatus(status);
         deployment.setUpdatedAt(LocalDateTime.now());
+        if (status == DeploymentStatus.RUNNING) {
+            deployment.setLastDeployedAt(LocalDateTime.now());
+            deployment.setBuildDurationMs(durationMs);
+        }
         deploymentRepository.save(deployment);
 
         if (status == DeploymentStatus.RUNNING) {

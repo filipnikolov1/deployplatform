@@ -17,7 +17,7 @@ public class DeploymentEvent {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 100)
+    @Column(length = 100)
     private String appName;
 
     @Enumerated(EnumType.STRING)
@@ -56,4 +56,7 @@ public class DeploymentEvent {
     private LocalDateTime createdAt;
 
     private LocalDateTime finishedAt;
+
+    @Column(length = 64)
+    private String rollbackFromSha;
 }

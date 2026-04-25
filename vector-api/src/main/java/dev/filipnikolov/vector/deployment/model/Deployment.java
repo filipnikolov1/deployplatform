@@ -39,7 +39,7 @@ public class Deployment {
     @Column(length = 64)
     private String commitSha;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "TEXT")
     private String commitMessage;
 
     @Column(length = 255)
@@ -70,5 +70,9 @@ public class Deployment {
 
     @Column(name = "latest_known_message", columnDefinition = "TEXT")
     private String latestKnownMessage;
+
+    private LocalDateTime lastDeployedAt;
+
+    private Long buildDurationMs;
 
 }
