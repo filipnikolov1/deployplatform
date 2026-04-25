@@ -30,11 +30,16 @@ export function UpdatingOverlayView({ view, copy }: Props) {
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center px-4 py-8">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(167,139,250,0.14),transparent_28%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.06),transparent_32%)]" />
+      <div
+        className="absolute inset-0"
+        style={{
+          background: "radial-gradient(circle at top, var(--c-accent-glow), transparent 28%), radial-gradient(circle at bottom, var(--c-border-1), transparent 32%)",
+        }}
+      />
 
-      <div className="glass-panel relative w-full max-w-2xl overflow-hidden rounded-[28px] px-7 py-8 text-center sm:px-10 sm:py-10">
+      <div className="glass-panel relative w-full max-w-2xl overflow-hidden rounded-3xl px-7 py-8 text-center sm:px-10 sm:py-10">
         <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] shadow-[0_0_60px_rgba(167,139,250,0.18)]">
+        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] shadow-glow">
           {ready ? (
             <RefreshCw className="h-9 w-9 text-slate-100" />
           ) : (
@@ -54,7 +59,7 @@ export function UpdatingOverlayView({ view, copy }: Props) {
           {ready ? copy.readyDescription : copy.waitingDescription}
         </p>
 
-        <div className="mx-auto mt-8 flex max-w-md items-center justify-center gap-3 rounded-full border border-white/10 bg-black/35 px-5 py-3 text-sm text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+        <div className="mx-auto mt-8 flex max-w-md items-center justify-center gap-3 rounded-full border border-white/10 bg-black/35 px-5 py-3 text-sm text-slate-300">
           {ready ? (
             <>
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(74,222,128,0.85)]" />
