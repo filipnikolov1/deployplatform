@@ -1,0 +1,58 @@
+services:
+  traefik:
+    image: traefik:v3.3
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+    volumes:
+      - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro
+    networks:
+      - traefik
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: launchpad
+      POSTGRES_USER: launchpad
+      POSTGRES_PASSWORD: launchpad
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - traefik
+
+  vector-updater:
+    build:
+      context: ../vector-updater
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8080"
+    volumes:
+      - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+      - ../docker-compose.yml:/workspace/docker-compose.yml:ro
+      - ../.env:/workspace/.env:ro
+    networks:
+      - traefik
+    restart: unless-stopped
+
+networks:
+  traefik:
+    name: traefik
+    external: true
+
+volumes:
+  postgres_data:
+  ollama_data:
