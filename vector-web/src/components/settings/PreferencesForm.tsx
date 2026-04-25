@@ -33,7 +33,7 @@ function Toggle({
         aria-checked={checked}
         aria-label={label}
         onClick={() => onChange(!checked)}
-        className="relative inline-flex h-[22px] w-10 shrink-0 rounded-full transition-all duration-[150ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-light mt-0.5"
+        className="relative inline-flex h-[22px] w-10 shrink-0 rounded-full transition-all duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-light mt-0.5"
         style={{
           background: checked ? "var(--c-accent-soft)" : "var(--c-surface-1)",
           border: `1px solid ${checked ? "var(--c-accent-line)" : "var(--c-border-2)"}`,
@@ -41,7 +41,7 @@ function Toggle({
       >
         <span
           aria-hidden="true"
-          className="inline-block h-4 w-4 rounded-full bg-white shadow transition-[left] duration-[150ms] ease-out absolute top-[2px]"
+          className="inline-block h-4 w-4 rounded-full bg-white shadow transition-[left] duration-fast ease-out absolute top-[2px]"
           style={{ left: checked ? 20 : 2, boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
         />
       </button>
@@ -223,11 +223,11 @@ export function PreferencesForm() {
         <div className="flex gap-2">
           <a
             href="/api/auth/logout"
-            className="inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
+            className="inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
             style={{
-              background: "rgba(239,68,68,0.10)",
-              color: "#FCA5A5",
-              border: "1px solid rgba(248,113,113,0.28)",
+              background: "var(--c-status-failed-bg)",
+              color: "var(--c-status-failed-fg)",
+              border: "1px solid var(--c-status-failed-line)",
               textDecoration: "none",
             }}
           >
