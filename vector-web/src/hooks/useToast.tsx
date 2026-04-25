@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Toast, type ToastVariant } from "@/components/primitives/Toast";
 
 interface ToastAction {
@@ -11,19 +11,26 @@ interface ToastEntry {
   id: number;
   variant: ToastVariant;
   message: string;
+  sublabel?: string;
   action?: ToastAction;
   durationMs: number;
+  persistent?: boolean;
 }
 
 interface PushOptions {
   action?: ToastAction;
   durationMs?: number;
+  persistent?: boolean;
+  sublabel?: string;
 }
 
 interface ToastApi {
-  success: (msg: string, opts?: PushOptions) => void;
-  error: (msg: string, opts?: PushOptions) => void;
-  info: (msg: string, opts?: PushOptions) => void;
+  success: (msg: string, opts?: PushOptions) => number;
+  error: (msg: string, opts?: PushOptions) => number;
+  info: (msg: string, opts?: PushOptions) => number;
+  progress: (msg: string, opts?: PushOptions) => number;
+  update: (id: number, patch: Partial<Omit<ToastEntry, "id">>) => void;
+  dismiss: (id: number) => void;
 }
 
 const Ctx = createContext<ToastApi | null>(null);
@@ -38,10 +45,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         id,
         variant,
         message,
+        sublabel: opts?.sublabel,
         action: opts?.action,
         durationMs: opts?.durationMs ?? 4000,
+        persistent: opts?.persistent ?? false,
       };
       setToasts((prev) => [...prev, entry].slice(-3));
+      return id;
     },
     [],
   );
@@ -50,19 +60,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const update = useCallback(
+    (id: number, patch: Partial<Omit<ToastEntry, "id">>) => {
+      setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    },
+    [],
+  );
+
   useEffect(() => {
     if (toasts.length === 0) return;
-    const timers = toasts.map((t) =>
-      window.setTimeout(() => dismiss(t.id), t.durationMs),
-    );
+    const timers = toasts
+      .filter((t) => !t.persistent)
+      .map((t) => window.setTimeout(() => dismiss(t.id), t.durationMs));
     return () => timers.forEach(window.clearTimeout);
   }, [toasts, dismiss]);
 
-  const api: ToastApi = {
-    success: (m, opts) => push("success", m, opts),
-    error: (m, opts) => push("error", m, opts),
-    info: (m, opts) => push("info", m, opts),
-  };
+  const api = useMemo<ToastApi>(
+    () => ({
+      success: (m, opts) => push("success", m, opts),
+      error: (m, opts) => push("error", m, opts),
+      info: (m, opts) => push("info", m, opts),
+      progress: (m, opts) => push("progress", m, { persistent: true, ...opts }),
+      update,
+      dismiss,
+    }),
+    [push, update, dismiss],
+  );
 
   return (
     <Ctx.Provider value={api}>
@@ -77,6 +100,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <Toast
               variant={t.variant}
               message={t.message}
+              sublabel={t.sublabel}
               action={
                 t.action
                   ? {

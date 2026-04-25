@@ -5,9 +5,11 @@ import { BottomNav } from "./BottomNav";
 import { BackendUpdatingOverlay } from "./BackendUpdatingOverlay";
 import { FrontendUpdatingOverlay } from "./FrontendUpdatingOverlay";
 import { useUpdateAvailableNotifier } from "@/hooks/useUpdateAvailableNotifier";
+import { useDeployProgressNotifier } from "@/hooks/useDeployProgressNotifier";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   useUpdateAvailableNotifier();
+  useDeployProgressNotifier();
 
   return (
     <div className="min-h-dvh">
