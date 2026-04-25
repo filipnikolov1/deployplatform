@@ -164,6 +164,7 @@ public class DeploymentServiceImpl implements DeploymentService {
             throw new IllegalArgumentException("Invalid rollback target");
         }
         Deployment d = getDeployment(appName);
+        String rollbackFromSha = d.getCommitSha();
 
         try {
             dockerService.pullAndRun(target.getImageName(), appName,
@@ -184,8 +185,10 @@ public class DeploymentServiceImpl implements DeploymentService {
                 appName, d.getRepoUrl(), target.getImageName(), d.getContainerPort(),
                 target.getBranch(), target.getCommitSha(), target.getCommitMessage(),
                 target.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.ROLLBACK);
-        eventService.record(DeploymentEventType.MANUAL_ROLLBACK, DeploymentEventStatus.SUCCESS,
-                appName, ctx, null, null);
+        DeploymentEvent rollbackEvent = eventService.record(DeploymentEventType.MANUAL_ROLLBACK,
+                DeploymentEventStatus.SUCCESS, appName, ctx, null, null);
+        rollbackEvent.setRollbackFromSha(rollbackFromSha);
+        eventRepository.save(rollbackEvent);
 
         return d;
     }
