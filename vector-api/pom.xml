@@ -8,11 +8,11 @@
         <version>4.0.5</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.filipnikolov</groupId>
-    <artifactId>launchpad</artifactId>
+    <groupId>dev.filipnikolov.vector</groupId>
+    <artifactId>vector-api</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>launchpad</name>
-    <description>launchpad</description>
+    <name>vector-api</name>
+    <description>vector-api</description>
     <url/>
     <licenses>
         <license/>
