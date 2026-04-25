@@ -1,5 +1,8 @@
 package dev.filipnikolov.vector.deployment.model;
 
+import dev.filipnikolov.vector.events.DeploymentEventStatus;
+import dev.filipnikolov.vector.events.DeploymentEventType;
+import dev.filipnikolov.vector.events.TriggerSource;
 import jakarta.persistence.*;
 import lombok.Data;
 

@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useEvents } from "@/hooks/useEvents";
 import { useToast } from "@/hooks/useToast";
-import type { DeploymentEvent, DeploymentEventType } from "@/types/launchpad";
+import type { DeploymentEvent, DeploymentEventType } from "@/types/vector";
 
 const DEPLOY_EVENT_TYPES: readonly DeploymentEventType[] = [
   "DEPLOY_TRIGGERED",

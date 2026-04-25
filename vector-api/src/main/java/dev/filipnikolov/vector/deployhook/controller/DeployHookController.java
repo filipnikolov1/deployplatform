@@ -2,7 +2,7 @@ package dev.filipnikolov.vector.deployhook.controller;
 
 import dev.filipnikolov.vector.common.lock.ActionLockService;
 import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
-import dev.filipnikolov.vector.deployment.model.TriggerSource;
+import dev.filipnikolov.vector.events.TriggerSource;
 import dev.filipnikolov.vector.deployment.service.DeploymentService;
 import dev.filipnikolov.vector.deployhook.auth.service.DeployHookAuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;

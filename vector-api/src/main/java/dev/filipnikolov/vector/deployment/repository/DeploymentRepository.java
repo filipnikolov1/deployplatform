@@ -1,7 +1,7 @@
 package dev.filipnikolov.vector.deployment.repository;
 
 import dev.filipnikolov.vector.deployment.model.Deployment;
-import dev.filipnikolov.vector.deployment.model.DeploymentStatus;
+import dev.filipnikolov.vector.events.DeploymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -1,7 +1,7 @@
 package dev.filipnikolov.vector.deployment.repository;
 
 import dev.filipnikolov.vector.deployment.model.DeploymentEvent;
-import dev.filipnikolov.vector.deployment.model.DeploymentEventType;
+import dev.filipnikolov.vector.events.DeploymentEventType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

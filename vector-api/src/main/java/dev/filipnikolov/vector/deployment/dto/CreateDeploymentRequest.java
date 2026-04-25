@@ -1,6 +1,6 @@
 package dev.filipnikolov.vector.deployment.dto;
 
-import dev.filipnikolov.vector.deployment.model.TriggerSource;
+import dev.filipnikolov.vector.events.TriggerSource;
 
 import java.time.LocalDateTime;
 

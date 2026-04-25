@@ -1,4 +1,4 @@
-package dev.filipnikolov.vector.deployment.model;
+package dev.filipnikolov.vector.events;
 
 public enum TriggerSource {
     AUTOMATIC,

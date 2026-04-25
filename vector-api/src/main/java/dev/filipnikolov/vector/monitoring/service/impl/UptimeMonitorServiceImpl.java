@@ -1,9 +1,9 @@
 package dev.filipnikolov.vector.monitoring.service.impl;
 
 import dev.filipnikolov.vector.deployment.model.Deployment;
-import dev.filipnikolov.vector.deployment.model.DeploymentEventStatus;
-import dev.filipnikolov.vector.deployment.model.DeploymentEventType;
-import dev.filipnikolov.vector.deployment.model.DeploymentStatus;
+import dev.filipnikolov.vector.events.DeploymentEventStatus;
+import dev.filipnikolov.vector.events.DeploymentEventType;
+import dev.filipnikolov.vector.events.DeploymentStatus;
 import dev.filipnikolov.vector.deployment.repository.DeploymentRepository;
 import dev.filipnikolov.vector.deployment.service.DeploymentEventService;
 import dev.filipnikolov.vector.docker.service.DockerService;
