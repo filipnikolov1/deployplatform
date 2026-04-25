@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,7 +40,6 @@ public class UserServiceImpl implements UserService {
         }
         UserAccount owner = new UserAccount();
         owner.setEmail(OWNER_EMAIL);
-        owner.setApiKeyHash(new BCryptPasswordEncoder().encode(appApiKey));
         owner.setPreferences(new HashMap<>());
         owner.setCreatedAt(LocalDateTime.now());
         repository.save(owner);
