@@ -15,8 +15,10 @@ GitHub Actions ──push──▶  DockerHub
                             │
                             ├──▶  Docker daemon  (create/start/stop containers)
                             ├──▶  Postgres       (deployments, env vars, users)
+                            │        └──pg_notify─▶  deployment_event triggers
                             ├──▶  Ollama         (AI log analysis)
-                            └──▶  Resend         (deploy success/failure email)
+                            ├──▶  Resend         (deploy/crash/recovery email alerts)
+                            └──▶  UptimeMonitor  (polls containers; emits CRASHED/RESTARTED)
 
 User's browser ──▶  Traefik  ──▶  Vector dashboard
                         └─▶  Deployed apps at `{app}.{your-domain}`
@@ -203,7 +205,7 @@ Copy `.env.example` to `.env` and fill in. Everything below reflects `.env.examp
 | --------------------- | --------------------------------- | ------------------------------------------------------------------------------------- |
 | `VECTOR_RESEND_API_KEY`| _(empty)_                        | API key from https://resend.com. Leave blank to disable email notifications entirely. |
 | `VECTOR_RESEND_FROM`  | `Vector <onboarding@resend.dev>`  | From address. Works as-is for testing; use your own verified domain for real use.     |
-| `VECTOR_RESEND_TO`    | _(empty)_                         | Where deploy success/failure emails go. Your email.                                   |
+| `VECTOR_RESEND_TO`    | _(empty)_                         | Where alert emails go (deploy success/failure, crash, recovery). Your email.           |
 
 ### Vector API key
 

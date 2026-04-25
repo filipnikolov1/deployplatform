@@ -21,9 +21,6 @@ public class UserAccount {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(nullable = false)
-    private String apiKeyHash;
-
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     private Map<String, Object> preferences = new HashMap<>();
