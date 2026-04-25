@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.deployment.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import dev.filipnikolov.vector.events.DeploymentStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 
