@@ -17,11 +17,11 @@ interface StatusHeroProps {
 }
 
 const ITEMS = [
-  { key: "all",      label: "All apps",  icon: LayoutGrid,   color: "#E2E8F0" },
-  { key: "running",  label: "Running",   icon: CheckCircle2, color: "#86EFAC" },
-  { key: "building", label: "Building",  icon: Activity,     color: "#FCD34D" },
-  { key: "failed",   label: "Failed",    icon: XCircle,      color: "#FCA5A5" },
-  { key: "stopped",  label: "Stopped",   icon: Clock,        color: "#CBD5E1" },
+  { key: "all",      label: "All apps",  icon: LayoutGrid,   color: "var(--c-fg-1)" },
+  { key: "running",  label: "Running",   icon: CheckCircle2, color: "var(--c-status-running-fg)" },
+  { key: "building", label: "Building",  icon: Activity,     color: "var(--c-status-building-fg)" },
+  { key: "failed",   label: "Failed",    icon: XCircle,      color: "var(--c-status-failed-fg)" },
+  { key: "stopped",  label: "Stopped",   icon: Clock,        color: "var(--c-status-stopped-fg)" },
 ] as const;
 
 export function StatusHero({ activeFilter, onFilterChange, counts }: StatusHeroProps) {
