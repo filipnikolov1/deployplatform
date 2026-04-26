@@ -4,18 +4,18 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 
 @Component
 public class ActionLockService {
 
-    private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Semaphore> locks = new ConcurrentHashMap<>();
 
     public Optional<LockHandle> tryLock(String key) {
-        ReentrantLock lock = locks.computeIfAbsent(key, k -> new ReentrantLock());
+        Semaphore lock = locks.computeIfAbsent(key, k -> new Semaphore(1));
         try {
-            if (lock.tryLock(5, TimeUnit.SECONDS)) {
+            if (lock.tryAcquire(5, TimeUnit.SECONDS)) {
                 return Optional.of(new LockHandle(key, lock));
             }
         } catch (InterruptedException e) {
@@ -24,16 +24,11 @@ public class ActionLockService {
         return Optional.empty();
     }
 
-    /**
-     * Removes the lock entry if it's currently held by exactly one holder
-     * (the caller about to release it) and has no waiters. Called from
-     * LockHandle.close() to keep the map bounded.
-     */
-    private void tryRemoveIfIdle(String key, ReentrantLock lock) {
+    private void tryRemoveIfIdle(String key, Semaphore lock) {
         locks.compute(key, (k, existing) -> {
             if (existing == null) return null;
             if (existing != lock) return existing;
-            if (existing.getHoldCount() == 1 && !existing.hasQueuedThreads()) {
+            if (existing.availablePermits() == 1 && !existing.hasQueuedThreads()) {
                 return null;
             }
             return existing;
@@ -42,9 +37,9 @@ public class ActionLockService {
 
     public class LockHandle implements AutoCloseable {
         private final String key;
-        private final ReentrantLock lock;
+        private final Semaphore lock;
 
-        LockHandle(String key, ReentrantLock lock) {
+        LockHandle(String key, Semaphore lock) {
             this.key = key;
             this.lock = lock;
         }
@@ -52,9 +47,9 @@ public class ActionLockService {
         @Override
         public void close() {
             try {
-                tryRemoveIfIdle(key, lock);
+                lock.release();
             } finally {
-                lock.unlock();
+                tryRemoveIfIdle(key, lock);
             }
         }
     }

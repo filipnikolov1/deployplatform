@@ -59,7 +59,7 @@ public class SelfAppUpdateService {
                 DeploymentEventStatus.IN_PROGRESS, appName, null, null,
                 "Target: " + targetImage);
 
-        final String service = appName.equals("vector-api") ? "vector" : "vector-web";
+        final String service = appName;
 
         PendingSelfUpdate pending = new PendingSelfUpdate();
         pending.setUpdateId(UUID.randomUUID());

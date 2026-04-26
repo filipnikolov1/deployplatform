@@ -111,7 +111,7 @@ public class DeployHookController {
                 appName, repoUrl, imageName, containerPort,
                 branch, commitSha, commitMessage, commitAuthor, commitTs, null, trigger);
 
-        Optional<ActionLockService.LockHandle> maybeLock = actionLockService.tryLock(appName);
+        Optional<ActionLockService.LockHandle> maybeLock = actionLockService.tryLock("app:" + appName);
         if (maybeLock.isEmpty()) {
             log.warn("Deploy lock held for {}, returning 409", appName);
             return ResponseEntity.status(409).body(Map.of("error", "Deployment already in progress for " + appName));

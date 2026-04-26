@@ -17,12 +17,12 @@ import (
 const keepImageTags = 3
 
 var allowedServices = map[string]bool{
-	"vector":     true,
+	"vector-api": true,
 	"vector-web": true,
 }
 
 var imageEnvByService = map[string]string{
-	"vector":     "VECTOR_BACKEND_IMAGE",
+	"vector-api": "VECTOR_BACKEND_IMAGE",
 	"vector-web": "VECTOR_FRONTEND_IMAGE",
 }
 
