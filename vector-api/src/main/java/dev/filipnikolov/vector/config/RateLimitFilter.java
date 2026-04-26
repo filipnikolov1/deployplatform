@@ -13,7 +13,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final int WINDOW_MS = 60_000;
     private static final int MAX_DEPLOY_HOOK_REQUESTS = 30;
-    private static final int MAX_API_REQUESTS = 60;
 
     private final ConcurrentHashMap<String, long[]> requestCounts = new ConcurrentHashMap<>();
 
@@ -21,12 +20,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
 
-        String ip = request.getRemoteAddr();
-        String path = request.getRequestURI();
-        boolean isDeployHook = path.startsWith("/deploy-hook");
-        int limit = isDeployHook ? MAX_DEPLOY_HOOK_REQUESTS : MAX_API_REQUESTS;
-        String key = ip + ":" + (isDeployHook ? "deploy-hook" : "api");
+        // Only rate-limit the public deploy-hook surface. Authenticated /api/* traffic is
+        // gated by ApiKeyAuthFilter and would self-DoS here since the BFF funnels every
+        // dashboard session through a single source IP.
+        if (!request.getRequestURI().startsWith("/deploy-hook")) {
+            chain.doFilter(request, response);
+            return;
+        }
 
+        String key = request.getRemoteAddr() + ":deploy-hook";
         long now = System.currentTimeMillis();
         long[] entry = requestCounts.compute(key, (k, v) -> {
             if (v == null || now - v[1] > WINDOW_MS) {
@@ -36,7 +38,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return v;
         });
 
-        if (entry[0] > limit) {
+        if (entry[0] > MAX_DEPLOY_HOOK_REQUESTS) {
             response.setStatus(429);
             response.setContentType("application/json");
             response.getWriter().write("{\"error\":\"Too Many Requests\"}");

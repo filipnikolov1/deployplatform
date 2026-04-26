@@ -19,25 +19,31 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Component
 @RequiredArgsConstructor
 public class SelfAppBootstrap {
 
     private static final Logger log = LoggerFactory.getLogger(SelfAppBootstrap.class);
-    private static final Pattern GIT_TAG_PATTERN = Pattern.compile(":git-([A-Fa-f0-9]{7,64})$");
+    private static final String REPO_URL = "https://github.com/filipnikolov1/vector-platform";
+    private static final String VECTOR_API = "vector-api";
+    private static final String VECTOR_WEB = "vector-web";
 
     private final DeploymentRepository deploymentRepository;
     private final DeploymentEventService eventService;
     private final PendingSelfUpdateRepository pendingRepo;
 
-    @Value("${VECTOR_GIT_SHA:dev}")
-    private String runningSha;
+    @Value("${vector.self-hosted:false}")
+    private boolean selfHosted;
 
-    @Value("${VECTOR_GIT_MESSAGE:local build}")
-    private String runningMessage;
+    @Value("${VECTOR_GIT_SHA:}")
+    private String envSha;
+
+    @Value("${VECTOR_GIT_MESSAGE:}")
+    private String envMessage;
+
+    @Value("${VECTOR_GIT_BRANCH:}")
+    private String envBranch;
 
     @Value("${VECTOR_BACKEND_IMAGE:filipn123/vector-api:latest}")
     private String backendImage;
@@ -48,13 +54,17 @@ public class SelfAppBootstrap {
     @PostConstruct
     public void bootstrap() {
         reconcileStuckPending();
-        if ("dev".equals(runningSha)) {
-            log.info("Skipping self-app bootstrap (VECTOR_GIT_SHA not set — running outside compose)");
+        if (!selfHosted) {
+            log.info("Skipping self-app bootstrap (vector.self-hosted=false)");
             return;
         }
-        ensureSelfApp("vector-api", backendImage);
-        ensureSelfApp("vector-web", frontendImage);
-        reconcilePendingUpdates("vector-api");
+        // vector-api can read its own image's baked-in build info from env. vector-web's
+        // build info isn't visible from this process, so its row gets whatever the next
+        // deploy-hook payload supplies — that's the source of truth for sibling apps.
+        BuildInfo selfBuild = BuildInfo.fromEnv(envSha, envMessage, envBranch);
+        ensureSelfApp(VECTOR_API, backendImage, 8082, selfBuild);
+        ensureSelfApp(VECTOR_WEB, frontendImage, 3000, BuildInfo.empty());
+        reconcilePendingUpdates(VECTOR_API, selfBuild);
     }
 
     private void reconcileStuckPending() {
@@ -71,32 +81,26 @@ public class SelfAppBootstrap {
                 });
     }
 
-    private void ensureSelfApp(String appName, String image) {
+    private void ensureSelfApp(String appName, String defaultImage, int containerPort, BuildInfo info) {
         final boolean[] created = {false};
         Deployment d = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
                 .orElseGet(() -> {
                     created[0] = true;
                     Deployment newD = new Deployment();
                     newD.setAppName(appName);
-                    newD.setRepoUrl("https://github.com/filipnikolov1/vector-platform");
+                    newD.setRepoUrl(REPO_URL);
                     newD.setCreatedAt(LocalDateTime.now());
                     newD.setStatus(DeploymentStatus.RUNNING);
-                    newD.setImageName(image);
-                    newD.setContainerPort(appName.equals("vector-api") ? 8082 : 3000);
+                    newD.setContainerPort(containerPort);
                     return newD;
                 });
         d.setSelfApp(true);
-        d.setImageName(image);
+        d.setImageName(defaultImage);
         if (d.getPinnedImage() == null) {
-            d.setPinnedImage(image);
+            d.setPinnedImage(defaultImage);
             d.setPinnedAt(LocalDateTime.now());
         }
-        if (appName.equals("vector-api")) {
-            d.setCommitSha(runningSha);
-            d.setCommitMessage(runningMessage);
-        } else {
-            extractGitSha(image).ifPresent(d::setCommitSha);
-        }
+        info.applyTo(d);
         d.setUpdatedAt(LocalDateTime.now());
         deploymentRepository.save(d);
 
@@ -107,15 +111,16 @@ public class SelfAppBootstrap {
         }
     }
 
-    private void reconcilePendingUpdates(String appName) {
+    private void reconcilePendingUpdates(String appName, BuildInfo selfBuild) {
         List<PendingSelfUpdate> pending = pendingRepo.findByAppName(appName);
+        String runningSha = selfBuild.sha();
         for (PendingSelfUpdate p : pending) {
-            if (runningSha.equals(p.getTargetSha())) {
+            if (runningSha != null && runningSha.equals(p.getTargetSha())) {
                 Deployment d = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName).orElse(null);
                 if (d != null) {
                     CreateDeploymentRequest ctx = new CreateDeploymentRequest(
                             appName, d.getRepoUrl(), p.getTargetImage(), d.getContainerPort(),
-                            d.getBranch(), p.getTargetSha(), runningMessage,
+                            d.getBranch(), p.getTargetSha(), selfBuild.message(),
                             d.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.SELF_UPDATE);
                     eventService.record(DeploymentEventType.DEPLOY_FINISHED,
                             DeploymentEventStatus.SUCCESS, appName, ctx, null, null);
@@ -135,14 +140,27 @@ public class SelfAppBootstrap {
         }
     }
 
-    private java.util.Optional<String> extractGitSha(String image) {
-        if (image == null) {
-            return java.util.Optional.empty();
+    private record BuildInfo(String sha, String message, String branch) {
+        static BuildInfo empty() {
+            return new BuildInfo(null, null, null);
         }
-        Matcher matcher = GIT_TAG_PATTERN.matcher(image);
-        if (!matcher.find()) {
-            return java.util.Optional.empty();
+
+        static BuildInfo fromEnv(String sha, String message, String branch) {
+            return new BuildInfo(sanitize(sha), sanitize(message), sanitize(branch));
         }
-        return java.util.Optional.of(matcher.group(1));
+
+        // Filter Dockerfile placeholder defaults so the DB never carries fake metadata
+        // when an image is built without proper build-args (e.g. local compose build).
+        private static String sanitize(String value) {
+            if (value == null || value.isBlank()) return null;
+            if ("dev".equals(value) || "local".equals(value) || "local build".equals(value)) return null;
+            return value;
+        }
+
+        void applyTo(Deployment d) {
+            if (sha != null) d.setCommitSha(sha);
+            if (message != null) d.setCommitMessage(message);
+            if (branch != null) d.setBranch(branch);
+        }
     }
 }
