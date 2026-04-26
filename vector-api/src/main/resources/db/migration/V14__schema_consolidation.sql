@@ -31,6 +31,10 @@ ALTER TABLE deployment_event ADD COLUMN rollback_from_sha VARCHAR(64);
 -- Drop api_key_hash from user_account (keep the table)
 ALTER TABLE user_account DROP COLUMN api_key_hash;
 
+-- Make deployment_event.app_name nullable to support ON DELETE SET NULL
+-- (must happen before the orphan-cleanup UPDATE below)
+ALTER TABLE deployment_event ALTER COLUMN app_name DROP NOT NULL;
+
 -- Pre-FK cleanup: null out deployment_event rows whose app_name no longer exists
 UPDATE deployment_event
 SET app_name = NULL
@@ -44,9 +48,6 @@ WHERE app_name NOT IN (SELECT app_name FROM deployment);
 -- Pre-FK cleanup: remove pending_self_update rows whose app_name no longer exists
 DELETE FROM pending_self_update
 WHERE app_name NOT IN (SELECT app_name FROM deployment);
-
--- Make deployment_event.app_name nullable to support ON DELETE SET NULL
-ALTER TABLE deployment_event ALTER COLUMN app_name DROP NOT NULL;
 
 -- FK: deployment_event -> deployment (preserve audit rows with NULL on delete)
 ALTER TABLE deployment_event
