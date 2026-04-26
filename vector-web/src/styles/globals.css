@@ -1,5 +1,17 @@
 @import "./tokens/index.css";
 
+/*
+ * Bespoke color exceptions — intentionally not tokenized:
+ *
+ * GradientBackground.tsx  #000               — gradient terminus for body fade (pure black terminus, lighter bg-body doesn't achieve same contrast)
+ * GradientBackground.tsx  rgba(59,130,246,…)  — blue ambient orb accent (no blue in Vector palette)
+ * Sidebar.tsx             rgba(8,8,14,0.72)   — sidebar glass bg (semi-transparent variant of bg-body; no opacity token)
+ * Sidebar.tsx             #3B82F6             — avatar gradient blue endpoint (bespoke avatar, no blue token)
+ * AppDetailDrawer.tsx     rgba(0,0,0,0.4)     — overlay scrim (generic black scrim; no scrim token)
+ * PreferencesForm.tsx     rgba(0,0,0,0.3)     — toggle knob drop shadow (generic UI shadow)
+ * UpdatingOverlayView.tsx rgba(74,222,128,…)  — emerald dot glow (status indicator; green not in Vector palette)
+ */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
