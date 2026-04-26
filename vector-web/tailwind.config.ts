@@ -6,8 +6,6 @@ const config: Config = {
     extend: {
       colors: {
         bg: {
-          base: "#0F172A",
-          deep: "#020617",
           body: "var(--c-bg-body)",
         },
         surface: {
@@ -82,8 +80,6 @@ const config: Config = {
         "2xl": "var(--c-radius-2xl)",
         "3xl": "var(--c-radius-3xl)",
         pill:  "var(--c-radius-pill)",
-        card:  "var(--c-radius-xl)",
-        panel: "var(--c-radius-2xl)",
       },
       backdropBlur: { glass: "32px", thin: "20px" },
       boxShadow: {

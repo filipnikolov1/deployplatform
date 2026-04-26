@@ -90,7 +90,7 @@ export function Sidebar() {
         >
           <div
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-            style={{ background: "linear-gradient(135deg, #7C3AED, #3B82F6)" }}
+            style={{ background: "linear-gradient(135deg, var(--c-accent-primary), #3B82F6)" }}
           >
             OP
           </div>
