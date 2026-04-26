@@ -58,7 +58,7 @@ export function HealthChecklist() {
             </div>
             <span
               className="text-[10px] font-semibold uppercase tracking-[0.08em]"
-              style={{ color: ok ? "#86EFAC" : "#FCA5A5" }}
+              style={{ color: ok ? "var(--c-status-running-fg)" : "var(--c-status-failed-fg)" }}
             >
               {ok ? "OK" : "Action needed"}
             </span>

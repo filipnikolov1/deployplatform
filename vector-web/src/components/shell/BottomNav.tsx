@@ -32,7 +32,7 @@ export function BottomNav() {
               href={item.href}
               aria-current={isActive ? "page" : undefined}
               className={`flex flex-col items-center gap-1 min-h-[48px] px-3 py-2 rounded-lg transition-colors ${
-                isActive ? "text-accent-ghostLight" : "text-slate-400"
+                isActive ? "text-accent-light" : "text-slate-400"
               }`}
             >
               <Icon className="h-5 w-5" />

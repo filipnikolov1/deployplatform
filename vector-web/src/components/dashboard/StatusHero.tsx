@@ -17,11 +17,11 @@ interface StatusHeroProps {
 }
 
 const ITEMS = [
-  { key: "all",      label: "All apps",  icon: LayoutGrid,   color: "#E2E8F0" },
-  { key: "running",  label: "Running",   icon: CheckCircle2, color: "#86EFAC" },
-  { key: "building", label: "Building",  icon: Activity,     color: "#FCD34D" },
-  { key: "failed",   label: "Failed",    icon: XCircle,      color: "#FCA5A5" },
-  { key: "stopped",  label: "Stopped",   icon: Clock,        color: "#CBD5E1" },
+  { key: "all",      label: "All apps",  icon: LayoutGrid,   color: "var(--c-fg-1)" },
+  { key: "running",  label: "Running",   icon: CheckCircle2, color: "var(--c-status-running-fg)" },
+  { key: "building", label: "Building",  icon: Activity,     color: "var(--c-status-building-fg)" },
+  { key: "failed",   label: "Failed",    icon: XCircle,      color: "var(--c-status-failed-fg)" },
+  { key: "stopped",  label: "Stopped",   icon: Clock,        color: "var(--c-status-stopped-fg)" },
 ] as const;
 
 export function StatusHero({ activeFilter, onFilterChange, counts }: StatusHeroProps) {
@@ -35,10 +35,10 @@ export function StatusHero({ activeFilter, onFilterChange, counts }: StatusHeroP
             key={item.key}
             onClick={() => onFilterChange(item.key)}
             aria-pressed={sel}
-            className="flex flex-col gap-1.5 rounded-[10px] p-3.5 text-left transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+            className="flex flex-col gap-1.5 rounded-lg p-3.5 text-left transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
             style={{
               background: sel ? "var(--c-surface-3)" : "var(--c-surface-1)",
-              border: `1px solid ${sel ? "var(--c-ghost-line)" : "var(--c-border-1)"}`,
+              border: `1px solid ${sel ? "var(--c-accent-line)" : "var(--c-border-1)"}`,
             }}
           >
             <div className="flex items-center justify-between">

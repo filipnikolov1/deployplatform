@@ -75,11 +75,11 @@ function ActivityContent() {
               type="button"
               onClick={() => setFilter(key)}
               aria-pressed={sel}
-              className="rounded-full px-3.5 py-[7px] text-[13px] font-medium transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+              className="rounded-full px-3.5 py-[7px] text-[13px] font-medium transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
               style={{
-                background: sel ? "var(--c-ghost-soft)" : "var(--c-surface-1)",
-                border: `1px solid ${sel ? "var(--c-ghost-line)" : "var(--c-border-1)"}`,
-                color: sel ? "#DDD6FE" : "var(--c-fg-2)",
+                background: sel ? "var(--c-accent-soft)" : "var(--c-surface-1)",
+                border: `1px solid ${sel ? "var(--c-accent-line)" : "var(--c-border-1)"}`,
+                color: sel ? "var(--c-accent-fg)" : "var(--c-fg-2)",
                 cursor: "pointer",
               }}
             >
@@ -92,7 +92,7 @@ function ActivityContent() {
       <div aria-live="polite">
         {isLoading ? (
           <div
-            className="h-32 rounded-[14px] skeleton-shimmer"
+            className="h-32 rounded-xl skeleton-shimmer"
             style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
           />
         ) : filtered.length === 0 ? (
@@ -110,7 +110,7 @@ function ActivityContent() {
           </EmptyState>
         ) : (
           <div
-            className="rounded-[14px] overflow-hidden"
+            className="rounded-xl overflow-hidden"
             style={{
               background: "var(--c-surface-1)",
               border: "1px solid var(--c-border-1)",

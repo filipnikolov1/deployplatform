@@ -185,7 +185,7 @@ export function ActivityRow({ event, isLast }: Props) {
       <div className="flex gap-4 px-5 py-5 sm:px-6">
         <div className="relative flex w-10 shrink-0 justify-center">
           <div
-            className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-2xl border backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${config.chipClass}`}
+            className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-2xl border backdrop-blur-xl ${config.chipClass}`}
           >
             <Icon className="h-4 w-4" />
             <span className="sr-only">{config.label}</span>

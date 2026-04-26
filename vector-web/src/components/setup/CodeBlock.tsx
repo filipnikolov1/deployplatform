@@ -27,11 +27,11 @@ export function CodeBlock({ code, language, label = "Copy" }: Props) {
         type="button"
         onClick={handleCopy}
         aria-label={label}
-        className="absolute top-2.5 right-2.5 z-10 inline-flex items-center gap-1.5 rounded px-2.5 py-[5px] text-[11.5px] font-medium transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+        className="absolute top-2.5 right-2.5 z-10 inline-flex items-center gap-1.5 rounded px-2.5 py-[5px] text-[11.5px] font-medium transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
         style={{
-          background: copied ? "rgba(34,197,94,0.12)" : "var(--c-surface-2)",
-          border: `1px solid ${copied ? "rgba(34,197,94,0.28)" : "var(--c-border-2)"}`,
-          color: copied ? "#86EFAC" : "var(--c-fg-1)",
+          background: copied ? "var(--c-status-running-bg)" : "var(--c-surface-2)",
+          border: `1px solid ${copied ? "var(--c-status-running-line)" : "var(--c-border-2)"}`,
+          color: copied ? "var(--c-status-running-fg)" : "var(--c-fg-1)",
         }}
       >
         {copied ? (
@@ -49,9 +49,9 @@ export function CodeBlock({ code, language, label = "Copy" }: Props) {
 
       {/* Code area */}
       <div
-        className="rounded-[10px] p-4 overflow-x-auto"
+        className="rounded-lg p-4 overflow-x-auto"
         style={{
-          background: "#040408",
+          background: "var(--c-bg-body)",
           border: "1px solid var(--c-border-1)",
         }}
       >

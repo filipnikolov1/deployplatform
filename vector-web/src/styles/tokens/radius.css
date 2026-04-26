@@ -1,0 +1,9 @@
+:root {
+  --c-radius-sm:   6px;
+  --c-radius-md:   8px;
+  --c-radius-lg:   10px;
+  --c-radius-xl:   14px;
+  --c-radius-2xl:  18px;
+  --c-radius-3xl:  28px;
+  --c-radius-pill: 9999px;
+}

@@ -3,12 +3,12 @@ export function GradientBackground() {
     <div
       aria-hidden="true"
       className="fixed inset-0 -z-10 overflow-hidden"
-      style={{ background: "#050510" }}
+      style={{ background: "var(--c-bg-body)" }}
     >
-      {/* Base gradient */}
+      {/* Base gradient — near-black depth layer */}
       <div
         className="absolute inset-0"
-        style={{ background: "linear-gradient(180deg, #0B0B14 0%, #040408 60%, #020204 100%)" }}
+        style={{ background: "linear-gradient(180deg, var(--c-bg-body) 0%, #000 100%)" }}
       />
       {/* Violet orb top-right */}
       <div
@@ -20,10 +20,10 @@ export function GradientBackground() {
           height: 560,
           borderRadius: "50%",
           filter: "blur(120px)",
-          background: "radial-gradient(circle, rgba(124,58,237,0.18), transparent 70%)",
+          background: "radial-gradient(circle, var(--c-accent-soft), transparent 70%)",
         }}
       />
-      {/* Blue orb bottom-left */}
+      {/* Blue orb bottom-left — bespoke gradient stop, no token */}
       <div
         className="absolute"
         style={{

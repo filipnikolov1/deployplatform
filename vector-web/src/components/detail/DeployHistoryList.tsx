@@ -82,11 +82,11 @@ export function DeployHistoryList({ appName, events, currentImage }: Props) {
           return (
             <li
               key={event.id}
-              className="overflow-hidden rounded-card border border-white/[0.08] bg-black/35 shadow-[0_18px_40px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.04)]"
+              className="overflow-hidden rounded-xl border border-white/[0.08] bg-black/35 shadow-card"
             >
               <div className="flex items-start gap-4 px-5 py-5 sm:px-6">
                 <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${
                     isSuccess
                       ? "border-emerald-400/30 bg-emerald-500/14 text-emerald-200"
                       : "border-red-400/25 bg-red-500/12 text-red-200"

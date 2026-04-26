@@ -19,8 +19,8 @@ function EmptyStateRoot({ children }: EmptyStateProps) {
 
 function Media({ icon: Icon = Rocket }: { icon?: LucideIcon }) {
   return (
-    <div className="inline-flex items-center justify-center mb-6 p-3 rounded-lg bg-accent-ghost/20">
-      <Icon className="h-12 w-12 text-accent-ghostLight" />
+    <div className="inline-flex items-center justify-center mb-6 p-3 rounded-lg bg-accent-primary/20">
+      <Icon className="h-12 w-12 text-accent-light" />
     </div>
   );
 }

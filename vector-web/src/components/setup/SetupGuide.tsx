@@ -14,16 +14,16 @@ import {
 function SetupStep({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
   return (
     <section
-      className="rounded-[14px] p-6 mb-3.5"
+      className="rounded-xl p-6 mb-3.5"
       style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
     >
       <div className="flex items-center gap-3 mb-4">
         <span
           className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-full text-[12px] font-semibold tabular-nums shrink-0"
           style={{
-            background: "var(--c-ghost-soft)",
-            border: "1px solid var(--c-ghost-line)",
-            color: "#DDD6FE",
+            background: "var(--c-accent-soft)",
+            border: "1px solid var(--c-accent-line)",
+            color: "var(--c-accent-fg)",
           }}
         >
           {number}
@@ -79,10 +79,10 @@ export function SetupGuide() {
         onFocus={() => setFocusedField(id)}
         onBlur={() => setFocusedField(null)}
         inputMode={inputMode}
-        className="w-full px-3 py-2.5 text-sm rounded-md outline-none transition-[border-color] duration-[120ms]"
+        className="w-full px-3 py-2.5 text-sm rounded-md outline-none transition-[border-color] duration-fast"
         style={{
           background: "var(--c-surface-1)",
-          border: `1px solid ${focusedField === id ? "var(--c-ghost-line)" : "var(--c-border-2)"}`,
+          border: `1px solid ${focusedField === id ? "var(--c-accent-line)" : "var(--c-border-2)"}`,
           color: "var(--c-fg-1)",
           fontFamily: "inherit",
         }}
@@ -118,11 +118,11 @@ export function SetupGuide() {
                 key={option.value}
                 type="button"
                 onClick={() => setStack(option.value)}
-                className="rounded-md px-3 py-3 text-[13px] font-medium transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+                className="rounded-md px-3 py-3 text-[13px] font-medium transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
                 style={{
-                  background: sel ? "var(--c-ghost-soft)" : "var(--c-surface-2)",
-                  border: `1px solid ${sel ? "var(--c-ghost-line)" : "var(--c-border-2)"}`,
-                  color: sel ? "#DDD6FE" : "var(--c-fg-1)",
+                  background: sel ? "var(--c-accent-soft)" : "var(--c-surface-2)",
+                  border: `1px solid ${sel ? "var(--c-accent-line)" : "var(--c-border-2)"}`,
+                  color: sel ? "var(--c-accent-fg)" : "var(--c-fg-1)",
                   cursor: "pointer",
                 }}
               >

@@ -1,56 +1,34 @@
+@import "./tokens/index.css";
+
+/*
+ * Bespoke color exceptions — intentionally not tokenized:
+ *
+ * GradientBackground.tsx  #000               — gradient terminus for body fade (pure black terminus, lighter bg-body doesn't achieve same contrast)
+ * GradientBackground.tsx  rgba(59,130,246,…)  — blue ambient orb accent (no blue in Vector palette)
+ * Sidebar.tsx             rgba(8,8,14,0.72)   — sidebar glass bg (semi-transparent variant of bg-body; no opacity token)
+ * Sidebar.tsx             #3B82F6             — avatar gradient blue endpoint (bespoke avatar, no blue token)
+ * AppDetailDrawer.tsx     rgba(0,0,0,0.4)     — overlay scrim (generic black scrim; no scrim token)
+ * PreferencesForm.tsx     rgba(0,0,0,0.3)     — toggle knob drop shadow (generic UI shadow)
+ * UpdatingOverlayView.tsx rgba(74,222,128,…)  — emerald dot glow (status indicator; green not in Vector palette)
+ */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
-
-  /* ── Clean variant design tokens ── */
-  --c-bg-body:    #020202;
-  --c-surface-1:  rgba(255,255,255,0.025);
-  --c-surface-2:  rgba(255,255,255,0.045);
-  --c-surface-3:  rgba(255,255,255,0.065);
-  --c-border-1:   rgba(255,255,255,0.06);
-  --c-border-2:   rgba(255,255,255,0.10);
-  --c-border-3:   rgba(255,255,255,0.14);
-
-  --c-fg-0: #F8FAFC;
-  --c-fg-1: #E2E8F0;
-  --c-fg-2: #94A3B8;
-  --c-fg-3: #64748B;
-
-  --c-ghost:      #7C3AED;
-  --c-ghost-light:#A78BFA;
-  --c-ghost-soft: rgba(124,58,237,0.18);
-  --c-ghost-line: rgba(167,139,250,0.32);
-
-  --c-running:  #22C55E;
-  --c-building: #F59E0B;
-  --c-failed:   #EF4444;
-  --c-stopped:  #64748B;
-
-  --c-radius-sm: 6px;
-  --c-radius-md: 8px;
-  --c-radius-lg: 10px;
-  --c-radius-xl: 14px;
-  --c-radius-pill: 9999px;
-
-  --sidebar-width: 220px;
-}
-
 html, body {
-  background-color: #020202;
-  color: #E2E8F0;
+  background-color: var(--c-bg-body);
+  color: var(--c-fg-1);
   min-height: 100dvh;
 }
 
 body {
-  font-family: var(--font-manrope), system-ui, sans-serif;
-  font-feature-settings: "cv11";
+  font-family: var(--c-font-sans);
+  font-feature-settings: var(--c-font-features-sans);
   background-image:
-    radial-gradient(circle at 50% -10%, rgba(255,255,255,0.045), transparent 24%),
-    radial-gradient(circle at 18% 22%, rgba(255,255,255,0.02), transparent 22%),
-    linear-gradient(180deg, #161616 0%, #090909 18%, #040404 48%, #000000 100%);
+    radial-gradient(circle at 50% -10%, var(--c-surface-2), transparent 24%),
+    radial-gradient(circle at 18% 22%, var(--c-surface-1), transparent 22%),
+    linear-gradient(180deg, var(--c-bg-body) 0%, #000 100%);
 }
 
 *:focus {
@@ -58,8 +36,8 @@ body {
 }
 
 *:focus-visible {
-  box-shadow: 0 0 0 2px #0F172A, 0 0 0 4px rgba(167, 139, 250, 0.7);
-  border-radius: 6px;
+  box-shadow: var(--c-shadow-focus);
+  border-radius: var(--c-radius-sm);
 }
 
 input, textarea, select, button {
@@ -93,7 +71,7 @@ input, textarea, select, button {
 
 @layer components {
   .glass-panel {
-    @apply rounded-panel border border-white/[0.08] bg-black/70 backdrop-blur-glass shadow-glass;
+    @apply rounded-2xl border border-white/[0.08] bg-black/70 backdrop-blur-glass shadow-glass;
     box-shadow:
       0 26px 60px rgba(0, 0, 0, 0.55),
       inset 0 1px 0 rgba(255, 255, 255, 0.06),
@@ -101,7 +79,7 @@ input, textarea, select, button {
   }
 
   .glass-card-strong {
-    @apply rounded-card border border-white/[0.08] bg-black/45 backdrop-blur-glass;
+    @apply rounded-xl border border-white/[0.08] bg-black/45 backdrop-blur-glass;
     box-shadow:
       0 18px 40px rgba(0, 0, 0, 0.38),
       inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -122,7 +100,7 @@ input, textarea, select, button {
   }
 
   .glass-page-header {
-    @apply mb-8 rounded-card border border-white/[0.08] bg-black/35 px-5 py-5 sm:px-6;
+    @apply mb-8 rounded-xl border border-white/[0.08] bg-black/35 px-5 py-5 sm:px-6;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
   }
 
@@ -194,7 +172,7 @@ input, textarea, select, button {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(167, 139, 250, 0.85),
+    var(--c-accent-light),
     transparent
   );
   animation: lp-progress-indeterminate 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;

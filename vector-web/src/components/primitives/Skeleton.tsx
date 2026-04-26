@@ -13,7 +13,7 @@ export function Skeleton({ variant = "block", width, height, className = "" }: S
       ? "rounded-full"
       : variant === "line"
         ? "rounded-full h-3"
-        : "rounded-card";
+        : "rounded-xl";
   const style: React.CSSProperties = {};
   if (width !== undefined) style.width = typeof width === "number" ? `${width}px` : width;
   if (height !== undefined) style.height = typeof height === "number" ? `${height}px` : height;

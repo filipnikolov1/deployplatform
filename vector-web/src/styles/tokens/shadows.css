@@ -1,0 +1,7 @@
+:root {
+  --c-shadow-card:   0 18px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --c-shadow-glass:  0 24px 48px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --c-shadow-drawer: -24px 0 60px rgba(0, 0, 0, 0.50);
+  --c-shadow-focus:  0 0 0 2px #0A0A0F, 0 0 0 4px rgba(167, 139, 250, 0.70);
+  --c-shadow-glow:   0 0 24px var(--c-accent-glow);
+}

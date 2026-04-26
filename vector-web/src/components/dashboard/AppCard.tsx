@@ -164,7 +164,7 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
       role="button"
       tabIndex={0}
       aria-label={`Open ${app.appName}`}
-      className={`group relative bg-white/[0.04] border border-white/[0.12] rounded-xl backdrop-blur-xl cursor-pointer hover:bg-white/[0.06] transition-colors focus-visible:ring-2 focus-visible:ring-accent-ghostLight outline-none ${
+      className={`group relative bg-white/[0.04] border border-white/[0.12] rounded-xl backdrop-blur-xl cursor-pointer hover:bg-white/[0.06] transition-colors focus-visible:ring-2 focus-visible:ring-accent-light outline-none ${
         mode === "list" ? "p-4" : "p-5"
       }`}
       onClick={trigger}

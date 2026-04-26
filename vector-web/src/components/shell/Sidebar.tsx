@@ -32,7 +32,7 @@ export function Sidebar() {
       >
         <div
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-          style={{ background: "linear-gradient(135deg, var(--c-ghost), var(--c-ghost-light))" }}
+          style={{ background: "linear-gradient(135deg, var(--c-accent-primary), var(--c-accent-light))" }}
         >
           <Rocket className="h-4 w-4 text-white" aria-hidden />
         </div>
@@ -51,10 +51,10 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               aria-current={isActive ? "page" : undefined}
-              className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-all duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+              className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
               style={{
-                background: isActive ? "var(--c-ghost-soft)" : "transparent",
-                color: isActive ? "#DDD6FE" : "var(--c-fg-2)",
+                background: isActive ? "var(--c-accent-soft)" : "transparent",
+                color: isActive ? "var(--c-accent-fg)" : "var(--c-fg-2)",
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
@@ -90,7 +90,7 @@ export function Sidebar() {
         >
           <div
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-            style={{ background: "linear-gradient(135deg, #7C3AED, #3B82F6)" }}
+            style={{ background: "linear-gradient(135deg, var(--c-accent-primary), #3B82F6)" }}
           >
             OP
           </div>

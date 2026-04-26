@@ -34,7 +34,7 @@ export function LoginCard() {
 
   return (
     <div
-      className="w-full max-w-[380px] rounded-[14px] p-7"
+      className="w-full max-w-[380px] rounded-xl p-7"
       style={{
         background: "var(--c-surface-1)",
         border: "1px solid var(--c-border-2)",
@@ -46,7 +46,7 @@ export function LoginCard() {
       <div className="flex items-center gap-2.5 mb-5">
         <div
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-          style={{ background: "linear-gradient(135deg, var(--c-ghost), var(--c-ghost-light))" }}
+          style={{ background: "linear-gradient(135deg, var(--c-accent-primary), var(--c-accent-light))" }}
         >
           <Rocket className="h-[18px] w-[18px] text-white" aria-hidden />
         </div>
@@ -90,10 +90,10 @@ export function LoginCard() {
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               placeholder="••••••••"
-              className="w-full pl-[34px] pr-3 py-2.5 text-sm rounded-md outline-none transition-[border-color] duration-[120ms]"
+              className="w-full pl-[34px] pr-3 py-2.5 text-sm rounded-md outline-none transition-[border-color] duration-fast"
               style={{
                 background: "var(--c-surface-1)",
-                border: `1px solid ${focused ? "var(--c-ghost-line)" : "var(--c-border-2)"}`,
+                border: `1px solid ${focused ? "var(--c-accent-line)" : "var(--c-border-2)"}`,
                 color: "var(--c-fg-1)",
                 fontFamily: "inherit",
               }}
@@ -107,11 +107,11 @@ export function LoginCard() {
         <button
           type="submit"
           disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-[filter] duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-accent-ghostLight"
+          className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-[filter] duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
           style={{
-            background: "var(--c-ghost-soft)",
-            border: "1px solid var(--c-ghost-line)",
-            color: "#DDD6FE",
+            background: "var(--c-accent-soft)",
+            border: "1px solid var(--c-accent-line)",
+            color: "var(--c-accent-fg)",
             cursor: loading ? "not-allowed" : "pointer",
             opacity: loading ? 0.7 : 1,
           }}

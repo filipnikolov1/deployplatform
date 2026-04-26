@@ -18,30 +18,17 @@ function AppRow({ app, onOpen }: { app: Deployment; onOpen: (name: string) => vo
   const displayImageName = getDisplayImageName(app);
   const status = toAppStatus(app.status);
   const config = statusConfig[status];
-  const dotColor = status === "RUNNING" ? "#22C55E"
-    : status === "BUILDING" ? "#F59E0B"
-    : status === "FAILED" || status === "CRASHED" ? "#EF4444"
-    : "#64748B";
-
-  const chipFg = status === "RUNNING" ? "#86EFAC"
-    : status === "BUILDING" ? "#FCD34D"
-    : status === "FAILED" || status === "CRASHED" ? "#FCA5A5"
-    : "#CBD5E1";
-  const chipBg = status === "RUNNING" ? "rgba(34,197,94,0.10)"
-    : status === "BUILDING" ? "rgba(245,158,11,0.10)"
-    : status === "FAILED" || status === "CRASHED" ? "rgba(239,68,68,0.10)"
-    : "rgba(100,116,139,0.10)";
-  const chipBd = status === "RUNNING" ? "rgba(34,197,94,0.24)"
-    : status === "BUILDING" ? "rgba(245,158,11,0.28)"
-    : status === "FAILED" || status === "CRASHED" ? "rgba(239,68,68,0.28)"
-    : "rgba(100,116,139,0.24)";
+  const dotColor = config.dotColor;
+  const chipFg   = config.fg;
+  const chipBg   = config.bg;
+  const chipBd   = config.line;
 
   return (
     <tr
       onClick={() => onOpen(app.appName)}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      className="cursor-pointer transition-[background] duration-[120ms]"
+      className="cursor-pointer transition-[background] duration-fast"
       style={{ background: hover ? "var(--c-surface-2)" : "transparent" }}
     >
       {/* Name + dot */}
@@ -156,7 +143,7 @@ export function AppTable({ apps, onOpen, title = "All apps" }: AppTableProps) {
         <span className="text-xs" style={{ color: "var(--c-fg-3)" }}>{apps.length}</span>
       </div>
       <div
-        className="overflow-hidden rounded-[14px]"
+        className="overflow-hidden rounded-xl"
         style={{
           border: "1px solid var(--c-border-1)",
           background: "var(--c-surface-1)",
@@ -164,7 +151,7 @@ export function AppTable({ apps, onOpen, title = "All apps" }: AppTableProps) {
       >
         <table className="w-full border-collapse" style={{ tableLayout: "auto" }}>
           <thead>
-            <tr style={{ background: "rgba(255,255,255,0.015)" }}>
+            <tr style={{ background: "var(--c-surface-1)" }}>
               {["Name", "Status", "Image", "Branch", "Port", "Updated", ""].map((h) => (
                 <th
                   key={h}

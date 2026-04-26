@@ -1,0 +1,55 @@
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --c-bg-body:   #0A0A0F;
+  --c-surface-1: rgba(255, 255, 255, 0.030);
+  --c-surface-2: rgba(255, 255, 255, 0.055);
+  --c-surface-3: rgba(255, 255, 255, 0.080);
+  --c-surface-glass: rgba(255, 255, 255, 0.040);
+
+  /* Borders */
+  --c-border-1: rgba(255, 255, 255, 0.07);
+  --c-border-2: rgba(255, 255, 255, 0.12);
+  --c-border-3: rgba(255, 255, 255, 0.18);
+  --c-border-glass: rgba(255, 255, 255, 0.10);
+
+  /* Foreground scale */
+  --c-fg-0: #F5F5F7;
+  --c-fg-1: #E2E2E8;
+  --c-fg-2: #9C9CA8;
+  --c-fg-3: #6B6B7A;
+
+  /* Accent — Vector purple */
+  --c-accent-primary: #7C3AED;
+  --c-accent-deep:    #4C1D95;
+  --c-accent-light:   #A78BFA;
+  --c-accent-fg:      #DDD6FE;
+  --c-accent-soft:    rgba(124, 58, 237, 0.18);
+  --c-accent-line:    rgba(167, 139, 250, 0.32);
+  --c-accent-glow:    rgba(124, 58, 237, 0.15);
+
+  /* Status — running */
+  --c-status-running:      #3FB567;
+  --c-status-running-fg:   #86EFAC;
+  --c-status-running-bg:   rgba(34, 197, 94, 0.10);
+  --c-status-running-line: rgba(34, 197, 94, 0.24);
+
+  /* Status — building */
+  --c-status-building:      #D97706;
+  --c-status-building-fg:   #FCD34D;
+  --c-status-building-bg:   rgba(245, 158, 11, 0.10);
+  --c-status-building-line: rgba(245, 158, 11, 0.28);
+
+  /* Status — failed */
+  --c-status-failed:      #DC2626;
+  --c-status-failed-fg:   #FCA5A5;
+  --c-status-failed-bg:   rgba(239, 68, 68, 0.10);
+  --c-status-failed-line: rgba(239, 68, 68, 0.28);
+
+  /* Status — stopped / pending */
+  --c-status-stopped:      #6B6B7A;
+  --c-status-stopped-fg:   #CBD5E1;
+  --c-status-stopped-bg:   rgba(100, 116, 139, 0.10);
+  --c-status-stopped-line: rgba(100, 116, 139, 0.24);
+}
