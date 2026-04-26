@@ -1,3 +1,5 @@
+name: vector-platform
+
 services:
   traefik:
     image: traefik:v3.6
@@ -100,8 +102,9 @@ services:
       COMPOSE_PROJECT_NAME: vector-platform
     volumes:
       - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
-      - ./docker-compose.yml:/workspace/docker-compose.yml:ro
-      - ./.env:/workspace/.env:ro
+      # Mount the project dir, not individual files — editor-driven inode replacement
+      # of .env or docker-compose.yml breaks file-level binds.
+      - ./:/workspace:ro
     networks:
       - traefik
     restart: unless-stopped
@@ -109,7 +112,10 @@ services:
 networks:
   traefik:
     name: traefik
+    external: true
 
 volumes:
   postgres_data:
+    # Legacy volume name pinned across the project rename so existing data is preserved.
+    name: launchpad_postgres_data
   # ollama_data:    # Uncomment if ollama service is re-enabled
