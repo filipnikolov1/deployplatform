@@ -81,6 +81,7 @@ services:
       dockerfile: Dockerfile
     environment:
       BACKEND_URL: http://vector-api:8082
+      ANALYZER_URL: http://vector-analyzer:8082
       API_KEY: ${VECTOR_API_KEY}
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
       SESSION_SECRET: ${VECTOR_SESSION_SECRET}

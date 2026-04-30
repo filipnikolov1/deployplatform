@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { ComponentType } from "react";
+import Link from "next/link";
 import useSWR, { useSWRConfig } from "swr";
 import {
   ArrowRight,
@@ -18,6 +19,7 @@ import {
   GitCommit,
   Globe,
   HardDrive,
+  History,
   Pencil,
   Plug,
   RotateCcw,
@@ -611,6 +613,17 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
               >
                 {app.status === "STOPPED" ? "Start" : "Stop"}
               </ActionButton>
+              <Link
+                href={`/apps/${encodeURIComponent(app.appName)}/time-machine`}
+                onClick={() => localStorage.setItem("lastTimeMachineApp", app.appName)}
+                className="inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-[filter] duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
+                style={{ background: "transparent", color: "var(--c-fg-2)", border: "1px solid transparent" }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "var(--c-fg-1)"; e.currentTarget.style.background = "var(--c-surface-2)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--c-fg-2)"; e.currentTarget.style.background = "transparent"; }}
+              >
+                <History className="h-3.5 w-3.5" />
+                Time Machine
+              </Link>
               <ActionButton
                 onClick={handleDownloadLogs}
                 disabled={downloadingLogs}
