@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Rocket, ScrollText, Settings } from "lucide-react";
+import { LayoutGrid, Rocket, ScrollText, Settings, Clock } from "lucide-react";
 
 const items = [
   { href: "/", label: "Apps", icon: LayoutGrid },
@@ -74,7 +75,11 @@ export function Sidebar() {
             </Link>
           );
         })}
+        <TimeMachineNavItem pathname={pathname} />
       </nav>
+
+      {/* Time Machine divider */}
+      <div className="mx-2.5 my-1" style={{ borderTop: "1px solid var(--c-border-1)" }} />
 
       {/* Footer user strip */}
       <div
@@ -105,5 +110,44 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+  );
+}
+
+function TimeMachineNavItem({ pathname }: { pathname: string }) {
+  const [href, setHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    const last = localStorage.getItem("lastTimeMachineApp");
+    setHref(last ? `/apps/${encodeURIComponent(last)}/time-machine` : null);
+  }, [pathname]);
+
+  const isActive = pathname.includes("/time-machine");
+  const dest = href ?? "/";
+
+  return (
+    <Link
+      href={dest}
+      aria-current={isActive ? "page" : undefined}
+      className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
+      style={{
+        background: isActive ? "var(--c-accent-soft)" : "transparent",
+        color: isActive ? "var(--c-accent-fg)" : "var(--c-fg-2)",
+      }}
+      onMouseEnter={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.background = "var(--c-surface-2)";
+          e.currentTarget.style.color = "var(--c-fg-1)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = "var(--c-fg-2)";
+        }
+      }}
+    >
+      <Clock className="h-4 w-4 shrink-0" />
+      <span>Time Machine</span>
+    </Link>
   );
 }
