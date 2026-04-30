@@ -1,0 +1,124 @@
+package dev.filipnikolov.vector.analyzer.listener;
+
+import dev.filipnikolov.vector.analyzer.timeline.TimelineEventService;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import org.postgresql.PGConnection;
+import org.postgresql.PGNotification;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+@Component
+public class PostgresEventListener {
+
+    private static final Logger log = LoggerFactory.getLogger(PostgresEventListener.class);
+
+    private final DataSource dataSource;
+    private final TimelineEventService timelineEventService;
+
+    @Value("${analyzer.pg.listen-channel:deployment_events}")
+    private String channel;
+
+    private volatile Connection listenConn;
+    private volatile Thread listenThread;
+    private final AtomicBoolean shutdown = new AtomicBoolean(false);
+    private final ScheduledExecutorService healthScheduler =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "analyzer-listen-health");
+                t.setDaemon(true);
+                return t;
+            });
+
+    public PostgresEventListener(DataSource dataSource, TimelineEventService timelineEventService) {
+        this.dataSource = dataSource;
+        this.timelineEventService = timelineEventService;
+    }
+
+    @PostConstruct
+    public void init() {
+        // Backfill / catch-up before opening the LISTEN connection so the cursor
+        // is at the latest event ID when we start receiving live notifications.
+        timelineEventService.performStartupSync();
+        connect();
+        healthScheduler.scheduleWithFixedDelay(this::healthCheck, 30, 30, TimeUnit.SECONDS);
+    }
+
+    @PreDestroy
+    public void destroy() {
+        shutdown.set(true);
+        healthScheduler.shutdownNow();
+        closeQuietly(listenConn);
+    }
+
+    private void connect() {
+        try {
+            Connection conn = dataSource.getConnection();
+            conn.setAutoCommit(true);
+            try (Statement s = conn.createStatement()) {
+                s.execute("LISTEN " + channel);
+            }
+            listenConn = conn;
+
+            Thread t = new Thread(() -> listenLoop(conn), "analyzer-listen-loop");
+            t.setDaemon(true);
+            t.start();
+            listenThread = t;
+
+            log.info("LISTEN connection established on channel '{}'", channel);
+        } catch (Exception e) {
+            log.error("Failed to open LISTEN connection: {}", e.getMessage());
+        }
+    }
+
+    private void listenLoop(Connection conn) {
+        while (!shutdown.get() && !Thread.currentThread().isInterrupted()) {
+            try {
+                // A dummy query is required to flush pending notifications from the socket.
+                try (Statement s = conn.createStatement()) {
+                    s.execute("SELECT 1");
+                }
+                PGNotification[] notifications = conn.unwrap(PGConnection.class).getNotifications();
+                if (notifications != null) {
+                    for (PGNotification n : notifications) {
+                        timelineEventService.processNotification(n.getParameter());
+                    }
+                }
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (Exception e) {
+                if (!shutdown.get()) {
+                    log.error("LISTEN loop error (will reconnect): {}", e.getMessage());
+                }
+                return;
+            }
+        }
+    }
+
+    private void healthCheck() {
+        if (shutdown.get()) return;
+        if (listenThread == null || !listenThread.isAlive()) {
+            log.warn("LISTEN thread is dead — reconnecting and catching up");
+            closeQuietly(listenConn);
+            timelineEventService.catchUpSync();
+            connect();
+        }
+    }
+
+    private void closeQuietly(Connection conn) {
+        if (conn != null) {
+            try { conn.close(); } catch (Exception ignored) {}
+        }
+    }
+}
