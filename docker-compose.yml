@@ -22,6 +22,7 @@ services:
       POSTGRES_PASSWORD: ${VECTOR_DB_PASS:-launchpad}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
       - traefik
     healthcheck:
@@ -92,6 +93,37 @@ services:
       - "traefik.http.routers.vector-web.rule=Host(`vector.localhost`)"
       - "traefik.http.routers.vector-web.entrypoints=web"
       - "traefik.http.services.vector-web.loadbalancer.server.port=3000"
+
+  vector-analyzer:
+    image: filipn123/vector-analyzer:latest
+    container_name: vector-analyzer
+    build:
+      context: .
+      dockerfile: vector-analyzer/Dockerfile
+    env_file:
+      - .env
+    environment:
+      VECTOR_DB_URL: jdbc:postgresql://postgres:5432/launchpad
+      VECTOR_DB_USER: ${VECTOR_ANALYZER_DB_USER:-vector_analyzer}
+      VECTOR_DB_PASS: ${VECTOR_ANALYZER_DB_PASS:-vector_analyzer}
+      VECTOR_API_INTERNAL_URL: http://vector-api:8082
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - traefik
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vector-analyzer.rule=PathPrefix(`/api/analyzer`)"
+      - "traefik.http.routers.vector-analyzer.entrypoints=web"
+      - "traefik.http.services.vector-analyzer.loadbalancer.server.port=8082"
+      - "traefik.http.services.vector-analyzer.loadbalancer.responseforwarding.flushinterval=100ms"
 
   vector-updater:
     image: filipn123/vector-updater:latest
