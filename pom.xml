@@ -13,7 +13,7 @@
         <module>vector-events</module>
         <module>vector-ai</module>
         <module>vector-api</module>
-        <!-- <module>vector-analyzer</module> --> <!-- future: Time Machine backend -->
+        <module>vector-analyzer</module>
     </modules>
 
     <properties>
