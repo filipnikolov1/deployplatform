@@ -5,6 +5,7 @@ COPY pom.xml .
 COPY vector-events/ vector-events/
 COPY vector-ai/ vector-ai/
 COPY vector-api/ vector-api/
+COPY vector-analyzer/ vector-analyzer/
 RUN mvn -pl vector-api -am clean package -DskipTests -q
 
 FROM eclipse-temurin:21-jre
