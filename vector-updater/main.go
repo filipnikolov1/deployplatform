@@ -21,6 +21,11 @@ var allowedServices = map[string]bool{
 	"vector-web": true,
 }
 
+// serviceAliases maps legacy service names (pre-rename) to current Compose service names.
+var serviceAliases = map[string]string{
+	"vector": "vector-api",
+}
+
 var imageEnvByService = map[string]string{
 	"vector-api": "VECTOR_BACKEND_IMAGE",
 	"vector-web": "VECTOR_FRONTEND_IMAGE",
@@ -97,6 +102,9 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeTrigger(w, http.StatusBadRequest, triggerResponse{Status: "error", Error: "invalid json"})
 		return
+	}
+	if alias, ok := serviceAliases[req.Service]; ok {
+		req.Service = alias
 	}
 	if !allowedServices[req.Service] {
 		writeTrigger(w, http.StatusForbidden, triggerResponse{Status: "error", Error: "service not in allowlist: " + req.Service})
