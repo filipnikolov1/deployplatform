@@ -18,6 +18,46 @@ async function isAuthorized(req: Request): Promise<boolean> {
   return payload !== null;
 }
 
+export async function proxyToAnalyzer(
+  req: Request,
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  if (!(await isAuthorized(req))) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const analyzer = process.env.ANALYZER_URL;
+  const apiKey = process.env.API_KEY;
+  if (!analyzer || !apiKey) {
+    return new Response("Server misconfigured", { status: 500 });
+  }
+
+  const headers: Record<string, string> = {};
+  if (init.headers) {
+    const existing = new Headers(init.headers);
+    existing.forEach((value, key) => {
+      headers[key] = value;
+    });
+  }
+  headers["X-API-Key"] = apiKey;
+
+  const upstream = await fetch(`${analyzer}${path}`, {
+    method: init.method ?? req.method,
+    headers,
+    body: init.body,
+  });
+
+  const responseHeaders = new Headers();
+  const ct = upstream.headers.get("content-type");
+  if (ct) responseHeaders.set("content-type", ct);
+
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers: responseHeaders,
+  });
+}
+
 export async function proxyToBackend(
   req: Request,
   path: string,
