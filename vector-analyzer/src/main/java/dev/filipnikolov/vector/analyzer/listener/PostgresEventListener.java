@@ -1,5 +1,6 @@
 package dev.filipnikolov.vector.analyzer.listener;
 
+import dev.filipnikolov.vector.analyzer.logtail.LogTailService;
 import dev.filipnikolov.vector.analyzer.timeline.TimelineEventService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -25,6 +26,7 @@ public class PostgresEventListener {
 
     private final DataSource dataSource;
     private final TimelineEventService timelineEventService;
+    private final LogTailService logTailService;
 
     @Value("${analyzer.pg.listen-channel:deployment_events}")
     private String channel;
@@ -39,9 +41,12 @@ public class PostgresEventListener {
                 return t;
             });
 
-    public PostgresEventListener(DataSource dataSource, TimelineEventService timelineEventService) {
+    public PostgresEventListener(DataSource dataSource,
+                                 TimelineEventService timelineEventService,
+                                 LogTailService logTailService) {
         this.dataSource = dataSource;
         this.timelineEventService = timelineEventService;
+        this.logTailService = logTailService;
     }
 
     @PostConstruct

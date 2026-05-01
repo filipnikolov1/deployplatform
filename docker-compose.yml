@@ -120,11 +120,7 @@ services:
         limits:
           memory: 512m
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.vector-analyzer.rule=PathPrefix(`/api/analyzer`)"
-      - "traefik.http.routers.vector-analyzer.entrypoints=web"
-      - "traefik.http.services.vector-analyzer.loadbalancer.server.port=8082"
-      - "traefik.http.services.vector-analyzer.loadbalancer.responseforwarding.flushinterval=100ms"
+      - "traefik.enable=false"
 
   vector-updater:
     image: filipn123/vector-updater:latest
