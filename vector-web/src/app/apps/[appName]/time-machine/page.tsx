@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { ArrowLeft, Pin } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
@@ -10,6 +11,7 @@ import { useTimeline } from "@/hooks/useTimeline";
 import { useAppStats } from "@/hooks/useAppStats";
 import { useRecentDeploys } from "@/hooks/useRecentDeploys";
 import { CommitDetail } from "@/components/time-machine/CommitDetail";
+import { CrashStateView } from "@/components/time-machine/CrashStateView";
 import { RecentDeploysList } from "@/components/time-machine/RecentDeploysList";
 import type { TimelineEvent, TimelineEventType } from "@/types/analyzer";
 import type { Deployment } from "@/types/deployment";
@@ -61,16 +63,26 @@ function isRollback(event: TimelineEvent): boolean {
 function TimelineItem({
   event,
   onSelect,
+  onOpenCrash,
   isSelected,
 }: {
   event: TimelineEvent;
   onSelect: (sha: string) => void;
+  onOpenCrash: (id: number) => void;
   isSelected: boolean;
 }) {
   const cfg = EVENT_CONFIG[event.eventType] ?? EVENT_CONFIG.COMMIT;
   const date = new Date(event.occurredAt);
   const updateAvail = isUpdateAvailable(event);
   const rollback = isRollback(event);
+
+  const handleClick = () => {
+    if (event.eventType === "CRASH" && event.sourceEventId != null) {
+      onOpenCrash(event.sourceEventId);
+      return;
+    }
+    if (event.commitSha) onSelect(event.commitSha);
+  };
 
   return (
     <div
@@ -79,7 +91,7 @@ function TimelineItem({
         borderBottom: "1px solid var(--c-border-1)",
         background: isSelected ? "rgba(var(--c-accent-rgb,130,80,255),0.06)" : "transparent",
       }}
-      onClick={() => event.commitSha && onSelect(event.commitSha)}
+      onClick={handleClick}
     >
       {updateAvail ? (
         <span
@@ -135,6 +147,9 @@ const appFetcher = async (url: string): Promise<Deployment> => {
 };
 
 function TimeMachineContent({ appName }: { appName: string }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const crashId = searchParams.get("crash");
   const [selectedSha, setSelectedSha] = useState<string | null>(null);
 
   const { events, isLoading: timelineLoading } = useTimeline(appName);
@@ -152,6 +167,19 @@ function TimeMachineContent({ appName }: { appName: string }) {
   useEffect(() => {
     localStorage.setItem("lastTimeMachineApp", appName);
   }, [appName]);
+
+  const closeCrashView = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("crash");
+    const qs = params.toString();
+    router.replace(qs ? `/apps/${encodeURIComponent(appName)}/time-machine?${qs}` : `/apps/${encodeURIComponent(appName)}/time-machine`);
+  };
+
+  const openCrashView = (id: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("crash", String(id));
+    router.replace(`/apps/${encodeURIComponent(appName)}/time-machine?${params.toString()}`);
+  };
 
   return (
     <div className="flex flex-col">
@@ -211,6 +239,12 @@ function TimeMachineContent({ appName }: { appName: string }) {
         ) : null}
       </div>
 
+      {crashId && (
+        <div className="mb-6">
+          <CrashStateView appName={appName} crashId={crashId} onClose={closeCrashView} />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
         {/* Left: timeline + commit detail */}
         <div className="flex flex-col gap-4">
@@ -245,6 +279,7 @@ function TimeMachineContent({ appName }: { appName: string }) {
                     key={e.id}
                     event={e}
                     onSelect={setSelectedSha}
+                    onOpenCrash={openCrashView}
                     isSelected={!!e.commitSha && e.commitSha === selectedSha}
                   />
                 ))}
