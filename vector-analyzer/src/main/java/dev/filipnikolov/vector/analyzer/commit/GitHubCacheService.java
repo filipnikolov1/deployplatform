@@ -80,6 +80,27 @@ public class GitHubCacheService {
     }
 
     /**
+     * Returns the last `limit` commits that touched `path` on the default branch.
+     * Returns null if unavailable. Uncached — this hits GitHub directly each call.
+     */
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> fetchFileCommits(String slug, String path, int limit) {
+        if (token == null || token.isBlank()) return null;
+        try {
+            String url = "/repos/" + slug + "/commits?path=" + path + "&per_page=" + limit;
+            List<Map<String, Object>> body = client.get()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .body(List.class);
+            return body;
+        } catch (Exception e) {
+            log.debug("GitHub file-commits fetch failed for {} path={}: {}", slug, path, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Returns file content at a specific SHA. Returns null if unavailable.
      */
     @SuppressWarnings("unchecked")

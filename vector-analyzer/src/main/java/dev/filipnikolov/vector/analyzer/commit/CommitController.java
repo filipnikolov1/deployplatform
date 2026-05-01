@@ -47,4 +47,19 @@ public class CommitController {
         }
         return ResponseEntity.ok(service.getFileAtCommit(appName, sha, path));
     }
+
+    /**
+     * Last N commits touching a file in the app's repo. Used by the crash-state
+     * file-history scrubber.
+     */
+    @GetMapping("/file-history")
+    public ResponseEntity<Map<String, Object>> fileHistory(
+            @PathVariable String appName,
+            @RequestParam(required = false, defaultValue = "") String path,
+            @RequestParam(required = false, defaultValue = "20") int limit) {
+        if (path.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("available", false, "reason", "path parameter required"));
+        }
+        return ResponseEntity.ok(service.getFileHistory(appName, path, Math.min(50, Math.max(1, limit))));
+    }
 }
