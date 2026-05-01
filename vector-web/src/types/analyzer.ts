@@ -44,6 +44,7 @@ export interface LogEntry {
 export interface CommitDiff {
   available: boolean;
   diffJson?: string;
+  reason?: string;
 }
 
 export interface CommitFile {

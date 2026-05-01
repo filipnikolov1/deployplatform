@@ -35,7 +35,7 @@ export function useCommitDiff(appName: string, sha: string | null) {
     : null;
   const { data, error, isLoading } = useSWR<CommitDiff>(key, fetcher, {
     revalidateOnFocus: false,
-    dedupingInterval: 300_000,
+    dedupingInterval: 30_000,
   });
   return { diff: data ?? null, isLoading, error };
 }
