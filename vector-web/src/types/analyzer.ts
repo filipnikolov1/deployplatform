@@ -17,3 +17,38 @@ export interface AppStats {
   commits30d: number;
   lastDeployedAt: string | null;
 }
+
+export interface RecentDeploy {
+  id: number;
+  commitSha: string;
+  occurredAt: string;
+  metadata: string;
+}
+
+export interface CommitDetail {
+  sha: string;
+  message: string;
+  author: string;
+  authoredAt: string | null;
+  deploymentIds: number[];
+  repoSlug: string | null;
+}
+
+export interface LogEntry {
+  id: number;
+  timestamp: string;
+  stream: "stdout" | "stderr";
+  line: string;
+}
+
+export interface CommitDiff {
+  available: boolean;
+  diffJson?: string;
+}
+
+export interface CommitFile {
+  available: boolean;
+  content?: string;
+  name?: string;
+  path?: string;
+}

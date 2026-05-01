@@ -22,4 +22,5 @@ export interface Deployment {
   latestKnownImage?: string | null;
   latestKnownSha?: string | null;
   latestKnownMessage?: string | null;
+  pinnedImage?: string | null;
 }
