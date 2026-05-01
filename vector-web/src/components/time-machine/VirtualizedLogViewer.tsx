@@ -102,6 +102,7 @@ export function VirtualizedLogViewer({ logs, height = 400 }: Props) {
       <List
         ref={listRef}
         height={height}
+        width="100%"
         itemCount={logs.length}
         itemSize={ROW_HEIGHT}
         itemData={itemData}
