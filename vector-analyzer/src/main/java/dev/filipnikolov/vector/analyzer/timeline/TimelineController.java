@@ -35,13 +35,17 @@ public class TimelineController {
 
         List<Map<String, Object>> events = service.getTimeline(appName, effectiveFrom, effectiveTo)
                 .stream()
-                .map(e -> Map.<String, Object>of(
-                        "id",          e.getId(),
-                        "appName",     e.getAppName(),
-                        "eventType",   e.getEventType(),
-                        "commitSha",   e.getCommitSha()     != null ? e.getCommitSha() : "",
-                        "occurredAt",  e.getOccurredAt().toString(),
-                        "metadata",    e.getMetadataJson()  != null ? e.getMetadataJson() : "{}"))
+                .map(e -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id",            e.getId());
+                    m.put("appName",       e.getAppName());
+                    m.put("eventType",     e.getEventType());
+                    m.put("commitSha",     e.getCommitSha()    != null ? e.getCommitSha() : "");
+                    m.put("occurredAt",    e.getOccurredAt().toString());
+                    m.put("metadata",      e.getMetadataJson() != null ? e.getMetadataJson() : "{}");
+                    m.put("sourceEventId", e.getSourceEventId());
+                    return m;
+                })
                 .toList();
 
         return ResponseEntity.ok(events);

@@ -128,6 +128,34 @@ public class CommitService {
         return Map.of("available", true, "diffJson", diffJson, "baseSha", baseSha, "headSha", sha);
     }
 
+    /** Last N commits that touched a file in the app's repo. */
+    public Map<String, Object> getFileHistory(String appName, String path, int limit) {
+        String slug = resolveRepoSlug(appName);
+        if (slug == null || slug.isBlank()) {
+            return Map.of("available", false, "reason", "no repo configured");
+        }
+        List<Map<String, Object>> raw = github.fetchFileCommits(slug, path, limit);
+        if (raw == null) {
+            return Map.of("available", false, "reason", "history unavailable");
+        }
+        List<Map<String, Object>> commits = new ArrayList<>();
+        for (Map<String, Object> entry : raw) {
+            Map<String, Object> c = new LinkedHashMap<>();
+            c.put("sha", entry.get("sha"));
+            Object commit = entry.get("commit");
+            if (commit instanceof Map<?, ?> cm) {
+                Object author = cm.get("author");
+                if (author instanceof Map<?, ?> am) {
+                    c.put("authorName", am.get("name"));
+                    c.put("authoredAt", am.get("date"));
+                }
+                c.put("message", cm.get("message"));
+            }
+            commits.add(c);
+        }
+        return Map.of("available", true, "path", path, "commits", commits);
+    }
+
     /** File contents at a specific SHA from GitHub. */
     public Map<String, Object> getFileAtCommit(String appName, String sha, String path) {
         String slug = resolveRepoSlug(appName);

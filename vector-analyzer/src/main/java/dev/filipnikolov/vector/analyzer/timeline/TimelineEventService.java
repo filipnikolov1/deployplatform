@@ -2,8 +2,11 @@ package dev.filipnikolov.vector.analyzer.timeline;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import dev.filipnikolov.vector.analyzer.crash.CrashAnalysisService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +52,10 @@ public class TimelineEventService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper = new ObjectMapper()
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+    @Autowired
+    @Lazy
+    private CrashAnalysisService crashAnalysisService;
 
     public TimelineEventService(TimelineEventRepository repo, JdbcTemplate jdbc) {
         this.repo = repo;
@@ -135,6 +142,14 @@ public class TimelineEventService {
                     ON CONFLICT (source_event_id) WHERE source_event_id IS NOT NULL DO NOTHING
                     """,
                     appName, timelineType, commitSha, occurredAt, metadata, sourceId);
+
+            if ("CRASHED".equals(eventType)) {
+                try {
+                    crashAnalysisService.generateForCrashEvent(sourceId);
+                } catch (Exception e) {
+                    log.error("Crash analysis generation failed for event {}: {}", sourceId, e.getMessage());
+                }
+            }
 
         } catch (Exception e) {
             log.error("Failed to process notification payload: {} — {}", payload, e.getMessage());

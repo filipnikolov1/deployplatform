@@ -7,6 +7,7 @@ export interface TimelineEvent {
   commitSha: string;
   occurredAt: string;
   metadata: string;
+  sourceEventId: number | null;
 }
 
 export interface AppStats {
@@ -52,4 +53,38 @@ export interface CommitFile {
   content?: string;
   name?: string;
   path?: string;
+}
+
+export type EvidenceType = "log" | "diff" | "commit";
+
+export interface EvidenceItem {
+  id: number;
+  type: EvidenceType;
+  source?: string;
+  timestamp?: string | null;
+  content: unknown;
+  repoSlug?: string;
+  suspectSha?: string;
+}
+
+export interface CrashSignals {
+  timeSinceDeployMinutes: number | null;
+  crashCountForCommit: number;
+  crashedAt: string;
+  lastDeployedAt: string | null;
+}
+
+export interface CrashAnalysis {
+  id: number;
+  appName: string;
+  crashEventId: number;
+  suspectCommitSha: string | null;
+  lastGoodCommitSha: string | null;
+  suspectFilePath: string | null;
+  suspectLine: number | null;
+  aiNarration: string | null;
+  aiProviderUsed: string | null;
+  evidence: EvidenceItem[];
+  signals: CrashSignals;
+  generatedAt: string | null;
 }
