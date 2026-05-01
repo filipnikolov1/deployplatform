@@ -63,12 +63,17 @@ export function DiffViewer({ diff, isLoading }: Props) {
   }
 
   if (!diff?.available) {
+    const msg = diff?.reason === "no previous commit found"
+      ? "No previous deploy to compare against."
+      : diff?.reason === "no repo configured"
+      ? "No repository configured for this app."
+      : "Diff unavailable.";
     return (
       <div
         className="flex items-center justify-center h-32 text-[13px]"
         style={{ color: "var(--c-fg-3)" }}
       >
-        Diff unavailable — no GitHub token configured or this is the first commit.
+        {msg}
       </div>
     );
   }
