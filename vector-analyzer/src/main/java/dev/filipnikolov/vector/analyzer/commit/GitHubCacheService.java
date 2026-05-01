@@ -1,5 +1,6 @@
 package dev.filipnikolov.vector.analyzer.commit;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +19,8 @@ import java.util.Map;
 public class GitHubCacheService {
 
     private static final Logger log = LoggerFactory.getLogger(GitHubCacheService.class);
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final JdbcTemplate jdbc;
     private final String token;
@@ -63,8 +66,7 @@ public class GitHubCacheService {
                     .body(Map.class);
             if (body == null) return null;
 
-            // Store the relevant subset as JSON string via simple serialisation
-            String diffJson = toJson(body);
+            String diffJson = MAPPER.writeValueAsString(body);
             jdbc.update("""
                     INSERT INTO analyzer.diff_cache (repo_full_name, base_sha, head_sha, diff_json, cached_at)
                     VALUES (?, ?, ?, ?, NOW())
@@ -115,29 +117,4 @@ public class GitHubCacheService {
         }
     }
 
-    /** Minimal JSON serialiser sufficient for GitHub API response maps. */
-    private String toJson(Object value) {
-        if (value == null) return "null";
-        if (value instanceof String s) return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"";
-        if (value instanceof Number || value instanceof Boolean) return value.toString();
-        if (value instanceof List<?> list) {
-            StringBuilder sb = new StringBuilder("[");
-            for (int i = 0; i < list.size(); i++) {
-                if (i > 0) sb.append(",");
-                sb.append(toJson(list.get(i)));
-            }
-            return sb.append("]").toString();
-        }
-        if (value instanceof Map<?, ?> map) {
-            StringBuilder sb = new StringBuilder("{");
-            boolean first = true;
-            for (Map.Entry<?, ?> e : map.entrySet()) {
-                if (!first) sb.append(",");
-                first = false;
-                sb.append(toJson(e.getKey().toString())).append(":").append(toJson(e.getValue()));
-            }
-            return sb.append("}").toString();
-        }
-        return "\"" + value.toString().replace("\"", "\\\"") + "\"";
-    }
 }
