@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, RefreshCcw, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, EyeOff, Eye, RefreshCcw, X } from "lucide-react";
 import { useCrashAnalysis } from "@/hooks/useCrashAnalysis";
 import type { EvidenceItem } from "@/types/analyzer";
 import { LogPlaybackPanel } from "./LogPlaybackPanel";
@@ -68,6 +68,8 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
   const [speed, setSpeed] = useState<PlaybackSpeed>(1);
   const [highlightReceipt, setHighlightReceipt] = useState<number | null>(null);
   const [scrubbedSha, setScrubbedSha] = useState<string | null>(null);
+  const [receiptsVisible, setReceiptsVisible] = useState(true);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(0);
 
@@ -80,6 +82,31 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
   useEffect(() => {
     setScrubbedSha(null);
   }, [analysis?.id]);
+
+  // Listen for narration completion/failure on the analyzer SSE stream and
+  // re-fetch the analysis when our crash is the one that finished. The hook's
+  // 30s dedupingInterval means without this nudge the spinner could hang.
+  useEffect(() => {
+    if (!analysis || analysis.aiNarrationStatus !== "PENDING") return;
+    const es = new EventSource(`/api/analyzer/apps/${encodeURIComponent(appName)}/stream`);
+    const handler = (e: MessageEvent) => {
+      try {
+        const data = typeof e.data === "string" ? JSON.parse(e.data) : null;
+        if (data && Number(data.crashId) === Number(crashId)) {
+          refresh();
+        }
+      } catch {
+        // ignore — stream contains non-JSON heartbeats too
+      }
+    };
+    es.addEventListener("narrationCompleted", handler);
+    es.addEventListener("narrationFailed", handler);
+    return () => {
+      es.removeEventListener("narrationCompleted", handler);
+      es.removeEventListener("narrationFailed", handler);
+      es.close();
+    };
+  }, [analysis, appName, crashId, refresh]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -113,18 +140,45 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
     setIsPlaying(true);
   };
 
-  const handleJumpToReceipt = (id: number) => {
-    setHighlightReceipt(id);
-    const item = evidence.find((e) => e.id === id);
-    if (item?.type === "log" && item.timestamp) {
-      const t = Date.parse(item.timestamp);
-      if (Number.isFinite(t)) setCurrentTime(t);
+  const handleJumpToReceipt = useCallback(
+    (id: number) => {
+      setHighlightReceipt(id);
+      // If receipts are hidden, reveal them — otherwise the citation click
+      // would silently do nothing and look broken.
+      setReceiptsVisible(true);
+      const item = evidence.find((e) => e.id === id);
+      if (item?.type === "log" && item.timestamp) {
+        const t = Date.parse(item.timestamp);
+        if (Number.isFinite(t)) setCurrentTime(t);
+      }
+      setTimeout(() => {
+        const el = document.getElementById(`receipt-${id}`);
+        if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 50);
+    },
+    [evidence],
+  );
+
+  const handleRegenerate = useCallback(async () => {
+    if (!analysis || isRegenerating) return;
+    setIsRegenerating(true);
+    try {
+      const res = await fetch(
+        `/api/analyzer/apps/${encodeURIComponent(appName)}/crashes/${encodeURIComponent(crashId)}/regenerate`,
+        { method: "POST" },
+      );
+      // 429 means the per-crash retry cap is exhausted — still refresh so the
+      // server's authoritative count lands and we can disable the button.
+      if (!res.ok && res.status !== 429) {
+        console.warn("regenerate failed:", res.status);
+      }
+      await refresh();
+    } catch (e) {
+      console.warn("regenerate threw:", e);
+    } finally {
+      setIsRegenerating(false);
     }
-    setTimeout(() => {
-      const el = document.getElementById(`receipt-${id}`);
-      if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
-    }, 50);
-  };
+  }, [analysis, appName, crashId, isRegenerating, refresh]);
 
   const signals = analysis?.signals;
   const longSinceDeploy = (signals?.timeSinceDeployMinutes ?? 0) > 1440;
@@ -262,12 +316,39 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
         </div>
 
         <div className="flex flex-col gap-4">
-          <AIAnalysisPanel narration={analysis.aiNarration} />
-          <ReceiptsPanel
-            evidence={evidence}
-            highlightId={highlightReceipt}
-            onJump={handleJumpToReceipt}
+          <AIAnalysisPanel
+            narration={analysis.aiNarration}
+            status={analysis.aiNarrationStatus}
+            failureReason={analysis.aiFailureReason}
+            providerUsed={analysis.aiProviderUsed}
+            regenerateCount={analysis.aiRegenerateCount}
+            regenerateLimit={analysis.aiRegenerateLimit}
+            onJumpToReceipt={handleJumpToReceipt}
+            onRegenerate={handleRegenerate}
+            isRegenerating={isRegenerating}
           />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setReceiptsVisible((v) => !v)}
+              className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md transition-[filter] hover:brightness-110"
+              style={{
+                background: "var(--c-surface-2)",
+                color: "var(--c-fg-2)",
+                border: "1px solid var(--c-border-2)",
+              }}
+            >
+              {receiptsVisible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              {receiptsVisible ? "Hide receipts" : "Show receipts"}
+            </button>
+          </div>
+          {receiptsVisible && (
+            <ReceiptsPanel
+              evidence={evidence}
+              highlightId={highlightReceipt}
+              onJump={handleJumpToReceipt}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -23,7 +23,9 @@ public class GeminiProvider implements AiProvider {
 
     @Override
     public String providerName() {
-        return "gemini-" + model;
+        // The configured model already starts with "gemini-" (e.g. "gemini-2.5-flash"),
+        // so stamping it through unchanged avoids "gemini-gemini-2.5-flash" in metadata.
+        return model;
     }
 
     @Override

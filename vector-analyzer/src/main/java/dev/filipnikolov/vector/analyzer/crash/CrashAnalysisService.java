@@ -33,13 +33,16 @@ public class CrashAnalysisService {
     private final JdbcTemplate jdbc;
     private final GitHubCacheService github;
     private final AnalysisStreamBroadcaster broadcaster;
+    private final AnalysisGeneratorService analysisGenerator;
 
     public CrashAnalysisService(JdbcTemplate jdbc,
                                 GitHubCacheService github,
-                                AnalysisStreamBroadcaster broadcaster) {
+                                AnalysisStreamBroadcaster broadcaster,
+                                AnalysisGeneratorService analysisGenerator) {
         this.jdbc = jdbc;
         this.github = github;
         this.broadcaster = broadcaster;
+        this.analysisGenerator = analysisGenerator;
     }
 
     /**
@@ -138,6 +141,9 @@ public class CrashAnalysisService {
                     "crashId", crashEventId,
                     "analysisId", saved.getId()
             ));
+            // Kick the AI narration off in the background. Generation can take ~5–10s
+            // and must not block the LISTEN/NOTIFY thread that drove us here.
+            analysisGenerator.generateInitialAsync(saved.getId());
         }
         return saved;
     }
@@ -314,6 +320,9 @@ public class CrashAnalysisService {
         a.setSuspectLine(rs.wasNull() ? null : line);
         a.setAiNarration(rs.getString("ai_narration"));
         a.setAiProviderUsed(rs.getString("ai_provider_used"));
+        a.setAiNarrationStatus(rs.getString("ai_narration_status"));
+        a.setAiRegenerateCount(rs.getInt("ai_regenerate_count"));
+        a.setAiFailureReason(rs.getString("ai_failure_reason"));
         a.setEvidenceJson(rs.getString("evidence_json"));
         a.setSignalsJson(rs.getString("signals_json"));
         java.sql.Timestamp ts = rs.getTimestamp("generated_at");

@@ -74,6 +74,8 @@ export interface CrashSignals {
   lastDeployedAt: string | null;
 }
 
+export type AiNarrationStatus = "PENDING" | "AVAILABLE" | "UNAVAILABLE";
+
 export interface CrashAnalysis {
   id: number;
   appName: string;
@@ -84,6 +86,10 @@ export interface CrashAnalysis {
   suspectLine: number | null;
   aiNarration: string | null;
   aiProviderUsed: string | null;
+  aiNarrationStatus: AiNarrationStatus;
+  aiRegenerateCount: number;
+  aiRegenerateLimit: number;
+  aiFailureReason: string | null;
   evidence: EvidenceItem[];
   signals: CrashSignals;
   generatedAt: string | null;
