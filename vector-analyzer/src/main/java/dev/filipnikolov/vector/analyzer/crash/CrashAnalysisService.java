@@ -314,6 +314,9 @@ public class CrashAnalysisService {
         a.setSuspectLine(rs.wasNull() ? null : line);
         a.setAiNarration(rs.getString("ai_narration"));
         a.setAiProviderUsed(rs.getString("ai_provider_used"));
+        a.setAiNarrationStatus(rs.getString("ai_narration_status"));
+        a.setAiRegenerateCount(rs.getInt("ai_regenerate_count"));
+        a.setAiFailureReason(rs.getString("ai_failure_reason"));
         a.setEvidenceJson(rs.getString("evidence_json"));
         a.setSignalsJson(rs.getString("signals_json"));
         java.sql.Timestamp ts = rs.getTimestamp("generated_at");

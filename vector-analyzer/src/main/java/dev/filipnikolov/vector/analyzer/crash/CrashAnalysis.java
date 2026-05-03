@@ -12,6 +12,9 @@ public class CrashAnalysis {
     private Integer suspectLine;
     private String aiNarration;
     private String aiProviderUsed;
+    private String aiNarrationStatus;
+    private int aiRegenerateCount;
+    private String aiFailureReason;
     private String evidenceJson;
     private String signalsJson;
     private LocalDateTime generatedAt;
@@ -34,6 +37,12 @@ public class CrashAnalysis {
     public void setAiNarration(String aiNarration) { this.aiNarration = aiNarration; }
     public String getAiProviderUsed() { return aiProviderUsed; }
     public void setAiProviderUsed(String aiProviderUsed) { this.aiProviderUsed = aiProviderUsed; }
+    public String getAiNarrationStatus() { return aiNarrationStatus; }
+    public void setAiNarrationStatus(String aiNarrationStatus) { this.aiNarrationStatus = aiNarrationStatus; }
+    public int getAiRegenerateCount() { return aiRegenerateCount; }
+    public void setAiRegenerateCount(int aiRegenerateCount) { this.aiRegenerateCount = aiRegenerateCount; }
+    public String getAiFailureReason() { return aiFailureReason; }
+    public void setAiFailureReason(String aiFailureReason) { this.aiFailureReason = aiFailureReason; }
     public String getEvidenceJson() { return evidenceJson; }
     public void setEvidenceJson(String evidenceJson) { this.evidenceJson = evidenceJson; }
     public String getSignalsJson() { return signalsJson; }
