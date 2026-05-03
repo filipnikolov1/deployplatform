@@ -69,6 +69,7 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
   const [highlightReceipt, setHighlightReceipt] = useState<number | null>(null);
   const [scrubbedSha, setScrubbedSha] = useState<string | null>(null);
   const [receiptsVisible, setReceiptsVisible] = useState(true);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(0);
 
@@ -81,6 +82,31 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
   useEffect(() => {
     setScrubbedSha(null);
   }, [analysis?.id]);
+
+  // Listen for narration completion/failure on the analyzer SSE stream and
+  // re-fetch the analysis when our crash is the one that finished. The hook's
+  // 30s dedupingInterval means without this nudge the spinner could hang.
+  useEffect(() => {
+    if (!analysis || analysis.aiNarrationStatus !== "PENDING") return;
+    const es = new EventSource(`/api/analyzer/apps/${encodeURIComponent(appName)}/stream`);
+    const handler = (e: MessageEvent) => {
+      try {
+        const data = typeof e.data === "string" ? JSON.parse(e.data) : null;
+        if (data && Number(data.crashId) === Number(crashId)) {
+          refresh();
+        }
+      } catch {
+        // ignore — stream contains non-JSON heartbeats too
+      }
+    };
+    es.addEventListener("narrationCompleted", handler);
+    es.addEventListener("narrationFailed", handler);
+    return () => {
+      es.removeEventListener("narrationCompleted", handler);
+      es.removeEventListener("narrationFailed", handler);
+      es.close();
+    };
+  }, [analysis, appName, crashId, refresh]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -132,6 +158,27 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
     },
     [evidence],
   );
+
+  const handleRegenerate = useCallback(async () => {
+    if (!analysis || isRegenerating) return;
+    setIsRegenerating(true);
+    try {
+      const res = await fetch(
+        `/api/analyzer/apps/${encodeURIComponent(appName)}/crashes/${encodeURIComponent(crashId)}/regenerate`,
+        { method: "POST" },
+      );
+      // 429 means the per-crash retry cap is exhausted — still refresh so the
+      // server's authoritative count lands and we can disable the button.
+      if (!res.ok && res.status !== 429) {
+        console.warn("regenerate failed:", res.status);
+      }
+      await refresh();
+    } catch (e) {
+      console.warn("regenerate threw:", e);
+    } finally {
+      setIsRegenerating(false);
+    }
+  }, [analysis, appName, crashId, isRegenerating, refresh]);
 
   const signals = analysis?.signals;
   const longSinceDeploy = (signals?.timeSinceDeployMinutes ?? 0) > 1440;
@@ -277,8 +324,8 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
             regenerateCount={analysis.aiRegenerateCount}
             regenerateLimit={analysis.aiRegenerateLimit}
             onJumpToReceipt={handleJumpToReceipt}
-            onRegenerate={() => undefined}
-            isRegenerating={false}
+            onRegenerate={handleRegenerate}
+            isRegenerating={isRegenerating}
           />
           <div className="flex justify-end">
             <button
