@@ -33,13 +33,16 @@ public class CrashAnalysisService {
     private final JdbcTemplate jdbc;
     private final GitHubCacheService github;
     private final AnalysisStreamBroadcaster broadcaster;
+    private final AnalysisGeneratorService analysisGenerator;
 
     public CrashAnalysisService(JdbcTemplate jdbc,
                                 GitHubCacheService github,
-                                AnalysisStreamBroadcaster broadcaster) {
+                                AnalysisStreamBroadcaster broadcaster,
+                                AnalysisGeneratorService analysisGenerator) {
         this.jdbc = jdbc;
         this.github = github;
         this.broadcaster = broadcaster;
+        this.analysisGenerator = analysisGenerator;
     }
 
     /**
@@ -138,6 +141,9 @@ public class CrashAnalysisService {
                     "crashId", crashEventId,
                     "analysisId", saved.getId()
             ));
+            // Kick the AI narration off in the background. Generation can take ~5–10s
+            // and must not block the LISTEN/NOTIFY thread that drove us here.
+            analysisGenerator.generateInitialAsync(saved.getId());
         }
         return saved;
     }
