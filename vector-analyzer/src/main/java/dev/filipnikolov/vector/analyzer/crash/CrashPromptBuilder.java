@@ -34,15 +34,25 @@ final class CrashPromptBuilder {
 
         StringBuilder sb = new StringBuilder(8_192);
         sb.append(systemRules());
-        sb.append("\n\n## Crash context\n");
+        sb.append("\n\n## Crash context (background only — NOT citable)\n");
         sb.append(contextLine(analysis, signals));
-        sb.append("\n\n## Evidence\n");
-        sb.append("Each item is tagged with an id like [1], [2]. Cite items inline by writing the marker exactly as shown.\n\n");
+        sb.append("\n\n## Evidence (the ONLY citable items)\n");
+        if (evidence.isEmpty()) {
+            sb.append("(no evidence captured)\n\n");
+            sb.append("Because the evidence list is empty, you MUST output exactly one short paragraph stating ");
+            sb.append("that detailed crash evidence (logs, stack trace, diff) is unavailable for this incident, ");
+            sb.append("optionally noting the time-since-deploy and recurrence signals from the crash context as ");
+            sb.append("plain prose. Do NOT use any citation markers. Do NOT fabricate citation numbers. Stop ");
+            sb.append("after one paragraph.\n");
+            return sb.toString();
+        }
+        sb.append("Each item below has an id; cite it inline by writing the marker exactly as shown (e.g., [1]).\n");
+        sb.append("Do NOT cite anything outside this list — context fields are background, not evidence.\n\n");
         for (Map<String, Object> item : evidence) {
             sb.append(formatEvidenceItem(item));
         }
         sb.append("\n## Output format\n");
-        sb.append("Write 3–6 short paragraphs in markdown. No headings. Cite at least 2 evidence items. ");
+        sb.append("Write 3–6 short paragraphs in markdown. No headings. Cite at least 2 evidence items by id. ");
         sb.append("Do not suggest specific code fixes; describe what likely happened, not how to fix it.\n");
         return sb.toString();
     }
@@ -53,8 +63,10 @@ final class CrashPromptBuilder {
                 Write a concise, calibrated explanation grounded in the evidence below.
 
                 Rules — these are not optional:
-                1. EVERY factual claim must end with a citation marker like [1] or [2] referencing the evidence id.
-                   If you can't cite a claim, drop it. No outside knowledge, no guessing about code that isn't shown.
+                1. ONLY the items under "## Evidence" are citable. Each evidence item has a numeric id like [1].
+                   Cite inline with that marker. NEVER invent citation numbers, and NEVER cite items from the
+                   "## Crash context" block — that block is background, not evidence. If a claim cannot be
+                   grounded in a real evidence item, either drop it or weave it in as plain prose without a marker.
                 2. Use uncertainty language: "likely", "possibly", "appears to be", "suggests". Never say
                    "the cause is" or "this was caused by". You are reasoning from limited evidence.
                 3. Do NOT propose code fixes, refactors, or specific patches. The reader will write the fix; you
