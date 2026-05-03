@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, RefreshCcw, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, EyeOff, Eye, RefreshCcw, X } from "lucide-react";
 import { useCrashAnalysis } from "@/hooks/useCrashAnalysis";
 import type { EvidenceItem } from "@/types/analyzer";
 import { LogPlaybackPanel } from "./LogPlaybackPanel";
@@ -68,6 +68,7 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
   const [speed, setSpeed] = useState<PlaybackSpeed>(1);
   const [highlightReceipt, setHighlightReceipt] = useState<number | null>(null);
   const [scrubbedSha, setScrubbedSha] = useState<string | null>(null);
+  const [receiptsVisible, setReceiptsVisible] = useState(true);
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(0);
 
@@ -113,18 +114,24 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
     setIsPlaying(true);
   };
 
-  const handleJumpToReceipt = (id: number) => {
-    setHighlightReceipt(id);
-    const item = evidence.find((e) => e.id === id);
-    if (item?.type === "log" && item.timestamp) {
-      const t = Date.parse(item.timestamp);
-      if (Number.isFinite(t)) setCurrentTime(t);
-    }
-    setTimeout(() => {
-      const el = document.getElementById(`receipt-${id}`);
-      if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
-    }, 50);
-  };
+  const handleJumpToReceipt = useCallback(
+    (id: number) => {
+      setHighlightReceipt(id);
+      // If receipts are hidden, reveal them — otherwise the citation click
+      // would silently do nothing and look broken.
+      setReceiptsVisible(true);
+      const item = evidence.find((e) => e.id === id);
+      if (item?.type === "log" && item.timestamp) {
+        const t = Date.parse(item.timestamp);
+        if (Number.isFinite(t)) setCurrentTime(t);
+      }
+      setTimeout(() => {
+        const el = document.getElementById(`receipt-${id}`);
+        if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 50);
+    },
+    [evidence],
+  );
 
   const signals = analysis?.signals;
   const longSinceDeploy = (signals?.timeSinceDeployMinutes ?? 0) > 1440;
@@ -262,12 +269,39 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
         </div>
 
         <div className="flex flex-col gap-4">
-          <AIAnalysisPanel narration={analysis.aiNarration} />
-          <ReceiptsPanel
-            evidence={evidence}
-            highlightId={highlightReceipt}
-            onJump={handleJumpToReceipt}
+          <AIAnalysisPanel
+            narration={analysis.aiNarration}
+            status={analysis.aiNarrationStatus}
+            failureReason={analysis.aiFailureReason}
+            providerUsed={analysis.aiProviderUsed}
+            regenerateCount={analysis.aiRegenerateCount}
+            regenerateLimit={analysis.aiRegenerateLimit}
+            onJumpToReceipt={handleJumpToReceipt}
+            onRegenerate={() => undefined}
+            isRegenerating={false}
           />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setReceiptsVisible((v) => !v)}
+              className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md transition-[filter] hover:brightness-110"
+              style={{
+                background: "var(--c-surface-2)",
+                color: "var(--c-fg-2)",
+                border: "1px solid var(--c-border-2)",
+              }}
+            >
+              {receiptsVisible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              {receiptsVisible ? "Hide receipts" : "Show receipts"}
+            </button>
+          </div>
+          {receiptsVisible && (
+            <ReceiptsPanel
+              evidence={evidence}
+              highlightId={highlightReceipt}
+              onJump={handleJumpToReceipt}
+            />
+          )}
         </div>
       </div>
     </div>
