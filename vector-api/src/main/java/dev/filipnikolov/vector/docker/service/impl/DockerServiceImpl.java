@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.docker.service.impl;
 
 import dev.filipnikolov.vector.docker.service.DockerService;
+import dev.filipnikolov.vector.progress.ProgressFrame;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.model.AuthConfig;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +53,11 @@ public class DockerServiceImpl implements DockerService {
 
     @Override
     public String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars) throws InterruptedException {
+        return pullAndRun(imageName, appName, subdomain, containerPort, envVars, null);
+    }
+
+    @Override
+    public String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars, Consumer<ProgressFrame> progressCallback) throws InterruptedException {
         var pullCmd = dockerClient.pullImageCmd(imageName);
         if (authConfig != null) {
             pullCmd.withAuthConfig(authConfig);
@@ -63,7 +70,19 @@ public class DockerServiceImpl implements DockerService {
             public void onStart(Closeable closeable) {}
 
             @Override
-            public void onNext(PullResponseItem item) {}
+            public void onNext(PullResponseItem item) {
+                if (progressCallback != null) {
+                    Long current = null;
+                    Long total = null;
+                    if (item.getProgressDetail() != null) {
+                        current = item.getProgressDetail().getCurrent();
+                        total = item.getProgressDetail().getTotal();
+                    }
+                    String msg = (item.getStatus() != null ? item.getStatus() : "")
+                            + (item.getId() != null ? " " + item.getId() : "");
+                    progressCallback.accept(new ProgressFrame("PULL_LAYER", msg.strip(), current, total, "bytes", Instant.now()));
+                }
+            }
 
             @Override
             public void onError(Throwable throwable) {
@@ -97,6 +116,10 @@ public class DockerServiceImpl implements DockerService {
                 .map(e -> e.getKey() + "=" + e.getValue())
                 .toList();
 
+        if (progressCallback != null) {
+            progressCallback.accept(new ProgressFrame("CONTAINER_CREATE", "Creating container " + appName, null, null, null, Instant.now()));
+        }
+
         String containerId = dockerClient.createContainerCmd(imageName)
                 .withName(appName)
                 .withEnv(env)
@@ -110,6 +133,10 @@ public class DockerServiceImpl implements DockerService {
                         .withNetworkMode(traefikNetwork))
                 .exec()
                 .getId();
+
+        if (progressCallback != null) {
+            progressCallback.accept(new ProgressFrame("CONTAINER_START", "Starting container " + appName, null, null, null, Instant.now()));
+        }
 
         dockerClient.startContainerCmd(containerId).exec();
         return containerId;

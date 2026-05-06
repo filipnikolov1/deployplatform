@@ -1,6 +1,11 @@
 // Matches backend-makeover.md §1 DeploymentEvent entity.
 export type DeploymentEventType =
   | "DEPLOY_TRIGGERED"
+  | "PULL_STARTED"
+  | "PULL_FINISHED"
+  | "CONTAINER_CREATING"
+  | "CONTAINER_STARTED"
+  | "HEALTH_OK"
   | "BUILD_STARTED"
   | "BUILD_FINISHED"
   | "DEPLOY_STARTED"
@@ -19,6 +24,24 @@ export type DeploymentEventType =
   | "UPDATER_UNREACHABLE"
   | "SELF_APP_BOOTSTRAPPED";
 
+export type ProgressStage =
+  | "PULL_LAYER"
+  | "CONTAINER_CREATE"
+  | "CONTAINER_START"
+  | "HEALTH_PROBE"
+  | "UPDATER_RECREATE"
+  | "UPDATER_BOOT";
+
+export interface ProgressFrame {
+  operationId: string;
+  stage: ProgressStage;
+  message: string;
+  current: number | null;
+  total: number | null;
+  unit: string | null;
+  emittedAt: string; // ISO 8601
+}
+
 export type DeploymentEventStatus = "SUCCESS" | "FAILURE" | "IN_PROGRESS";
 
 export type TriggerSource = "AUTOMATIC" | "MANUAL" | "ROLLBACK" | "RESTART" | "SELF_UPDATE";
@@ -26,6 +49,7 @@ export type TriggerSource = "AUTOMATIC" | "MANUAL" | "ROLLBACK" | "RESTART" | "S
 export interface DeploymentEvent {
   id: number;
   appName: string;
+  operationId: string | null; // nullable for legacy rows
   eventType: DeploymentEventType;
   status: DeploymentEventStatus;
   imageName: string | null;

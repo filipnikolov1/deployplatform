@@ -12,7 +12,8 @@ public record PendingSelfUpdateDto(
         UpdatePhase phase,
         String targetSha,
         String targetImage,
-        LocalDateTime triggeredAt
+        LocalDateTime triggeredAt,
+        String operationId
 ) {
     public static PendingSelfUpdateDto from(PendingSelfUpdate p) {
         return new PendingSelfUpdateDto(
@@ -21,6 +22,7 @@ public record PendingSelfUpdateDto(
                 p.getPhase(),
                 p.getTargetSha(),
                 p.getTargetImage(),
-                p.getTriggeredAt());
+                p.getTriggeredAt(),
+                p.getOperationId());
     }
 }

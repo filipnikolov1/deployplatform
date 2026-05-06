@@ -18,9 +18,11 @@ interface Copy {
 interface Props {
   view: OverlayView;
   copy: Copy;
+  progressMessage?: string;
+  progressPercent?: number;
 }
 
-export function UpdatingOverlayView({ view, copy }: Props) {
+export function UpdatingOverlayView({ view, copy, progressMessage, progressPercent }: Props) {
   if (view.phase !== "waiting" && view.phase !== "ready") {
     return null;
   }
@@ -58,6 +60,32 @@ export function UpdatingOverlayView({ view, copy }: Props) {
         <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-400 sm:text-base">
           {ready ? copy.readyDescription : copy.waitingDescription}
         </p>
+
+        {!ready && (progressMessage || progressPercent !== undefined) && (
+          <div className="mx-auto mt-6 w-full max-w-md">
+            {progressMessage && (
+              <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+                <span className="truncate">{progressMessage}</span>
+                {progressPercent !== undefined && (
+                  <span className="shrink-0 tabular-nums ml-2">{progressPercent}%</span>
+                )}
+              </div>
+            )}
+            <div className="h-1.5 w-full rounded-full overflow-hidden bg-white/[0.08]">
+              {progressPercent !== undefined ? (
+                <div
+                  className="h-full rounded-full bg-violet-400/70 transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              ) : (
+                <div
+                  className="h-full w-1/3 rounded-full bg-violet-400/50"
+                  style={{ animation: "lp-indeterminate 1.4s ease-in-out infinite" }}
+                />
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mx-auto mt-8 flex max-w-md items-center justify-center gap-3 rounded-full border border-white/10 bg-black/35 px-5 py-3 text-sm text-slate-300">
           {ready ? (

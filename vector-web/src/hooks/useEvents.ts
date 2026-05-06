@@ -27,6 +27,7 @@ function eventFromEnvelope(envelope: PlatformEventEnvelope): DeploymentEvent {
   return {
     id: envelope.id,
     appName: envelope.appName,
+    operationId: envelope.operationId,
     eventType: envelope.type,
     status: envelope.status,
     imageName: envelope.payload.imageName,

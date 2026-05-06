@@ -37,4 +37,7 @@ public class PendingSelfUpdate {
     @Enumerated(EnumType.STRING)
     @Column(name = "phase", nullable = false, length = 16)
     private UpdatePhase phase = UpdatePhase.PULLING;
+
+    @Column(name = "operation_id", nullable = false, length = 36)
+    private String operationId;
 }

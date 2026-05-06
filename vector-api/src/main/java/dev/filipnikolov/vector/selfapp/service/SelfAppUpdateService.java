@@ -30,7 +30,7 @@ public class SelfAppUpdateService {
     private final UpdaterClient updaterClient;
 
     @Transactional
-    public void triggerUpdate(String appName) {
+    public String triggerUpdate(String appName) {
         Deployment d = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
                 .orElseThrow(() -> new ResourceNotFoundException("Self-app not found: " + appName));
         if (!d.isSelfApp()) {
@@ -54,10 +54,11 @@ public class SelfAppUpdateService {
         final String targetImage = d.getLatestKnownImage();
         final String targetSha = d.getLatestKnownSha();
         final String targetMessage = d.getLatestKnownMessage();
+        final String operationId = UUID.randomUUID().toString();
 
         eventService.record(DeploymentEventType.UPDATE_TRIGGERED,
                 DeploymentEventStatus.IN_PROGRESS, appName, null, null,
-                "Target: " + targetImage);
+                "Target: " + targetImage, operationId);
 
         final String service = appName;
 
@@ -68,6 +69,7 @@ public class SelfAppUpdateService {
         pending.setTargetImage(targetImage);
         pending.setTriggeredAt(LocalDateTime.now());
         pending.setPhase(UpdatePhase.PULLING);
+        pending.setOperationId(operationId);
         pendingRepo.save(pending);
 
         final UUID pendingId = pending.getUpdateId();
@@ -75,8 +77,10 @@ public class SelfAppUpdateService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                updateExecutor.executeUpdate(appName, service, targetImage, targetSha, targetMessage, pendingId);
+                updateExecutor.executeUpdate(appName, service, targetImage, targetSha, targetMessage, pendingId, operationId);
             }
         });
+
+        return operationId;
     }
 }

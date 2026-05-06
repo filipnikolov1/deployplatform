@@ -15,6 +15,7 @@ import dev.filipnikolov.vector.deployment.service.DeploymentService;
 import dev.filipnikolov.vector.docker.service.DockerService;
 import dev.filipnikolov.vector.envvar.service.EnvVarService;
 import dev.filipnikolov.vector.exception.ResourceNotFoundException;
+import dev.filipnikolov.vector.progress.ProgressHub;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +44,7 @@ public class DeploymentServiceImpl implements DeploymentService {
     private final EnvVarService envVarService;
     private final DeploymentEventService eventService;
     private final DeploymentTransactionHelper txHelper;
+    private final ProgressHub progressHub;
 
     @Value("${app.default-port:3000}")
     private int defaultContainerPort;
@@ -53,10 +55,20 @@ public class DeploymentServiceImpl implements DeploymentService {
         DeploymentTransactionHelper.LifecycleStart start = txHelper.preCreate(req);
         Deployment deployment = start.deployment();
         String operationId = start.operationId();
+        progressHub.start(operationId);
         try {
             Map<String, String> envVars = envVarService.getEnvVars(req.appName());
+            eventService.record(DeploymentEventType.PULL_STARTED, DeploymentEventStatus.IN_PROGRESS,
+                    req.appName(), req, null, null, operationId);
             dockerService.pullAndRun(req.imageName(), req.appName(),
-                    deployment.getSubdomain(), deployment.getContainerPort(), envVars);
+                    deployment.getSubdomain(), deployment.getContainerPort(), envVars,
+                    frame -> progressHub.emit(operationId, frame));
+            eventService.record(DeploymentEventType.PULL_FINISHED, DeploymentEventStatus.SUCCESS,
+                    req.appName(), req, null, null, operationId);
+            eventService.record(DeploymentEventType.CONTAINER_CREATING, DeploymentEventStatus.IN_PROGRESS,
+                    req.appName(), req, null, null, operationId);
+            eventService.record(DeploymentEventType.CONTAINER_STARTED, DeploymentEventStatus.IN_PROGRESS,
+                    req.appName(), req, null, null, operationId);
             long duration = System.currentTimeMillis() - startedAt;
             txHelper.postCreate(req.appName(), DeploymentStatus.RUNNING, req, duration, null, operationId);
             log.info("Deployment successful: {}", req.appName());
@@ -64,6 +76,8 @@ public class DeploymentServiceImpl implements DeploymentService {
             long duration = System.currentTimeMillis() - startedAt;
             txHelper.postCreate(req.appName(), DeploymentStatus.FAILED, req, duration, e.getMessage(), operationId);
             log.error("Deployment failed for {}: {}", req.appName(), e.getMessage(), e);
+        } finally {
+            progressHub.end(operationId);
         }
         return getDeployment(req.appName());
     }
@@ -101,11 +115,21 @@ public class DeploymentServiceImpl implements DeploymentService {
         DeploymentTransactionHelper.LifecycleStart start = txHelper.preRestart(appName);
         Deployment deployment = start.deployment();
         String operationId = start.operationId();
+        progressHub.start(operationId);
         CreateDeploymentRequest ctx = contextFor(deployment, TriggerSource.RESTART);
         try {
             Map<String, String> envVars = envVarService.getEnvVars(appName);
+            eventService.record(DeploymentEventType.PULL_STARTED, DeploymentEventStatus.IN_PROGRESS,
+                    appName, ctx, null, null, operationId);
             dockerService.pullAndRun(deployment.getImageName(), appName,
-                    deployment.getSubdomain(), deployment.getContainerPort(), envVars);
+                    deployment.getSubdomain(), deployment.getContainerPort(), envVars,
+                    frame -> progressHub.emit(operationId, frame));
+            eventService.record(DeploymentEventType.PULL_FINISHED, DeploymentEventStatus.SUCCESS,
+                    appName, ctx, null, null, operationId);
+            eventService.record(DeploymentEventType.CONTAINER_CREATING, DeploymentEventStatus.IN_PROGRESS,
+                    appName, ctx, null, null, operationId);
+            eventService.record(DeploymentEventType.CONTAINER_STARTED, DeploymentEventStatus.IN_PROGRESS,
+                    appName, ctx, null, null, operationId);
             long duration = System.currentTimeMillis() - startedAt;
             txHelper.postRestart(appName, DeploymentStatus.RUNNING, ctx, duration, null, operationId);
             log.info("Restart successful: {}", appName);
@@ -113,6 +137,8 @@ public class DeploymentServiceImpl implements DeploymentService {
             long duration = System.currentTimeMillis() - startedAt;
             txHelper.postRestart(appName, DeploymentStatus.FAILED, ctx, duration, e.getMessage(), operationId);
             log.error("Restart failed for {}: {}", appName, e.getMessage(), e);
+        } finally {
+            progressHub.end(operationId);
         }
         return getDeployment(appName);
     }
@@ -169,13 +195,31 @@ public class DeploymentServiceImpl implements DeploymentService {
         }
         Deployment d = getDeployment(appName);
         String rollbackFromSha = d.getCommitSha();
+        String operationId = UUID.randomUUID().toString();
+        progressHub.start(operationId);
+
+        CreateDeploymentRequest ctx = new CreateDeploymentRequest(
+                appName, d.getRepoUrl(), target.getImageName(), d.getContainerPort(),
+                target.getBranch(), target.getCommitSha(), target.getCommitMessage(),
+                target.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.ROLLBACK);
 
         try {
+            eventService.record(DeploymentEventType.PULL_STARTED, DeploymentEventStatus.IN_PROGRESS,
+                    appName, ctx, null, null, operationId);
             dockerService.pullAndRun(target.getImageName(), appName,
-                    d.getSubdomain(), d.getContainerPort(), envVarService.getEnvVars(appName));
+                    d.getSubdomain(), d.getContainerPort(), envVarService.getEnvVars(appName),
+                    frame -> progressHub.emit(operationId, frame));
+            eventService.record(DeploymentEventType.PULL_FINISHED, DeploymentEventStatus.SUCCESS,
+                    appName, ctx, null, null, operationId);
+            eventService.record(DeploymentEventType.CONTAINER_CREATING, DeploymentEventStatus.IN_PROGRESS,
+                    appName, ctx, null, null, operationId);
+            eventService.record(DeploymentEventType.CONTAINER_STARTED, DeploymentEventStatus.IN_PROGRESS,
+                    appName, ctx, null, null, operationId);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Rollback interrupted", e);
+        } finally {
+            progressHub.end(operationId);
         }
 
         d.setImageName(target.getImageName());
@@ -185,12 +229,8 @@ public class DeploymentServiceImpl implements DeploymentService {
         d.setUpdatedAt(LocalDateTime.now());
         deploymentRepository.save(d);
 
-        CreateDeploymentRequest ctx = new CreateDeploymentRequest(
-                appName, d.getRepoUrl(), target.getImageName(), d.getContainerPort(),
-                target.getBranch(), target.getCommitSha(), target.getCommitMessage(),
-                target.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.ROLLBACK);
         DeploymentEvent rollbackEvent = eventService.record(DeploymentEventType.MANUAL_ROLLBACK,
-                DeploymentEventStatus.SUCCESS, appName, ctx, null, null, UUID.randomUUID().toString());
+                DeploymentEventStatus.SUCCESS, appName, ctx, null, null, operationId);
         rollbackEvent.setRollbackFromSha(rollbackFromSha);
         eventRepository.save(rollbackEvent);
 

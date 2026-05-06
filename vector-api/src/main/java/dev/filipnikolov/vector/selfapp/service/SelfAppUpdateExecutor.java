@@ -7,6 +7,8 @@ import dev.filipnikolov.vector.events.DeploymentEventType;
 import dev.filipnikolov.vector.events.TriggerSource;
 import dev.filipnikolov.vector.deployment.repository.DeploymentRepository;
 import dev.filipnikolov.vector.deployment.service.DeploymentEventService;
+import dev.filipnikolov.vector.progress.ProgressFrame;
+import dev.filipnikolov.vector.progress.ProgressHub;
 import dev.filipnikolov.vector.selfapp.model.PendingSelfUpdate;
 import dev.filipnikolov.vector.selfapp.model.UpdatePhase;
 import dev.filipnikolov.vector.selfapp.repository.PendingSelfUpdateRepository;
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -34,17 +37,20 @@ public class SelfAppUpdateExecutor {
     private final DeploymentEventService eventService;
     private final PendingSelfUpdateRepository pendingRepo;
     private final UpdaterClient updaterClient;
+    private final ProgressHub progressHub;
     private final TransactionTemplate txTemplate;
 
     public SelfAppUpdateExecutor(DeploymentRepository deploymentRepository,
                                  DeploymentEventService eventService,
                                  PendingSelfUpdateRepository pendingRepo,
                                  UpdaterClient updaterClient,
+                                 ProgressHub progressHub,
                                  PlatformTransactionManager txManager) {
         this.deploymentRepository = deploymentRepository;
         this.eventService = eventService;
         this.pendingRepo = pendingRepo;
         this.updaterClient = updaterClient;
+        this.progressHub = progressHub;
         this.txTemplate = new TransactionTemplate(txManager);
     }
 
@@ -54,17 +60,33 @@ public class SelfAppUpdateExecutor {
                               String targetImage,
                               String targetSha,
                               String targetMessage,
-                              UUID pendingId) {
+                              UUID pendingId,
+                              String operationId) {
+        progressHub.start(operationId);
+        try {
+            executeUpdateInternal(appName, service, targetImage, targetSha, targetMessage, pendingId, operationId);
+        } finally {
+            progressHub.end(operationId);
+        }
+    }
+
+    private void executeUpdateInternal(String appName,
+                                       String service,
+                                       String targetImage,
+                                       String targetSha,
+                                       String targetMessage,
+                                       UUID pendingId,
+                                       String operationId) {
         UpdateResponse resp;
         try {
             resp = updaterClient.update(service, targetImage);
         } catch (Exception e) {
-            handleFailure(appName, targetSha, "Updater call failed: " + e.getMessage(), e);
+            handleFailure(appName, targetSha, "Updater call failed: " + e.getMessage(), e, operationId);
             return;
         }
 
         if (!"triggered".equals(resp.status())) {
-            handleFailure(appName, targetSha, resp.error() != null ? resp.error() : "unknown error", null);
+            handleFailure(appName, targetSha, resp.error() != null ? resp.error() : "unknown error", null, operationId);
             return;
         }
 
@@ -83,21 +105,27 @@ public class SelfAppUpdateExecutor {
             }
 
             switch (status.phase()) {
-                case "recreating" -> updatePhase(pendingId, UpdatePhase.RECREATING);
+                case "recreating" -> {
+                    updatePhase(pendingId, UpdatePhase.RECREATING);
+                    progressHub.emit(operationId, new ProgressFrame(
+                            "UPDATER_RECREATE", "Recreating container for " + service, null, null, null, Instant.now()));
+                }
                 case "completed" -> {
-                    finalizeSuccess(appName, service, targetImage, targetSha, targetMessage);
+                    progressHub.emit(operationId, new ProgressFrame(
+                            "UPDATER_BOOT", "Container started for " + service, null, null, null, Instant.now()));
+                    finalizeSuccess(appName, service, targetImage, targetSha, targetMessage, operationId);
                     return;
                 }
                 case "failed" -> {
                     handleFailure(appName, targetSha,
-                            status.error() != null ? status.error() : "updater reported failure", null);
+                            status.error() != null ? status.error() : "updater reported failure", null, operationId);
                     return;
                 }
                 default -> { /* pulling or idle — keep polling */ }
             }
         }
 
-        handleFailure(appName, targetSha, "Update timed out after " + (MAX_POLL_MILLIS / 1000) + "s", null);
+        handleFailure(appName, targetSha, "Update timed out after " + (MAX_POLL_MILLIS / 1000) + "s", null, operationId);
     }
 
     private void updatePhase(UUID pendingId, UpdatePhase phase) {
@@ -110,7 +138,7 @@ public class SelfAppUpdateExecutor {
     }
 
     private void finalizeSuccess(String appName, String service, String targetImage,
-                                 String targetSha, String targetMessage) {
+                                 String targetSha, String targetMessage, String operationId) {
         // For vector-api, the new container reconciles on startup via SelfAppBootstrap.
         // This code path mostly runs for vector-web; for the API it may not be reached
         // because the container is killed during recreation.
@@ -137,24 +165,24 @@ public class SelfAppUpdateExecutor {
 
             eventService.record(DeploymentEventType.UPDATE_SUCCESS,
                     DeploymentEventStatus.SUCCESS, appName, null, null,
-                    "Updated to " + targetImage);
+                    "Updated to " + targetImage, operationId);
 
             CreateDeploymentRequest historyCtx = new CreateDeploymentRequest(
                     appName, d.getRepoUrl(), targetImage, d.getContainerPort(),
                     d.getBranch(), targetSha, targetMessage,
                     d.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.SELF_UPDATE);
             eventService.record(DeploymentEventType.DEPLOY_FINISHED,
-                    DeploymentEventStatus.SUCCESS, appName, historyCtx, null, null);
+                    DeploymentEventStatus.SUCCESS, appName, historyCtx, null, null, operationId);
 
             pendingRepo.deleteByAppNameAndTargetSha(appName, targetSha);
         });
     }
 
-    private void handleFailure(String appName, String targetSha, String message, Exception e) {
+    private void handleFailure(String appName, String targetSha, String message, Exception e, String operationId) {
         txTemplate.executeWithoutResult(status -> {
             pendingRepo.deleteByAppNameAndTargetSha(appName, targetSha);
             eventService.record(DeploymentEventType.UPDATE_FAILED,
-                    DeploymentEventStatus.FAILURE, appName, null, null, message);
+                    DeploymentEventStatus.FAILURE, appName, null, null, message, operationId);
         });
         if (e != null) {
             log.error("Self-update call failed for {}: {}", appName, e.getMessage(), e);
