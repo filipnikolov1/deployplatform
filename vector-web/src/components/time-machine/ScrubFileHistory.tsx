@@ -35,7 +35,7 @@ export function ScrubFileHistory({ appName, filePath, initialSha, onSelect }: Pr
     filePath
       ? `/api/analyzer/apps/${encodeURIComponent(appName)}/commits/file-history?path=${encodeURIComponent(filePath)}&limit=20`
       : null;
-  const { data, isLoading } = useSWR<FileHistoryResponse>(key, fetcher, {
+  const { data, error, isLoading } = useSWR<FileHistoryResponse>(key, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 60_000,
   });
@@ -63,7 +63,17 @@ export function ScrubFileHistory({ appName, filePath, initialSha, onSelect }: Pr
         className="rounded-xl px-4 py-3 text-[12px]"
         style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)", color: "var(--c-fg-3)" }}
       >
-        Loading file history…
+        Loading file history...
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div
+        className="rounded-xl px-4 py-3 text-[12px]"
+        style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)", color: "var(--c-fg-3)" }}
+      >
+        File history unavailable. GitHub API access is required when history is not cached.
       </div>
     );
   }
@@ -73,7 +83,7 @@ export function ScrubFileHistory({ appName, filePath, initialSha, onSelect }: Pr
         className="rounded-xl px-4 py-3 text-[12px]"
         style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)", color: "var(--c-fg-3)" }}
       >
-        No history available for this file.
+        No history available for this file. It may be older than the Vector rename cutoff or unavailable from GitHub.
       </div>
     );
   }

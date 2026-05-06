@@ -41,10 +41,15 @@ export function RecentDeploysList({
   if (deploys.length === 0) {
     return (
       <div
-        className="text-[13px] px-1"
+        className="px-3 py-6 text-center text-[13px]"
         style={{ color: "var(--c-fg-3)" }}
       >
-        No deployments recorded yet.
+        <div className="font-medium" style={{ color: "var(--c-fg-2)" }}>
+          No deploys yet.
+        </div>
+        <div className="mt-1 text-[12px]">
+          The first successful deploy will appear here. History before the Time Machine cutoff is unavailable.
+        </div>
       </div>
     );
   }
@@ -81,7 +86,7 @@ export function RecentDeploysList({
             key={d.id}
             type="button"
             onClick={() => onSelect(d.commitSha)}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all hover:translate-x-0.5"
             style={{
               background: isSelected ? "var(--c-accent-soft)" : "transparent",
               border: `1px solid ${isSelected ? "var(--c-accent-line)" : "transparent"}`,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GitCommit, RotateCcw, X } from "lucide-react";
 import {
   useCommitDetail,
@@ -13,6 +13,7 @@ import { DiffViewer } from "./DiffViewer";
 import { FileViewer } from "./FileViewer";
 import { RollbackModal } from "./RollbackModal";
 import { useToast } from "@/hooks/useToast";
+import { LoadingPanelState, PanelState } from "./PanelState";
 import type { RecentDeploy } from "@/types/analyzer";
 
 type TabId = "logs" | "diff" | "file";
@@ -29,6 +30,7 @@ interface Props {
   currentSha: string | null;
   deploys: RecentDeploy[];
   pinnedImage: string | null;
+  apiUnavailable: boolean;
   onClose: () => void;
   onRollbackSuccess: () => void;
 }
@@ -39,6 +41,7 @@ export function CommitDetail({
   currentSha,
   deploys,
   pinnedImage,
+  apiUnavailable,
   onClose,
   onRollbackSuccess,
 }: Props) {
@@ -49,10 +52,10 @@ export function CommitDetail({
   const [pinned, setPinned] = useState(!!pinnedImage);
   const toast = useToast();
 
-  const { commit, isLoading: commitLoading } = useCommitDetail(appName, sha);
-  const { logs, isLoading: logsLoading } = useCommitLogs(appName, sha);
-  const { diff, isLoading: diffLoading } = useCommitDiff(appName, sha);
-  const { file, isLoading: fileLoading } = useFileAtCommit(
+  const { commit, isLoading: commitLoading, error: commitError } = useCommitDetail(appName, sha);
+  const { logs, isLoading: logsLoading, error: logsError } = useCommitLogs(appName, sha);
+  const { diff, isLoading: diffLoading, error: diffError } = useCommitDiff(appName, sha);
+  const { file, isLoading: fileLoading, error: fileError } = useFileAtCommit(
     appName,
     tab === "file" ? sha : null,
     tab === "file" ? filePath || null : null,
@@ -62,8 +65,12 @@ export function CommitDetail({
 
   const targetEventId = deploys.find((d) => d.commitSha === sha)?.id ?? null;
 
+  useEffect(() => {
+    setPinned(!!pinnedImage);
+  }, [pinnedImage]);
+
   const handleRollbackConfirm = async () => {
-    if (!targetEventId) return;
+    if (!targetEventId || apiUnavailable) return;
     setRollingBack(true);
     try {
       const res = await fetch(`/api/apps/${encodeURIComponent(appName)}/rollback`, {
@@ -76,7 +83,7 @@ export function CommitDetail({
         return;
       }
       if (res.status === 404) {
-        toast.error("Deployment event no longer exists — the app may have been deleted.");
+        toast.error("Deployment event no longer exists. The app may have been deleted.");
         return;
       }
       if (!res.ok) {
@@ -92,6 +99,10 @@ export function CommitDetail({
   };
 
   const handleUnpin = async () => {
+    if (apiUnavailable) {
+      toast.error("Deployments unavailable because vector-api is unreachable.");
+      return;
+    }
     const res = await fetch(`/api/apps/${encodeURIComponent(appName)}/unpin`, {
       method: "POST",
     });
@@ -121,7 +132,11 @@ export function CommitDetail({
             >
               {sha.slice(0, 7)}
             </span>
-            {commitLoading ? null : commit?.message ? (
+          {commitLoading ? (
+            <span className="text-[12px]" style={{ color: "var(--c-fg-3)" }}>
+              Loading commit details...
+            </span>
+          ) : commit?.message ? (
               <span
                 className="truncate text-[13px]"
                 style={{ color: "var(--c-fg-2)" }}
@@ -144,16 +159,24 @@ export function CommitDetail({
         {/* Rollback button */}
         <button
           type="button"
-          disabled={isCurrentSha || !targetEventId || rollingBack}
+          disabled={isCurrentSha || !targetEventId || rollingBack || apiUnavailable}
           onClick={() => setShowRollbackModal(true)}
-          title={isCurrentSha ? "Already running this version" : "Roll back to this commit"}
+          title={
+            apiUnavailable
+              ? "Deployments unavailable because vector-api is unreachable"
+              : isCurrentSha
+              ? "Already running this version"
+              : !targetEventId
+              ? "No deploy event exists for this commit"
+              : "Roll back to this commit"
+          }
           className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium transition-[filter]"
           style={{
-            background: isCurrentSha ? "var(--c-surface-2)" : "var(--c-accent-soft)",
-            color: isCurrentSha ? "var(--c-fg-3)" : "var(--c-accent-fg)",
-            border: `1px solid ${isCurrentSha ? "var(--c-border-2)" : "var(--c-accent-line)"}`,
-            cursor: isCurrentSha || !targetEventId ? "not-allowed" : "pointer",
-            opacity: isCurrentSha || !targetEventId ? 0.5 : 1,
+            background: isCurrentSha || apiUnavailable ? "var(--c-surface-2)" : "var(--c-accent-soft)",
+            color: isCurrentSha || apiUnavailable ? "var(--c-fg-3)" : "var(--c-accent-fg)",
+            border: `1px solid ${isCurrentSha || apiUnavailable ? "var(--c-border-2)" : "var(--c-accent-line)"}`,
+            cursor: isCurrentSha || !targetEventId || apiUnavailable ? "not-allowed" : "pointer",
+            opacity: isCurrentSha || !targetEventId || apiUnavailable ? 0.5 : 1,
           }}
         >
           <RotateCcw className="h-3 w-3" />
@@ -180,7 +203,7 @@ export function CommitDetail({
           }}
         >
           <span style={{ color: "var(--c-accent-fg)" }}>
-            📌 App is pinned to commit{" "}
+            App is pinned to commit{" "}
             <span className="font-mono">{sha.slice(0, 7)}</span>. New commits
             won&apos;t auto-deploy.
           </span>
@@ -190,9 +213,30 @@ export function CommitDetail({
             className="ml-auto text-[12px] font-medium underline"
             style={{ color: "var(--c-accent-fg)" }}
           >
-            Unpin
+            {apiUnavailable ? "Unpin unavailable" : "Unpin"}
           </button>
         </div>
+      )}
+
+      {apiUnavailable && (
+        <div
+          className="px-4 py-2.5 text-[12px]"
+          style={{
+            background: "var(--c-status-building-bg)",
+            borderBottom: "1px solid var(--c-status-building-line)",
+            color: "var(--c-status-building-fg)",
+          }}
+        >
+          vector-api is unreachable. Historical analysis is still visible, but rollback and unpin actions are disabled.
+        </div>
+      )}
+
+      {commitError && (
+        <PanelState
+          tone="warning"
+          title="Commit metadata unavailable"
+          message="The analyzer could not load cached metadata for this commit. Logs, diff, and file contents may still be available."
+        />
       )}
 
       {/* Tabs */}
@@ -231,24 +275,26 @@ export function CommitDetail({
         {tab === "logs" && (
           <>
             {logsLoading ? (
-              <div
-                className="flex items-center justify-center h-32 text-[13px]"
-                style={{ color: "var(--c-fg-3)" }}
-              >
-                Loading logs…
-              </div>
+              <LoadingPanelState label="Loading historical logs..." />
+            ) : logsError ? (
+              <PanelState
+                tone="warning"
+                title="Logs unavailable"
+                message="Historical log storage could not be reached for this commit."
+              />
             ) : (
               <VirtualizedLogViewer logs={logs} height={400} />
             )}
           </>
         )}
         {tab === "diff" && (
-          <DiffViewer diff={diff} isLoading={diffLoading} />
+          <DiffViewer diff={diff} isLoading={diffLoading} error={diffError} />
         )}
         {tab === "file" && (
           <FileViewer
             file={file}
             isLoading={fileLoading}
+            error={fileError}
             currentPath={filePath}
             onPathChange={setFilePath}
           />

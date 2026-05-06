@@ -42,11 +42,19 @@ export async function proxyToAnalyzer(
   }
   headers["X-API-Key"] = apiKey;
 
-  const upstream = await fetch(`${analyzer}${path}`, {
-    method: init.method ?? req.method,
-    headers,
-    body: init.body,
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${analyzer}${path}`, {
+      method: init.method ?? req.method,
+      headers,
+      body: init.body,
+    });
+  } catch {
+    return Response.json(
+      { error: "vector-analyzer unavailable" },
+      { status: 503 },
+    );
+  }
 
   const responseHeaders = new Headers();
   const ct = upstream.headers.get("content-type");
@@ -82,11 +90,19 @@ export async function proxyToBackend(
   }
   headers["X-API-Key"] = apiKey;
 
-  const upstream = await fetch(`${backend}${path}`, {
-    method: init.method ?? req.method,
-    headers,
-    body: init.body,
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${backend}${path}`, {
+      method: init.method ?? req.method,
+      headers,
+      body: init.body,
+    });
+  } catch {
+    return Response.json(
+      { error: "vector-api unavailable" },
+      { status: 503 },
+    );
+  }
 
   const responseHeaders = new Headers();
   const ct = upstream.headers.get("content-type");

@@ -8,6 +8,7 @@ import type { CommitFile } from "@/types/analyzer";
 interface Props {
   file: CommitFile | null;
   isLoading: boolean;
+  error?: Error;
   onPathChange: (path: string) => void;
   currentPath: string;
 }
@@ -24,7 +25,7 @@ function detectLanguage(path: string): string {
   return map[ext] ?? "text";
 }
 
-export function FileViewer({ file, isLoading, onPathChange, currentPath }: Props) {
+export function FileViewer({ file, isLoading, error, onPathChange, currentPath }: Props) {
   const [inputPath, setInputPath] = useState(currentPath);
 
   if (isLoading) {
@@ -77,12 +78,19 @@ export function FileViewer({ file, isLoading, onPathChange, currentPath }: Props
         >
           Enter a file path above to view its contents at this commit.
         </div>
+      ) : error ? (
+        <div
+          className="flex items-center justify-center h-32 px-4 text-center text-[13px]"
+          style={{ color: "var(--c-fg-3)" }}
+        >
+          File contents unavailable. GitHub API access is required when this file is not cached.
+        </div>
       ) : !file?.available ? (
         <div
           className="flex items-center justify-center h-32 text-[13px]"
           style={{ color: "var(--c-fg-3)" }}
         >
-          File unavailable — no GitHub token or file not found at this SHA.
+          File unavailable - no GitHub token or file not found at this SHA.
         </div>
       ) : (
         <div

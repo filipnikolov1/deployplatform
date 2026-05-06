@@ -7,6 +7,7 @@ import type { CommitDiff } from "@/types/analyzer";
 interface Props {
   diff: CommitDiff | null;
   isLoading: boolean;
+  error?: Error;
 }
 
 interface GitHubFile {
@@ -45,7 +46,7 @@ function splitPatch(patch: string): { oldCode: string; newCode: string } {
   return { oldCode: oldLines.join("\n"), newCode: newLines.join("\n") };
 }
 
-export function DiffViewer({ diff, isLoading }: Props) {
+export function DiffViewer({ diff, isLoading, error }: Props) {
   const files = useMemo(() => {
     if (!diff?.available || !diff.diffJson) return null;
     return parseDiffFiles(diff.diffJson);
@@ -62,11 +63,24 @@ export function DiffViewer({ diff, isLoading }: Props) {
     );
   }
 
+  if (error) {
+    return (
+      <div
+        className="flex items-center justify-center h-32 px-4 text-center text-[13px]"
+        style={{ color: "var(--c-fg-3)" }}
+      >
+        GitHub diff unavailable. Cached diffs will still appear when available; this commit needs GitHub API access.
+      </div>
+    );
+  }
+
   if (!diff?.available) {
     const msg = diff?.reason === "no previous commit found"
       ? "No previous deploy to compare against."
       : diff?.reason === "no repo configured"
       ? "No repository configured for this app."
+      : diff?.reason?.toLowerCase().includes("github")
+      ? "GitHub diff unavailable for this uncached commit."
       : "Diff unavailable.";
     return (
       <div
