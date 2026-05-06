@@ -3,6 +3,7 @@ package dev.filipnikolov.vector.analyzer.crash;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.filipnikolov.vector.analyzer.commit.GitHubCacheService;
+import dev.filipnikolov.vector.analyzer.commit.RepoSlugResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -32,15 +33,18 @@ public class CrashAnalysisService {
 
     private final JdbcTemplate jdbc;
     private final GitHubCacheService github;
+    private final RepoSlugResolver repoSlugResolver;
     private final AnalysisStreamBroadcaster broadcaster;
     private final AnalysisGeneratorService analysisGenerator;
 
     public CrashAnalysisService(JdbcTemplate jdbc,
                                 GitHubCacheService github,
+                                RepoSlugResolver repoSlugResolver,
                                 AnalysisStreamBroadcaster broadcaster,
                                 AnalysisGeneratorService analysisGenerator) {
         this.jdbc = jdbc;
         this.github = github;
+        this.repoSlugResolver = repoSlugResolver;
         this.broadcaster = broadcaster;
         this.analysisGenerator = analysisGenerator;
     }
@@ -83,7 +87,7 @@ public class CrashAnalysisService {
 
         long crashCountForCommit = countCrashesForCommit(appName, suspectSha) + 1;
 
-        List<Map<String, Object>> logLines = fetchCrashLogWindow(appName, crashTime);
+        List<Map<String, Object>> logLines = fetchCrashLogWindow(appName, crashTime, suspectSha);
 
         StackTraceParser.Frame topFrame = StackTraceParser.findTopFrame(
                 logLines.stream()
@@ -96,7 +100,7 @@ public class CrashAnalysisService {
         Integer suspectLine = topFrame != null ? topFrame.line() : null;
 
         // Diff hunk between suspect and last_good
-        String repoSlug = resolveRepoSlug(appName);
+        String repoSlug = repoSlugResolver.resolveForApp(appName);
         String diffJson = (repoSlug != null && lastGoodSha != null && suspectSha != null)
                 ? github.fetchDiff(repoSlug, lastGoodSha, suspectSha)
                 : null;
@@ -213,7 +217,15 @@ public class CrashAnalysisService {
         return n != null ? n : 0;
     }
 
-    private List<Map<String, Object>> fetchCrashLogWindow(String appName, LocalDateTime crashTime) {
+    List<Map<String, Object>> fetchCrashLogWindow(String appName, LocalDateTime crashTime, String suspectSha) {
+        if (suspectSha != null && !suspectSha.isBlank()) {
+            return jdbc.queryForList(
+                    """
+                    SELECT id, timestamp, stream, line FROM analyzer.log_entry
+                    WHERE app_name = ? AND commit_sha = ? AND timestamp <= ?
+                    ORDER BY timestamp DESC LIMIT ?
+                    """, appName, suspectSha, crashTime, CRASH_LOG_WINDOW);
+        }
         return jdbc.queryForList(
                 """
                 SELECT id, timestamp, stream, line FROM analyzer.log_entry
@@ -291,16 +303,6 @@ public class CrashAnalysisService {
         } catch (Exception e) {
             return List.of();
         }
-    }
-
-    private String resolveRepoSlug(String appName) {
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT repo_url FROM public.deployment WHERE app_name = ? AND deleted_at IS NULL AND repo_url IS NOT NULL LIMIT 1",
-                appName);
-        if (rows.isEmpty()) return null;
-        String url = (String) rows.get(0).get("repo_url");
-        if (url == null) return null;
-        return url.replaceFirst("^https?://github\\.com/", "").replaceFirst("\\.git$", "");
     }
 
     private String writeJson(Object value) {

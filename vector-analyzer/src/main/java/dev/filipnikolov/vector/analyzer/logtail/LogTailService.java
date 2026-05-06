@@ -10,11 +10,16 @@ import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.net.URLEncoder;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +38,11 @@ public class LogTailService {
     private final HttpClient httpClient = HttpClient.newBuilder().build();
     private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "log-tail");
+        t.setDaemon(true);
+        return t;
+    });
+    private final ScheduledExecutorService flusher = Executors.newScheduledThreadPool(1, r -> {
+        Thread t = new Thread(r, "log-tail-flusher");
         t.setDaemon(true);
         return t;
     });
@@ -82,6 +92,7 @@ public class LogTailService {
         shutdown.set(true);
         cancelFlags.forEach((app, flag) -> flag.set(true));
         executor.shutdownNow();
+        flusher.shutdownNow();
     }
 
     // ── internals ────────────────────────────────────────────────────────────
@@ -134,7 +145,8 @@ public class LogTailService {
         long deploymentId = ((Number) deps.get(0).get("id")).longValue();
         String commitSha = (String) deps.get(0).get("commit_sha");
 
-        String url = apiUrl + "/api/internal/apps/" + appName + "/logs/stream";
+        String encodedApp = URLEncoder.encode(appName, StandardCharsets.UTF_8);
+        String url = apiUrl + "/api/internal/apps/" + encodedApp + "/logs/stream";
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("X-API-Key", apiKey)
@@ -150,8 +162,10 @@ public class LogTailService {
             return;
         }
 
-        List<String[]> buffer = new ArrayList<>();
-        long lastFlushMs = System.currentTimeMillis();
+        List<String[]> buffer = java.util.Collections.synchronizedList(new ArrayList<>());
+        ScheduledFuture<?> flushTask = flusher.scheduleWithFixedDelay(
+                () -> flushPending(appName, deploymentId, commitSha, buffer),
+                2, 2, TimeUnit.SECONDS);
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body()))) {
             String line;
@@ -159,22 +173,28 @@ public class LogTailService {
                 if (line.startsWith("data: ")) {
                     String data = line.substring(6);
                     if (!data.isBlank()) {
-                        buffer.add(new String[]{data, "stdout", LocalDateTime.now().toString()});
+                        LogLine parsed = parseLogLine(data, LocalDateTime.now());
+                        buffer.add(new String[]{parsed.line(), parsed.stream(), parsed.timestamp().toString()});
                     }
                 }
-                // Flush every 100 lines or every 2 seconds
-                long now = System.currentTimeMillis();
-                if (buffer.size() >= 100 || (buffer.size() > 0 && now - lastFlushMs >= 2_000)) {
-                    flushBuffer(appName, deploymentId, commitSha, buffer);
-                    buffer.clear();
-                    lastFlushMs = now;
+                if (buffer.size() >= 100) {
+                    flushPending(appName, deploymentId, commitSha, buffer);
                 }
             }
+        } finally {
+            flushTask.cancel(false);
         }
-        // Final flush
-        if (!buffer.isEmpty()) {
-            flushBuffer(appName, deploymentId, commitSha, buffer);
+        flushPending(appName, deploymentId, commitSha, buffer);
+    }
+
+    private void flushPending(String appName, long deploymentId, String commitSha, List<String[]> buffer) {
+        List<String[]> toFlush;
+        synchronized (buffer) {
+            if (buffer.isEmpty()) return;
+            toFlush = new ArrayList<>(buffer);
+            buffer.clear();
         }
+        flushBuffer(appName, deploymentId, commitSha, toFlush);
     }
 
     private void flushBuffer(String appName, long deploymentId, String commitSha, List<String[]> lines) {
@@ -196,4 +216,47 @@ public class LogTailService {
             log.error("Failed to flush log buffer for {}: {}", appName, e.getMessage());
         }
     }
+
+    static LogLine parseLogLine(String raw, LocalDateTime arrivalTime) {
+        String stream = "stdout";
+        String line = raw;
+        LocalDateTime timestamp = arrivalTime;
+
+        int firstSpace = raw.indexOf(' ');
+        if (firstSpace > 0) {
+            String maybeTs = raw.substring(0, firstSpace);
+            LocalDateTime parsed = parseTimestamp(maybeTs);
+            if (parsed != null) {
+                timestamp = parsed;
+                line = raw.substring(firstSpace + 1);
+            }
+        }
+
+        if (line.startsWith("stdout ")) {
+            line = line.substring("stdout ".length());
+        } else if (line.startsWith("stderr ")) {
+            stream = "stderr";
+            line = line.substring("stderr ".length());
+        }
+
+        return new LogLine(line, stream, timestamp);
+    }
+
+    private static LocalDateTime parseTimestamp(String value) {
+        try {
+            return OffsetDateTime.parse(value).toLocalDateTime();
+        } catch (DateTimeParseException ignored) {
+        }
+        try {
+            return Instant.parse(value).atOffset(java.time.ZoneOffset.UTC).toLocalDateTime();
+        } catch (DateTimeParseException ignored) {
+        }
+        try {
+            return LocalDateTime.parse(value);
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
+    }
+
+    record LogLine(String line, String stream, LocalDateTime timestamp) {}
 }

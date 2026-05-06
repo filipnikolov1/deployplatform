@@ -2,6 +2,7 @@ package dev.filipnikolov.vector.analyzer.commit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -17,10 +18,12 @@ public class CommitService {
 
     private final JdbcTemplate jdbc;
     private final GitHubCacheService github;
+    private final RepoSlugResolver repoSlugResolver;
 
-    public CommitService(JdbcTemplate jdbc, GitHubCacheService github) {
+    public CommitService(JdbcTemplate jdbc, GitHubCacheService github, RepoSlugResolver repoSlugResolver) {
         this.jdbc = jdbc;
         this.github = github;
+        this.repoSlugResolver = repoSlugResolver;
     }
 
     /** Commit metadata + deployment IDs where this SHA ran for appName. */
@@ -39,7 +42,7 @@ public class CommitService {
         result.put("deploymentIds", depIds);
 
         // Repo slug for this app
-        String repoSlug = resolveRepoSlug(appName);
+        String repoSlug = repoSlugResolver.resolveForApp(appName);
         result.put("repoSlug", repoSlug != null ? repoSlug : "");
 
         // Commit metadata from cache
@@ -97,29 +100,29 @@ public class CommitService {
 
     /** Diff of sha vs its predecessor, fetched from GitHub and cached. */
     public Map<String, Object> getCommitDiff(String appName, String sha) {
-        String slug = resolveRepoSlug(appName);
+        String slug = repoSlugResolver.resolveForApp(appName);
         if (slug == null || slug.isBlank()) {
             return Map.of("available", false, "reason", "no repo configured");
         }
 
-        // Find the previous DEPLOY event's commit SHA for this app
+        // Find the previous timeline event's commit SHA for this app.
         List<Map<String, Object>> prior = jdbc.queryForList(
                 """
                 SELECT commit_sha FROM analyzer.timeline_event
-                WHERE app_name = ? AND event_type = 'DEPLOY' AND commit_sha IS NOT NULL AND commit_sha != ?
-                  AND occurred_at < (
+                WHERE app_name = ? AND event_type IN ('DEPLOY', 'COMMIT') AND commit_sha IS NOT NULL AND commit_sha != ?
+                  AND occurred_at < COALESCE((
                       SELECT MIN(occurred_at) FROM analyzer.timeline_event
-                      WHERE app_name = ? AND commit_sha = ? AND event_type = 'DEPLOY'
-                  )
+                      WHERE app_name = ? AND commit_sha = ? AND event_type IN ('DEPLOY', 'COMMIT')
+                  ), NOW())
                 ORDER BY occurred_at DESC
                 LIMIT 1
                 """,
                 appName, sha, appName, sha);
 
-        if (prior.isEmpty()) {
+        String baseSha = prior.isEmpty() ? findParentSha(slug, sha) : (String) prior.get(0).get("commit_sha");
+        if (baseSha == null || baseSha.isBlank()) {
             return Map.of("available", false, "reason", "no previous commit found");
         }
-        String baseSha = (String) prior.get(0).get("commit_sha");
 
         String diffJson = github.fetchDiff(slug, baseSha, sha);
         if (diffJson == null) {
@@ -130,7 +133,7 @@ public class CommitService {
 
     /** Last N commits that touched a file in the app's repo. */
     public Map<String, Object> getFileHistory(String appName, String path, int limit) {
-        String slug = resolveRepoSlug(appName);
+        String slug = repoSlugResolver.resolveForApp(appName);
         if (slug == null || slug.isBlank()) {
             return Map.of("available", false, "reason", "no repo configured");
         }
@@ -158,7 +161,7 @@ public class CommitService {
 
     /** File contents at a specific SHA from GitHub. */
     public Map<String, Object> getFileAtCommit(String appName, String sha, String path) {
-        String slug = resolveRepoSlug(appName);
+        String slug = repoSlugResolver.resolveForApp(appName);
         if (slug == null || slug.isBlank()) {
             return Map.of("available", false, "reason", "no repo configured");
         }
@@ -169,13 +172,15 @@ public class CommitService {
         return result;
     }
 
-    private String resolveRepoSlug(String appName) {
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT repo_url FROM public.deployment WHERE app_name = ? AND deleted_at IS NULL AND repo_url IS NOT NULL LIMIT 1",
-                appName);
-        if (rows.isEmpty()) return null;
-        String url = (String) rows.get(0).get("repo_url");
-        if (url == null) return null;
-        return url.replaceFirst("^https?://github\\.com/", "").replaceFirst("\\.git$", "");
+    private String findParentSha(String slug, String sha) {
+        try {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT parent_sha FROM analyzer.commit_cache WHERE repo_full_name = ? AND sha = ? AND parent_sha IS NOT NULL",
+                    slug, sha);
+            return rows.isEmpty() ? null : (String) rows.get(0).get("parent_sha");
+        } catch (DataAccessException e) {
+            log.debug("commit_cache parent_sha unavailable for {}/{}: {}", slug, sha, e.getMessage());
+            return null;
+        }
     }
 }
