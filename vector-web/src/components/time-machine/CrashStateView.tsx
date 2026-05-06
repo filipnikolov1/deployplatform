@@ -10,6 +10,8 @@ import { SuspectCodePanel } from "./SuspectCodePanel";
 import { ScrubFileHistory } from "./ScrubFileHistory";
 import { ReceiptsPanel } from "./ReceiptsPanel";
 import { AIAnalysisPanel } from "./AIAnalysisPanel";
+import { LoadingPanelState, PanelState } from "./PanelState";
+import { TimeMachinePanelBoundary } from "./TimeMachinePanelBoundary";
 
 const ERROR_RX = /(error|exception|fatal|panic|traceback|caused by)/i;
 
@@ -77,6 +79,14 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
     setCurrentTime(startTime);
     setIsPlaying(false);
   }, [startTime]);
+
+  useEffect(() => {
+    const toggle = () => {
+      setIsPlaying((playing) => !playing);
+    };
+    window.addEventListener("time-machine-toggle-playback", toggle);
+    return () => window.removeEventListener("time-machine-toggle-playback", toggle);
+  }, []);
 
   // Reset scrubbed file SHA whenever the analysis changes
   useEffect(() => {
@@ -187,28 +197,38 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
   if (isLoading) {
     return (
       <div
-        className="rounded-xl px-6 py-12 text-center text-[13px]"
-        style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)", color: "var(--c-fg-3)" }}
+        className="rounded-xl"
+        style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
       >
-        Loading crash analysis…
+        <LoadingPanelState label="Loading crash analysis..." />
       </div>
     );
   }
   if (error || !analysis) {
     return (
       <div
-        className="rounded-xl px-6 py-12 text-center text-[13px]"
-        style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)", color: "var(--c-fg-3)" }}
+        className="rounded-xl"
+        style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
       >
-        Crash analysis unavailable.
-        <button
-          type="button"
-          onClick={() => refresh()}
-          className="ml-2 underline"
-          style={{ color: "var(--c-accent-fg)" }}
-        >
-          Retry
-        </button>
+        <PanelState
+          tone="danger"
+          title="Crash analysis unavailable"
+          message="vector-analyzer could not load this crash. If the analyzer is down, the rest of the dashboard can still work."
+          action={
+            <button
+              type="button"
+              onClick={() => refresh()}
+              className="rounded-md px-3 py-1.5 text-[12px] font-medium"
+              style={{
+                background: "var(--c-accent-soft)",
+                color: "var(--c-accent-fg)",
+                border: "1px solid var(--c-accent-line)",
+              }}
+            >
+              Retry
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -284,49 +304,57 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
         <div className="flex flex-col gap-4">
-          <LogPlaybackPanel
-            evidence={evidence}
-            errorTimestamp={errorTs}
-            currentTime={currentTime}
-            isPlaying={isPlaying}
-            speed={speed}
-            startTime={startTime}
-            endTime={endTime}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onReplay={handleReplay}
-            onSpeedChange={setSpeed}
-            onScrub={(t) => {
-              setIsPlaying(false);
-              setCurrentTime(t);
-            }}
-          />
-          <SuspectCodePanel
-            appName={appName}
-            suspectSha={fileSha}
-            filePath={analysis.suspectFilePath}
-            highlightLine={analysis.suspectLine}
-          />
-          <ScrubFileHistory
-            appName={appName}
-            filePath={analysis.suspectFilePath}
-            initialSha={analysis.suspectCommitSha}
-            onSelect={setScrubbedSha}
-          />
+          <TimeMachinePanelBoundary panelName="Log playback" resetKey={analysis.id}>
+            <LogPlaybackPanel
+              evidence={evidence}
+              errorTimestamp={errorTs}
+              currentTime={currentTime}
+              isPlaying={isPlaying}
+              speed={speed}
+              startTime={startTime}
+              endTime={endTime}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onReplay={handleReplay}
+              onSpeedChange={setSpeed}
+              onScrub={(t) => {
+                setIsPlaying(false);
+                setCurrentTime(t);
+              }}
+            />
+          </TimeMachinePanelBoundary>
+          <TimeMachinePanelBoundary panelName="Suspect code" resetKey={`${fileSha}:${analysis.suspectFilePath}`}>
+            <SuspectCodePanel
+              appName={appName}
+              suspectSha={fileSha}
+              filePath={analysis.suspectFilePath}
+              highlightLine={analysis.suspectLine}
+            />
+          </TimeMachinePanelBoundary>
+          <TimeMachinePanelBoundary panelName="File history" resetKey={analysis.suspectFilePath}>
+            <ScrubFileHistory
+              appName={appName}
+              filePath={analysis.suspectFilePath}
+              initialSha={analysis.suspectCommitSha}
+              onSelect={setScrubbedSha}
+            />
+          </TimeMachinePanelBoundary>
         </div>
 
         <div className="flex flex-col gap-4">
-          <AIAnalysisPanel
-            narration={analysis.aiNarration}
-            status={analysis.aiNarrationStatus}
-            failureReason={analysis.aiFailureReason}
-            providerUsed={analysis.aiProviderUsed}
-            regenerateCount={analysis.aiRegenerateCount}
-            regenerateLimit={analysis.aiRegenerateLimit}
-            onJumpToReceipt={handleJumpToReceipt}
-            onRegenerate={handleRegenerate}
-            isRegenerating={isRegenerating}
-          />
+          <TimeMachinePanelBoundary panelName="AI analysis" resetKey={analysis.id}>
+            <AIAnalysisPanel
+              narration={analysis.aiNarration}
+              status={analysis.aiNarrationStatus}
+              failureReason={analysis.aiFailureReason}
+              providerUsed={analysis.aiProviderUsed}
+              regenerateCount={analysis.aiRegenerateCount}
+              regenerateLimit={analysis.aiRegenerateLimit}
+              onJumpToReceipt={handleJumpToReceipt}
+              onRegenerate={handleRegenerate}
+              isRegenerating={isRegenerating}
+            />
+          </TimeMachinePanelBoundary>
           <div className="flex justify-end">
             <button
               type="button"
@@ -343,11 +371,13 @@ export function CrashStateView({ appName, crashId, onClose }: Props) {
             </button>
           </div>
           {receiptsVisible && (
-            <ReceiptsPanel
-              evidence={evidence}
-              highlightId={highlightReceipt}
-              onJump={handleJumpToReceipt}
-            />
+            <TimeMachinePanelBoundary panelName="Receipts" resetKey={analysis.id}>
+              <ReceiptsPanel
+                evidence={evidence}
+                highlightId={highlightReceipt}
+                onJump={handleJumpToReceipt}
+              />
+            </TimeMachinePanelBoundary>
           )}
         </div>
       </div>

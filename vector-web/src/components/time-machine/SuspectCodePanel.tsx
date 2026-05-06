@@ -26,7 +26,7 @@ function detectLanguage(path: string | null): string {
 }
 
 export function SuspectCodePanel({ appName, suspectSha, filePath, highlightLine }: Props) {
-  const { file, isLoading } = useFileAtCommit(appName, suspectSha, filePath);
+  const { file, isLoading, error } = useFileAtCommit(appName, suspectSha, filePath);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -57,16 +57,20 @@ export function SuspectCodePanel({ appName, suspectSha, filePath, highlightLine 
 
       {!filePath ? (
         <div className="px-4 py-8 text-center text-[13px]" style={{ color: "var(--c-fg-3)" }}>
-          No suspect file identified — stack trace was empty and the suspect commit
+          No suspect file identified - stack trace was empty and the suspect commit
           changed multiple files.
         </div>
       ) : isLoading ? (
         <div className="px-4 py-8 text-center text-[13px]" style={{ color: "var(--c-fg-3)" }}>
-          Loading file at suspect commit…
+          Loading file at suspect commit...
+        </div>
+      ) : error ? (
+        <div className="px-4 py-8 text-center text-[13px]" style={{ color: "var(--c-fg-3)" }}>
+          Suspect file unavailable. GitHub API access is required when this file is not cached.
         </div>
       ) : !file?.available ? (
         <div className="px-4 py-8 text-center text-[13px]" style={{ color: "var(--c-fg-3)" }}>
-          File unavailable — repo not configured or file not found at this SHA.
+          File unavailable - repo not configured or file not found at this SHA.
         </div>
       ) : (
         <div ref={containerRef} style={{ maxHeight: "420px", overflow: "auto" }}>

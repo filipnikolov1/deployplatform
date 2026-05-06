@@ -63,7 +63,7 @@ export function ReceiptsPanel({ evidence, highlightId, onJump }: Props) {
                 type="button"
                 id={`receipt-${item.id}`}
                 onClick={() => onJump?.(item.id)}
-                className="w-full text-left px-4 py-2 flex gap-3 transition-[background]"
+                className="w-full text-left px-4 py-2 flex gap-3 transition-all hover:brightness-110 hover:translate-x-0.5"
                 style={{
                   borderBottom: "1px solid var(--c-border-1)",
                   background: active ? "rgba(var(--c-accent-rgb,130,80,255),0.10)" : "transparent",

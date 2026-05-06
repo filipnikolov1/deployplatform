@@ -148,15 +148,20 @@ export function AIAnalysisPanel({
             style={{ color: "var(--c-fg-3)" }}
           >
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Generating analysis…
+            Generating AI narration...
           </div>
         )}
         {status === "UNAVAILABLE" && (
           <div className="text-[12px]" style={{ color: "var(--c-fg-3)" }}>
-            <p className="mb-2">Analysis unavailable.</p>
+            <p className="mb-2">AI narration unavailable. Deterministic crash data and receipts are still available.</p>
             {failureReason && (
               <p className="font-mono text-[11px]" style={{ color: "var(--c-fg-3)" }}>
                 {failureReason}
+              </p>
+            )}
+            {!failureReason && (
+              <p className="text-[11px]" style={{ color: "var(--c-fg-3)" }}>
+                Gemini may be down, rate-limited, or disabled for this analyzer.
               </p>
             )}
             {!canRegenerate && regenerateCount >= regenerateLimit && (

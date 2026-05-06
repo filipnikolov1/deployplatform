@@ -12,8 +12,9 @@ const fetcher = async (url: string): Promise<CommitsAhead> => {
 export function useCommitsAhead(appName: string): {
   commitsAhead: CommitsAhead;
   isLoading: boolean;
+  error: Error | undefined;
 } {
-  const { data, isLoading } = useSWR<CommitsAhead>(
+  const { data, error, isLoading } = useSWR<CommitsAhead>(
     appName ? `/api/apps/${encodeURIComponent(appName)}/commits-ahead` : null,
     fetcher,
     {
@@ -26,5 +27,6 @@ export function useCommitsAhead(appName: string): {
   return {
     commitsAhead: data ?? { count: null, commits: [], compareUrl: "#" },
     isLoading,
+    error,
   };
 }
