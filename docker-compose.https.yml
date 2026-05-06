@@ -1,0 +1,56 @@
+name: vector-platform
+
+# HTTPS overlay for VPS deployment. Use alongside the base compose:
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+#
+# Required env vars (in .env):
+#   VECTOR_ACME_EMAIL       Contact email Let's Encrypt sends expiry notices to.
+#   VECTOR_DOMAIN_API       Public hostname for the backend API (e.g. api.vector.example.com).
+#   VECTOR_DOMAIN_WEB       Public hostname for the dashboard (e.g. vector.example.com).
+#
+# The base file's HTTP entrypoint is preserved so deploy-hook traffic from
+# GitHub Actions continues to work. All HTML/dashboard traffic is redirected
+# from HTTP to HTTPS at the Traefik layer.
+
+services:
+  traefik:
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${VECTOR_ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock:ro
+      - traefik_acme:/letsencrypt
+
+  vector-api:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vector-api.rule=Host(`${VECTOR_DOMAIN_API}`)"
+      - "traefik.http.routers.vector-api.entrypoints=websecure"
+      - "traefik.http.routers.vector-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.vector-api-deploy-hook.rule=Host(`${VECTOR_DOMAIN_API}`) && PathPrefix(`/deploy-hook`)"
+      - "traefik.http.routers.vector-api-deploy-hook.entrypoints=websecure"
+      - "traefik.http.routers.vector-api-deploy-hook.tls.certresolver=letsencrypt"
+      - "traefik.http.services.vector-api.loadbalancer.server.port=8082"
+      - "traefik.http.services.vector-api.loadbalancer.responseforwarding.flushinterval=100ms"
+
+  vector-web:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vector-web.rule=Host(`${VECTOR_DOMAIN_WEB}`)"
+      - "traefik.http.routers.vector-web.entrypoints=websecure"
+      - "traefik.http.routers.vector-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.vector-web.loadbalancer.server.port=3000"
+
+volumes:
+  traefik_acme:
+    name: vector_traefik_acme

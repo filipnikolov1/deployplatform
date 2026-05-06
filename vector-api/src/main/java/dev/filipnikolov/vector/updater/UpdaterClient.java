@@ -19,11 +19,17 @@ public class UpdaterClient {
 
     private final RestClient restClient;
 
-    public UpdaterClient(@Value("${updater.base-url:http://vector-updater:8080}") String baseUrl) {
+    public UpdaterClient(
+            @Value("${updater.base-url:http://vector-updater:8080}") String baseUrl,
+            @Value("${updater.auth.token:}") String authToken) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setReadTimeout(Duration.ofSeconds(5));
 
-        this.restClient = RestClient.builder().requestFactory(factory).baseUrl(baseUrl).build();
+        RestClient.Builder builder = RestClient.builder().requestFactory(factory).baseUrl(baseUrl);
+        if (authToken != null && !authToken.isBlank()) {
+            builder.defaultHeader("X-Updater-Auth", authToken);
+        }
+        this.restClient = builder.build();
     }
 
     public boolean health() {

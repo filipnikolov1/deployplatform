@@ -54,6 +54,7 @@ services:
       VECTOR_DB_URL: jdbc:postgresql://postgres:5432/launchpad
       VECTOR_DOCKER_SOCKET: unix:///var/run/docker.sock
       UPDATER_BASE_URL: http://vector-updater:8080
+      UPDATER_AUTH_TOKEN: ${UPDATER_AUTH_TOKEN:-}
       VECTOR_SELF_HOSTED: "true"
     volumes:
       - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
@@ -129,6 +130,7 @@ services:
       dockerfile: Dockerfile
     environment:
       COMPOSE_PROJECT_NAME: vector-platform
+      UPDATER_AUTH_TOKEN: ${UPDATER_AUTH_TOKEN:-}
     volumes:
       - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
       # Mount the project dir, not individual files — editor-driven inode replacement

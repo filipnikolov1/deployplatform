@@ -84,8 +84,8 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
-	mux.HandleFunc("/update", handleUpdate)
-	mux.HandleFunc("/status/", handleStatus)
+	mux.Handle("/update", requireAuth(http.HandlerFunc(handleUpdate)))
+	mux.Handle("/status/", requireAuth(http.HandlerFunc(handleStatus)))
 
 	log.Println("vector-updater listening on :8080")
 	if err := http.ListenAndServe(":8080", mux); err != nil {

@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.deployhook.auth.service.impl;
 
 import dev.filipnikolov.vector.deployhook.auth.service.DeployHookAuthService;
+import dev.filipnikolov.vector.deployhook.idempotency.WebhookIdempotencyService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +15,12 @@ public class DeployHookAuthServiceImpl implements DeployHookAuthService {
 
     @Value("${deploy.hook.secret}")
     private String secret;
+
+    private final WebhookIdempotencyService idempotencyService;
+
+    public DeployHookAuthServiceImpl(WebhookIdempotencyService idempotencyService) {
+        this.idempotencyService = idempotencyService;
+    }
 
     @Override
     public boolean isValidSignature(String payload, String signatureHeader) {
@@ -39,5 +46,10 @@ public class DeployHookAuthServiceImpl implements DeployHookAuthService {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    @Override
+    public boolean registerSignatureOnce(String signatureHeader) {
+        return idempotencyService.tryRegister(signatureHeader);
     }
 }

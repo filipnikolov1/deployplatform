@@ -16,4 +16,14 @@ public interface DeployHookAuthService {
      * @return true if the signature is valid, false otherwise
      */
     boolean isValidSignature(String payload, String signatureHeader);
+
+    /**
+     * Registers the signature as seen. Must only be called after
+     * {@link #isValidSignature} has returned {@code true}.
+     *
+     * @param signatureHeader the X-Signature-256 header value
+     * @return {@code true} if this is the first time this signature has been seen
+     *         (request should proceed), {@code false} if it is a replay (reject with 409)
+     */
+    boolean registerSignatureOnce(String signatureHeader);
 }

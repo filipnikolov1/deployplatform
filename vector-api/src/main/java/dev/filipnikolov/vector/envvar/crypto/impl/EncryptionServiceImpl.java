@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -21,6 +22,10 @@ public class EncryptionServiceImpl implements EncryptionService {
 
     public EncryptionServiceImpl(@Value("${encryption.key}") String encryptionKey) {
         byte[] key = Base64.getDecoder().decode(encryptionKey);
+        if (key.length != 16 && key.length != 24 && key.length != 32) {
+            throw new IllegalStateException(
+                    "encryption.key must decode to 16/24/32 bytes for AES-128/192/256, got " + key.length);
+        }
         this.keySpec = new SecretKeySpec(key, "AES");
     }
 
@@ -32,7 +37,7 @@ public class EncryptionServiceImpl implements EncryptionService {
 
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.ENCRYPT_MODE, keySpec, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
-            byte[] encrypted = cipher.doFinal(plaintext.getBytes());
+            byte[] encrypted = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
 
             byte[] combined = new byte[IV_LENGTH + encrypted.length];
             System.arraycopy(iv, 0, combined, 0, IV_LENGTH);
@@ -58,7 +63,7 @@ public class EncryptionServiceImpl implements EncryptionService {
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.DECRYPT_MODE, keySpec, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
 
-            return new String(cipher.doFinal(encrypted));
+            return new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new RuntimeException("Decryption failed", e);
         }
