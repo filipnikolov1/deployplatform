@@ -1,6 +1,5 @@
 package dev.filipnikolov.vector.analyzer.listener;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.filipnikolov.vector.analyzer.logtail.LogTailService;
 import dev.filipnikolov.vector.analyzer.timeline.TimelineEventService;
 import jakarta.annotation.PostConstruct;
@@ -24,7 +23,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class PostgresEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(PostgresEventListener.class);
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final DataSource dataSource;
     private final TimelineEventService timelineEventService;
@@ -98,8 +96,9 @@ public class PostgresEventListener {
                 if (notifications != null) {
                     for (PGNotification n : notifications) {
                         String payload = n.getParameter();
-                        timelineEventService.processNotification(payload);
-                        maybeRestartLogTail(payload);
+                        TimelineEventService.ProcessedDeploymentEvent event =
+                                timelineEventService.processNotification(payload);
+                        maybeRestartLogTail(event);
                     }
                 }
                 Thread.sleep(500);
@@ -131,19 +130,12 @@ public class PostgresEventListener {
         }
     }
 
-    void maybeRestartLogTail(String payload) {
-        try {
-            @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> event = MAPPER.readValue(payload, java.util.Map.class);
-            String type = (String) event.get("event_type");
-            String status = (String) event.get("status");
-            String appName = (String) event.get("app_name");
-            if (appName == null || !"SUCCESS".equals(status)) return;
-            if ("DEPLOY_FINISHED".equals(type) || "RESTARTED".equals(type) || "MANUAL_ROLLBACK".equals(type)) {
-                logTailService.onDeployFinished(appName);
-            }
-        } catch (Exception e) {
-            log.debug("Could not inspect notification for log-tail restart: {}", e.getMessage());
+    void maybeRestartLogTail(TimelineEventService.ProcessedDeploymentEvent event) {
+        if (event == null || event.appName() == null || !"SUCCESS".equals(event.status())) return;
+        if ("DEPLOY_FINISHED".equals(event.eventType())
+                || "RESTARTED".equals(event.eventType())
+                || "MANUAL_ROLLBACK".equals(event.eventType())) {
+            logTailService.onDeployFinished(event.appName());
         }
     }
 }

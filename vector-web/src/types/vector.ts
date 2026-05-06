@@ -36,9 +36,34 @@ export interface DeploymentEvent {
   durationMs: number | null;
   errorMessage: string | null;
   triggeredBy: TriggerSource;
+  rollbackFromSha: string | null;
   createdAt: string; // ISO 8601
   finishedAt: string | null;
   availableLocally?: boolean | null;
+}
+
+export interface DeploymentEventPayload {
+  imageName: string | null;
+  branch: string | null;
+  commitSha: string | null;
+  commitMessage: string | null;
+  commitAuthor: string | null;
+  durationMs: number | null;
+  errorMessage: string | null;
+  triggeredBy: TriggerSource | null;
+  rollbackFromSha: string | null;
+  availableLocally: boolean | null;
+}
+
+export interface PlatformEventEnvelope {
+  version: 1;
+  id: number;
+  operationId: string | null;
+  appName: string;
+  type: DeploymentEventType;
+  status: DeploymentEventStatus;
+  occurredAt: string;
+  payload: DeploymentEventPayload;
 }
 
 // Matches backend-makeover.md §2

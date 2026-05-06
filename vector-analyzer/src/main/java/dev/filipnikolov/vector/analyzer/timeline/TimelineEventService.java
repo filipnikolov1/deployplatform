@@ -111,22 +111,19 @@ public class TimelineEventService {
     }
 
     @Transactional
-    public void processNotification(String payload) {
+    public ProcessedDeploymentEvent processNotification(String payload) {
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> map = mapper.readValue(payload, Map.class);
-            String eventType = (String) map.get("event_type");
-            if (!RELEVANT_TYPES.contains(eventType)) {
-                return;
-            }
-
-            long sourceId = ((Number) map.get("id")).longValue();
+            long sourceId = sourceIdFromNotification(payload);
 
             // Fetch full event row for commit_sha and exact timestamp
             Map<String, Object> row = jdbc.queryForMap(
-                    "SELECT app_name, commit_sha, created_at, status FROM public.deployment_event WHERE id = ?",
+                    "SELECT app_name, event_type, commit_sha, created_at, status FROM public.deployment_event WHERE id = ?",
                     sourceId);
 
+            String eventType = row.get("event_type").toString();
+            if (!RELEVANT_TYPES.contains(eventType)) {
+                return null;
+            }
             String appName = (String) row.get("app_name");
             String commitSha = (String) row.get("commit_sha");
             Object createdAt = row.get("created_at");
@@ -150,9 +147,11 @@ public class TimelineEventService {
                     log.error("Crash analysis generation failed for event {}: {}", sourceId, e.getMessage());
                 }
             }
+            return new ProcessedDeploymentEvent(sourceId, appName, eventType, row.get("status").toString());
 
         } catch (Exception e) {
             log.error("Failed to process notification payload: {} — {}", payload, e.getMessage());
+            return null;
         }
     }
 
@@ -188,6 +187,18 @@ public class TimelineEventService {
             default -> "DEPLOY";
         };
     }
+
+    private long sourceIdFromNotification(String payload) throws Exception {
+        String trimmed = payload.trim();
+        if (trimmed.matches("\\d+")) {
+            return Long.parseLong(trimmed);
+        }
+        @SuppressWarnings("unchecked")
+        Map<String, Object> map = mapper.readValue(trimmed, Map.class);
+        return ((Number) map.get("id")).longValue();
+    }
+
+    public record ProcessedDeploymentEvent(long id, String appName, String eventType, String status) {}
 
     private static LocalDateTime toLocalDateTime(Object value) {
         if (value instanceof LocalDateTime ldt) return ldt;

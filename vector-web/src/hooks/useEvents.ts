@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import useSWR from "swr";
-import type { DeploymentEvent } from "@/types/vector";
+import type { DeploymentEvent, PlatformEventEnvelope } from "@/types/vector";
 import { useEventStream } from "@/hooks/useEventStream";
 
 interface UseEventsArgs {
@@ -22,6 +22,27 @@ const fetcher = async (url: string): Promise<DeploymentEvent[]> => {
   if (!res.ok) throw new Error(`Failed to load events: ${res.status}`);
   return res.json();
 };
+
+function eventFromEnvelope(envelope: PlatformEventEnvelope): DeploymentEvent {
+  return {
+    id: envelope.id,
+    appName: envelope.appName,
+    eventType: envelope.type,
+    status: envelope.status,
+    imageName: envelope.payload.imageName,
+    branch: envelope.payload.branch,
+    commitSha: envelope.payload.commitSha,
+    commitMessage: envelope.payload.commitMessage,
+    commitAuthor: envelope.payload.commitAuthor,
+    durationMs: envelope.payload.durationMs,
+    errorMessage: envelope.payload.errorMessage,
+    triggeredBy: envelope.payload.triggeredBy ?? "AUTOMATIC",
+    rollbackFromSha: envelope.payload.rollbackFromSha,
+    createdAt: envelope.occurredAt,
+    finishedAt: envelope.status === "IN_PROGRESS" ? null : envelope.occurredAt,
+    availableLocally: envelope.payload.availableLocally,
+  };
+}
 
 export function useEvents({
   appName,
@@ -44,10 +65,21 @@ export function useEvents({
   );
 
   useEffect(() => {
-    if (lastEventPayload !== null) {
+    if (lastEventPayload === null) return;
+    try {
+      const envelope = JSON.parse(lastEventPayload) as PlatformEventEnvelope;
+      if (envelope.version !== 1) return;
+      if (appName && envelope.appName !== appName) return;
+      const liveEvent = eventFromEnvelope(envelope);
+      void mutate((current) => {
+        const existing = current ?? [];
+        const withoutDuplicate = existing.filter((event) => event.id !== liveEvent.id);
+        return [liveEvent, ...withoutDuplicate].slice(0, limit);
+      }, { revalidate: false });
+    } catch {
       void mutate();
     }
-  }, [lastEventPayload, mutate]);
+  }, [appName, lastEventPayload, limit, mutate]);
 
   return {
     events: data ?? [],

@@ -2,6 +2,7 @@ package dev.filipnikolov.vector.analyzer.listener;
 
 import dev.filipnikolov.vector.analyzer.logtail.LogTailService;
 import dev.filipnikolov.vector.analyzer.timeline.TimelineEventService;
+import dev.filipnikolov.vector.analyzer.timeline.TimelineEventService.ProcessedDeploymentEvent;
 import org.junit.jupiter.api.Test;
 
 import javax.sql.DataSource;
@@ -20,15 +21,9 @@ class PostgresEventListenerTest {
                 mock(TimelineEventService.class),
                 logTail);
 
-        listener.maybeRestartLogTail("""
-                {"id":10,"app_name":"docs","event_type":"DEPLOY_FINISHED","status":"SUCCESS"}
-                """);
-        listener.maybeRestartLogTail("""
-                {"id":11,"app_name":"docs","event_type":"RESTARTED","status":"SUCCESS"}
-                """);
-        listener.maybeRestartLogTail("""
-                {"id":12,"app_name":"docs","event_type":"MANUAL_ROLLBACK","status":"SUCCESS"}
-                """);
+        listener.maybeRestartLogTail(new ProcessedDeploymentEvent(10, "docs", "DEPLOY_FINISHED", "SUCCESS"));
+        listener.maybeRestartLogTail(new ProcessedDeploymentEvent(11, "docs", "RESTARTED", "SUCCESS"));
+        listener.maybeRestartLogTail(new ProcessedDeploymentEvent(12, "docs", "MANUAL_ROLLBACK", "SUCCESS"));
 
         verify(logTail, org.mockito.Mockito.times(3)).onDeployFinished("docs");
     }
@@ -41,9 +36,7 @@ class PostgresEventListenerTest {
                 mock(TimelineEventService.class),
                 logTail);
 
-        listener.maybeRestartLogTail("""
-                {"id":10,"app_name":"docs","event_type":"DEPLOY_FINISHED","status":"FAILURE"}
-                """);
+        listener.maybeRestartLogTail(new ProcessedDeploymentEvent(10, "docs", "DEPLOY_FINISHED", "FAILURE"));
 
         verify(logTail, never()).onDeployFinished("docs");
     }

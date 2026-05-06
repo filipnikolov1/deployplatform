@@ -1,5 +1,9 @@
 package dev.filipnikolov.vector.sse;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import dev.filipnikolov.vector.deployment.dto.DeploymentEventMapper;
+import dev.filipnikolov.vector.deployment.repository.DeploymentEventRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.postgresql.PGConnection;
@@ -24,15 +28,20 @@ public class PostgresListenService {
     private static final long HEARTBEAT_INTERVAL_MS = 15_000;
     private static final long HEALTH_CHECK_INTERVAL_MS = 30_000;
     private static final int NOTIFY_POLL_TIMEOUT_MS = 1_000;
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .findAndRegisterModules()
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     private final DataSource dataSource;
+    private final DeploymentEventRepository eventRepository;
     private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
     private volatile Connection listenConnection;
     private volatile boolean running = true;
 
-    public PostgresListenService(DataSource dataSource) {
+    public PostgresListenService(DataSource dataSource, DeploymentEventRepository eventRepository) {
         this.dataSource = dataSource;
+        this.eventRepository = eventRepository;
     }
 
     @PostConstruct
@@ -107,10 +116,29 @@ public class PostgresListenService {
     }
 
     private void broadcast(String payload) {
+        String body;
+        try {
+            long id = Long.parseLong(payload.trim());
+            body = eventRepository.findById(id)
+                    .map(DeploymentEventMapper::envelopeFrom)
+                    .map(envelope -> {
+                        try {
+                            return MAPPER.writeValueAsString(envelope);
+                        } catch (Exception e) {
+                            throw new IllegalStateException(e);
+                        }
+                    })
+                    .orElse(null);
+        } catch (Exception e) {
+            log.warn("Could not build deployment-event envelope for notification '{}': {}", payload, e.getMessage());
+            return;
+        }
+        if (body == null) return;
+
         List<SseEmitter> dead = new ArrayList<>();
         for (SseEmitter emitter : emitters) {
             try {
-                emitter.send(SseEmitter.event().name("deployment-event").data(payload));
+                emitter.send(SseEmitter.event().name("deployment-event").data(body));
             } catch (Exception e) {
                 dead.add(emitter);
             }

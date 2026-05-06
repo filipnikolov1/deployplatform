@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
@@ -49,17 +50,19 @@ public class DeploymentServiceImpl implements DeploymentService {
     @Override
     public Deployment createDeployment(CreateDeploymentRequest req) {
         long startedAt = System.currentTimeMillis();
-        Deployment deployment = txHelper.preCreate(req);
+        DeploymentTransactionHelper.LifecycleStart start = txHelper.preCreate(req);
+        Deployment deployment = start.deployment();
+        String operationId = start.operationId();
         try {
             Map<String, String> envVars = envVarService.getEnvVars(req.appName());
             dockerService.pullAndRun(req.imageName(), req.appName(),
                     deployment.getSubdomain(), deployment.getContainerPort(), envVars);
             long duration = System.currentTimeMillis() - startedAt;
-            txHelper.postCreate(req.appName(), DeploymentStatus.RUNNING, req, duration, null);
+            txHelper.postCreate(req.appName(), DeploymentStatus.RUNNING, req, duration, null, operationId);
             log.info("Deployment successful: {}", req.appName());
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startedAt;
-            txHelper.postCreate(req.appName(), DeploymentStatus.FAILED, req, duration, e.getMessage());
+            txHelper.postCreate(req.appName(), DeploymentStatus.FAILED, req, duration, e.getMessage(), operationId);
             log.error("Deployment failed for {}: {}", req.appName(), e.getMessage(), e);
         }
         return getDeployment(req.appName());
@@ -95,18 +98,20 @@ public class DeploymentServiceImpl implements DeploymentService {
     @Override
     public Deployment restartDeployment(String appName) {
         long startedAt = System.currentTimeMillis();
-        Deployment deployment = txHelper.preRestart(appName);
+        DeploymentTransactionHelper.LifecycleStart start = txHelper.preRestart(appName);
+        Deployment deployment = start.deployment();
+        String operationId = start.operationId();
         CreateDeploymentRequest ctx = contextFor(deployment, TriggerSource.RESTART);
         try {
             Map<String, String> envVars = envVarService.getEnvVars(appName);
             dockerService.pullAndRun(deployment.getImageName(), appName,
                     deployment.getSubdomain(), deployment.getContainerPort(), envVars);
             long duration = System.currentTimeMillis() - startedAt;
-            txHelper.postRestart(appName, DeploymentStatus.RUNNING, ctx, duration, null);
+            txHelper.postRestart(appName, DeploymentStatus.RUNNING, ctx, duration, null, operationId);
             log.info("Restart successful: {}", appName);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startedAt;
-            txHelper.postRestart(appName, DeploymentStatus.FAILED, ctx, duration, e.getMessage());
+            txHelper.postRestart(appName, DeploymentStatus.FAILED, ctx, duration, e.getMessage(), operationId);
             log.error("Restart failed for {}: {}", appName, e.getMessage(), e);
         }
         return getDeployment(appName);
@@ -185,7 +190,7 @@ public class DeploymentServiceImpl implements DeploymentService {
                 target.getBranch(), target.getCommitSha(), target.getCommitMessage(),
                 target.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.ROLLBACK);
         DeploymentEvent rollbackEvent = eventService.record(DeploymentEventType.MANUAL_ROLLBACK,
-                DeploymentEventStatus.SUCCESS, appName, ctx, null, null);
+                DeploymentEventStatus.SUCCESS, appName, ctx, null, null, UUID.randomUUID().toString());
         rollbackEvent.setRollbackFromSha(rollbackFromSha);
         eventRepository.save(rollbackEvent);
 
