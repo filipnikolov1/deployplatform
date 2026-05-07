@@ -1,6 +1,12 @@
 import useSWR from "swr";
 import type { CommitDetail, LogEntry, CommitDiff, CommitFile } from "@/types/analyzer";
 
+export interface FileHistoryEntry {
+  sha: string;
+  message?: string;
+  authoredAt?: string;
+}
+
 const fetcher = async <T>(url: string): Promise<T> => {
   const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`Failed: ${res.status}`);
@@ -54,4 +60,28 @@ export function useFileAtCommit(
     dedupingInterval: 300_000,
   });
   return { file: data ?? null, isLoading, error };
+}
+
+export function useFileHistory(
+  appName: string,
+  filePath: string | null,
+  limit = 10,
+) {
+  const key =
+    appName && filePath
+      ? `/api/analyzer/apps/${encodeURIComponent(appName)}/commits/file-history?path=${encodeURIComponent(filePath)}&limit=${limit}`
+      : null;
+  const { data, error, isLoading } = useSWR<{
+    available: boolean;
+    commits?: FileHistoryEntry[];
+  }>(key, fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+  return {
+    history: data?.commits ?? [],
+    available: data?.available ?? false,
+    isLoading,
+    error,
+  };
 }

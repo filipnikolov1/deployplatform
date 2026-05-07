@@ -1,66 +1,79 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import useSWR from "swr";
-import { ArrowLeft, CheckCircle2, Pin, Unplug } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { M, MMOTION } from "@/design/tokens";
+import { PageHeader } from "@/design/primitives/PageHeader";
+import { Button } from "@/design/primitives/Button";
+import { Section } from "@/design/primitives/Section";
 import { AppShell } from "@/components/shell/AppShell";
-import { useTimeline } from "@/hooks/useTimeline";
-import { useAppStats } from "@/hooks/useAppStats";
-import { useRecentDeploys } from "@/hooks/useRecentDeploys";
-import { useCommitsAhead } from "@/hooks/useCommitsAhead";
+
+// Time machine components
+import { CrashHeader, CrashAppSelector } from "@/components/time-machine/CrashHeader";
+import { HorizontalTimeline } from "@/components/time-machine/HorizontalTimeline";
+import type { TimelineNode } from "@/components/time-machine/HorizontalTimeline";
+import { LogsPanel } from "@/components/time-machine/LogsPanel";
+import { CodePanel } from "@/components/time-machine/CodePanel";
+import { AiExplanation } from "@/components/time-machine/AiExplanation";
+import { DiffSideBySide } from "@/components/time-machine/DiffSideBySide";
+import { RollBack } from "@/components/time-machine/RollBack";
+import { HealthyStats } from "@/components/time-machine/HealthyStats";
+import { RecentDeploys } from "@/components/time-machine/RecentDeploys";
 import { CommitDetail } from "@/components/time-machine/CommitDetail";
-import { CrashStateView } from "@/components/time-machine/CrashStateView";
-import { RecentDeploysList } from "@/components/time-machine/RecentDeploysList";
-import { LoadingPanelState, PanelState } from "@/components/time-machine/PanelState";
-import { TimeMachinePanelBoundary } from "@/components/time-machine/TimeMachinePanelBoundary";
-import { TimelineList } from "@/components/time-machine/TimelineList";
-import type { TimelineEvent, TimelineEventType } from "@/types/analyzer";
+import { ReceiptsPanel } from "@/components/time-machine/ReceiptsPanel";
+
+// Hooks
+import { useCrashAnalysis } from "@/hooks/useCrashAnalysis";
+import { useTimeline } from "@/hooks/useTimeline";
+import { useRecentDeploys } from "@/hooks/useRecentDeploys";
+import { useAppStats } from "@/hooks/useAppStats";
+import { useAppUptime, useAvgPull } from "@/hooks/useHealthyStats";
+import useSWR from "swr";
+import type { TimelineEvent } from "@/types/analyzer";
 import type { Deployment } from "@/types/deployment";
 
-const EVENT_CONFIG: Record<TimelineEventType, { label: string; color: string; bg: string }> = {
-  DEPLOY:  { label: "Deploy",  color: "var(--c-status-running-fg)",  bg: "var(--c-status-running-bg)"  },
-  CRASH:   { label: "Crash",   color: "var(--c-status-failed-fg)",   bg: "var(--c-status-failed-bg)"   },
-  RESTART: { label: "Restart", color: "var(--c-status-building-fg)", bg: "var(--c-status-building-bg)" },
-  COMMIT:  { label: "Commit",  color: "var(--c-fg-2)",               bg: "var(--c-surface-2)"           },
-};
+// ────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div
-      className="rounded-xl p-4"
-      style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
-    >
-      <div className="text-[11px] uppercase tracking-[0.1em]" style={{ color: "var(--c-fg-3)" }}>
-        {label}
-      </div>
-      <div
-        className="text-2xl font-semibold tabular-nums mt-1"
-        style={{ color: "var(--c-fg-0)" }}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
+const DAY_MS = 86_400_000;
+const WINDOW_MS = 14 * DAY_MS;
 
-function isUpdateAvailable(event: TimelineEvent): boolean {
-  try {
-    const m = JSON.parse(event.metadata);
-    return m.eventType === "UPDATE_AVAILABLE";
-  } catch {
-    return false;
-  }
-}
-
-function isRollback(event: TimelineEvent): boolean {
-  try {
-    const m = JSON.parse(event.metadata);
-    return m.triggerSource === "ROLLBACK" || m.eventType === "MANUAL_ROLLBACK";
-  } catch {
-    return false;
-  }
+/** Convert a TimelineEvent list into HorizontalTimeline nodes (14-day window). */
+function toTimelineNodes(events: TimelineEvent[], now: Date): TimelineNode[] {
+  const windowStart = new Date(now.getTime() - WINDOW_MS);
+  return events
+    .filter((e) => {
+      const d = new Date(e.occurredAt);
+      return d >= windowStart && d <= now;
+    })
+    .map((e) => {
+      const d = new Date(e.occurredAt);
+      const t = (d.getTime() - windowStart.getTime()) / WINDOW_MS;
+      const kind: TimelineNode["kind"] =
+        e.eventType === "CRASH"
+          ? "crash"
+          : e.eventType === "RESTART"
+          ? "restart"
+          : e.eventType === "COMMIT"
+          ? "commit"
+          : "deploy";
+      return {
+        id: e.id,
+        t: Math.max(0, Math.min(1, t)),
+        kind,
+        sha: e.commitSha || undefined,
+        occurredAt: d,
+        msg: (() => {
+          try {
+            return JSON.parse(e.metadata)?.message ?? undefined;
+          } catch {
+            return undefined;
+          }
+        })(),
+      };
+    });
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -69,495 +82,607 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
 }
 
-function ShaComparisonIndicator({
-  currentSha,
-  latestSha,
-  pinned,
-  commitsAhead,
-  loading,
-  error,
-}: {
-  currentSha: string | null;
-  latestSha: string | null;
-  pinned: boolean;
-  commitsAhead: number | null;
-  loading: boolean;
-  error?: Error;
-}) {
-  if (loading) {
-    return (
-      <span className="text-[11px]" style={{ color: "var(--c-fg-3)" }}>
-        checking latest...
-      </span>
-    );
-  }
-
-  const upToDate = !!currentSha && !!latestSha && currentSha === latestSha;
-  const unavailable = error || commitsAhead == null || !currentSha;
-  const label = upToDate
-    ? "up to date"
-    : unavailable
-    ? "latest comparison unavailable"
-    : commitsAhead > 0
-    ? `behind latest by ${commitsAhead} commit${commitsAhead === 1 ? "" : "s"}`
-    : latestSha
-    ? "latest differs from running SHA"
-    : "no latest SHA recorded";
-  const Icon = upToDate ? CheckCircle2 : Unplug;
-
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-      style={{
-        background: upToDate ? "var(--c-status-running-bg)" : "var(--c-surface-2)",
-        color: upToDate ? "var(--c-status-running-fg)" : "var(--c-fg-2)",
-        border: `1px solid ${upToDate ? "var(--c-status-running-line)" : "var(--c-border-2)"}`,
-      }}
-      title={pinned && !upToDate ? "Pinned app may be intentionally behind latest" : label}
-    >
-      <Icon className="h-3 w-3" />
-      {label}
-    </span>
-  );
-}
-
-function TimelineItem({
-  event,
-  onSelect,
-  onOpenCrash,
-  isSelected,
-}: {
-  event: TimelineEvent;
-  onSelect: (sha: string) => void;
-  onOpenCrash: (id: number) => void;
-  isSelected: boolean;
-}) {
-  const cfg = EVENT_CONFIG[event.eventType] ?? EVENT_CONFIG.COMMIT;
-  const date = new Date(event.occurredAt);
-  const updateAvail = isUpdateAvailable(event);
-  const rollback = isRollback(event);
-
-  const handleClick = () => {
-    if (event.eventType === "CRASH" && event.sourceEventId != null) {
-      onOpenCrash(event.sourceEventId);
-      return;
-    }
-    if (event.commitSha) onSelect(event.commitSha);
-  };
-
-  return (
-    <div
-      className="flex items-center gap-3 py-3 cursor-pointer transition-all"
-      style={{
-        borderBottom: "1px solid var(--c-border-1)",
-        background: isSelected ? "rgba(var(--c-accent-rgb,130,80,255),0.06)" : "transparent",
-      }}
-      onClick={handleClick}
-    >
-      {updateAvail ? (
-        <span
-          className="shrink-0 h-2 w-2 rounded-full"
-          style={{ background: "var(--c-status-building-fg)", marginLeft: "4px" }}
-          title="Update available (app is pinned)"
-        />
-      ) : (
-        <span
-          className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
-          style={{ background: cfg.bg, color: cfg.color }}
-        >
-          {cfg.label}
-        </span>
-      )}
-      <div className="min-w-0 flex-1 flex items-center gap-2">
-        {event.commitSha ? (
-          <span
-            className="font-mono text-[11px] rounded px-1.5 py-0.5"
-            style={{ background: "var(--c-surface-2)", color: "var(--c-fg-2)" }}
-          >
-            {event.commitSha.slice(0, 7)}
-          </span>
-        ) : null}
-        {rollback && (
-          <span
-            className="text-[10px] rounded px-1 py-0.5"
-            style={{ background: "var(--c-surface-2)", color: "var(--c-fg-3)", border: "1px solid var(--c-border-2)" }}
-          >
-            ↺ rollback
-          </span>
-        )}
-        {updateAvail && (
-          <span className="text-[11px]" style={{ color: "var(--c-status-building-fg)" }}>
-            update available
-          </span>
-        )}
-      </div>
-      <span
-        className="shrink-0 text-[12px] tabular-nums"
-        style={{ color: "var(--c-fg-3)" }}
-      >
-        {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-      </span>
-    </div>
-  );
-}
-
 const appFetcher = async (url: string): Promise<Deployment> => {
   const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error(`Failed: ${res.status}`);
   return res.json();
 };
 
+// ────────────────────────────────────────────────────────────────────────────
+// Crash Mode
+// ────────────────────────────────────────────────────────────────────────────
+
+function CrashMode({
+  appName,
+  crashId,
+  onCloseCrash,
+}: {
+  appName: string;
+  crashId: string;
+  onCloseCrash: () => void;
+}) {
+  const { analysis, isLoading, error, refresh } = useCrashAnalysis(appName, crashId);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [replayProgress, setReplayProgress] = useState(0);
+  const [scrub, setScrub] = useState(1.0);
+  const [scrubbedSha, setScrubbedSha] = useState<string | null>(null);
+  const [highlightReceipt, setHighlightReceipt] = useState<number | null>(null);
+  const [receiptsVisible, setReceiptsVisible] = useState(true);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const { events } = useTimeline(appName);
+  const now = useMemo(() => new Date(), []);
+  const nodes = useMemo(() => toTimelineNodes(events, now), [events, now]);
+
+  // Crash node to show in timeline
+  const crashNodes = nodes.filter((n) => n.kind === "crash");
+
+  // Replay logic (100ms cadence per second of log time)
+  const maxLogSec = useMemo(() => {
+    if (!analysis?.evidence) return 10;
+    const logs = analysis.evidence.filter((e) => e.type === "log" && e.timestamp);
+    if (logs.length === 0) return 10;
+    const times = logs.map((e) => Date.parse(e.timestamp ?? "")).filter(Number.isFinite);
+    if (times.length < 2) return 10;
+    return (Math.max(...times) - Math.min(...times)) / 1000;
+  }, [analysis]);
+
+  const startMs = useMemo(() => {
+    if (!analysis?.evidence) return Date.now() - 10_000;
+    const times = analysis.evidence
+      .filter((e) => e.type === "log" && e.timestamp)
+      .map((e) => Date.parse(e.timestamp ?? ""))
+      .filter(Number.isFinite);
+    return times.length > 0 ? Math.min(...times) : Date.now() - 10_000;
+  }, [analysis]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+    setReplayProgress(0);
+    intervalRef.current = setInterval(() => {
+      setReplayProgress((t) => {
+        if (t >= maxLogSec) {
+          setIsPlaying(false);
+          return maxLogSec;
+        }
+        return t + 0.1;
+      });
+    }, 100);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isPlaying, maxLogSec]);
+
+  const handleReplay = () => {
+    setReplayProgress(0);
+    setIsPlaying(true);
+  };
+
+  const handleJumpToReceipt = useCallback(
+    (id: number) => {
+      setHighlightReceipt(id);
+      setReceiptsVisible(true);
+      const item = analysis?.evidence.find((e) => e.id === id);
+      if (item?.type === "log" && item.timestamp) {
+        const t = Date.parse(item.timestamp);
+        if (Number.isFinite(t)) {
+          const sec = (t - startMs) / 1000;
+          setReplayProgress(Math.max(0, sec));
+        }
+      }
+      setTimeout(() => {
+        const el = document.getElementById(`receipt-${id}`);
+        if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 50);
+    },
+    [analysis, startMs]
+  );
+
+  const handleRegenerate = useCallback(async () => {
+    if (!analysis || isRegenerating) return;
+    setIsRegenerating(true);
+    try {
+      await fetch(
+        `/api/analyzer/apps/${encodeURIComponent(appName)}/crashes/${encodeURIComponent(crashId)}/regenerate`,
+        { method: "POST" }
+      );
+      await refresh();
+    } catch {
+      // ignore
+    } finally {
+      setIsRegenerating(false);
+    }
+  }, [analysis, appName, crashId, isRegenerating, refresh]);
+
+  // SSE listener for narration completion
+  useEffect(() => {
+    if (!analysis || analysis.aiNarrationStatus !== "PENDING") return;
+    const es = new EventSource(`/api/analyzer/apps/${encodeURIComponent(appName)}/stream`);
+    const handler = (e: MessageEvent) => {
+      try {
+        const data = typeof e.data === "string" ? JSON.parse(e.data) : null;
+        if (data && Number(data.crashId) === Number(crashId)) refresh();
+      } catch {
+        // ignore
+      }
+    };
+    es.addEventListener("narrationCompleted", handler);
+    es.addEventListener("narrationFailed", handler);
+    return () => {
+      es.removeEventListener("narrationCompleted", handler);
+      es.removeEventListener("narrationFailed", handler);
+      es.close();
+    };
+  }, [analysis, appName, crashId, refresh]);
+
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          padding: 40,
+          textAlign: "center",
+          color: M.fg3,
+          fontSize: 13,
+        }}
+      >
+        Loading crash analysis...
+      </div>
+    );
+  }
+
+  if (error || !analysis) {
+    return (
+      <div
+        style={{
+          padding: 24,
+          background: M.surface,
+          border: `1px solid ${M.line}`,
+          borderRadius: M.rLg,
+          color: M.fg3,
+          fontSize: 13,
+        }}
+      >
+        Crash analysis unavailable. vector-analyzer may be down.{" "}
+        <button
+          type="button"
+          onClick={() => refresh()}
+          style={{
+            color: M.accentLight,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            textDecoration: "underline",
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const fileSha = scrubbedSha ?? analysis.suspectCommitSha;
+  const crashedAt = analysis.signals?.crashedAt ? new Date(analysis.signals.crashedAt) : null;
+
+  // Working side: last good commit sha
+  const workingContent = ""; // populated from CommitDetail / diff
+  const brokenContent = "";
+
+  return (
+    <motion.div
+      key="crash-mode"
+      {...MMOTION.page}
+      style={{ display: "flex", flexDirection: "column", gap: 32 }}
+    >
+      {/* Crash Header */}
+      <CrashHeader
+        appName={appName}
+        apps={[appName]}
+        crashedAt={crashedAt}
+        exitCode={null}
+        onAppChange={() => {}}
+        onReplay={handleReplay}
+        isPlaying={isPlaying}
+        onTogglePlay={() => setIsPlaying((p) => !p)}
+      />
+
+      {/* App + crash label row */}
+      <CrashAppSelector
+        appName={appName}
+        apps={[appName]}
+        crashLabel={
+          crashedAt
+            ? `crashed ${Math.round((Date.now() - crashedAt.getTime()) / 60_000)}m ago`
+            : "crash details"
+        }
+        onAppChange={() => {}}
+      />
+
+      {/* Horizontal Timeline */}
+      <Section title="Timeline" hint="Drag to scrub. Click a node to jump.">
+        <HorizontalTimeline
+          nodes={nodes}
+          scrub={scrub}
+          onScrub={setScrub}
+          onNodeClick={(node) => {
+            if (node.kind === "crash" && typeof node.id === "number") {
+              const crashEvent = events.find(
+                (e) => e.id === node.id && e.eventType === "CRASH"
+              );
+              // Note: crash nodes have no direct navigation in this mode — already on crash
+            }
+          }}
+        />
+      </Section>
+
+      {/* Logs + Code split */}
+      <motion.section
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 16,
+        }}
+      >
+        <LogsPanel
+          evidence={analysis.evidence}
+          replayProgress={replayProgress}
+          isPlaying={isPlaying}
+          startTime={startMs}
+        />
+        <CodePanel
+          appName={appName}
+          suspectSha={fileSha}
+          filePath={analysis.suspectFilePath}
+          highlightLine={analysis.suspectLine}
+          onVersionChange={(sha) => setScrubbedSha(sha)}
+        />
+      </motion.section>
+
+      {/* AI Explanation */}
+      <Section title="What broke">
+        <AiExplanation
+          narration={analysis.aiNarration}
+          status={analysis.aiNarrationStatus}
+          failureReason={analysis.aiFailureReason}
+          providerUsed={analysis.aiProviderUsed}
+          regenerateCount={analysis.aiRegenerateCount}
+          regenerateLimit={analysis.aiRegenerateLimit}
+          onJumpToReceipt={handleJumpToReceipt}
+          onRegenerate={handleRegenerate}
+          isRegenerating={isRegenerating}
+        />
+      </Section>
+
+      {/* Receipts panel */}
+      {receiptsVisible && (
+        <ReceiptsPanel
+          evidence={analysis.evidence}
+          highlightId={highlightReceipt}
+          onJump={handleJumpToReceipt}
+        />
+      )}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Button
+          variant="ghost"
+          size="sm"
+          leadingIcon={receiptsVisible ? "eye-off" : "eye"}
+          onClick={() => setReceiptsVisible((v) => !v)}
+        >
+          {receiptsVisible ? "Hide receipts" : "Show receipts"}
+        </Button>
+      </div>
+
+      {/* Diff side by side */}
+      {analysis.lastGoodCommitSha && analysis.suspectCommitSha && (
+        <Section title="Diff" hint="Working version vs. broken version.">
+          <DiffSideBySide
+            filePath={analysis.suspectFilePath}
+            working={{
+              sha: analysis.lastGoodCommitSha,
+              label: "WORKING",
+              content: "",
+              age: null,
+            }}
+            broken={{
+              sha: analysis.suspectCommitSha,
+              label: "BROKEN",
+              content: "",
+              age: crashedAt,
+            }}
+            highlightLine={analysis.suspectLine}
+          />
+        </Section>
+      )}
+
+      {/* Roll Back */}
+      {analysis.lastGoodCommitSha && analysis.suspectCommitSha && (
+        <RollBack
+          appName={appName}
+          fromSha={analysis.suspectCommitSha}
+          toSha={analysis.lastGoodCommitSha}
+          estimatedDeployMs={null}
+          onSuccess={() => {}}
+        />
+      )}
+    </motion.div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Healthy Mode
+// ────────────────────────────────────────────────────────────────────────────
+
+function HealthyMode({
+  appName,
+  onOpenCrash,
+}: {
+  appName: string;
+  onOpenCrash: (id: number) => void;
+}) {
+  const [selectedSha, setSelectedSha] = useState<string | null>(null);
+  const [scrub, setScrub] = useState(0.85);
+  const commitPanelRef = useRef<HTMLDivElement>(null);
+
+  const { events } = useTimeline(appName);
+  const { deploys, isLoading: deploysLoading, refresh: refreshDeploys } = useRecentDeploys(appName);
+  const { uptime, isLoading: uptimeLoading } = useAppUptime(appName);
+  const { avgPull, isLoading: avgLoading } = useAvgPull(appName);
+  const { stats } = useAppStats(appName);
+  const { data: app } = useSWR<Deployment>(
+    `/api/apps/${encodeURIComponent(appName)}`,
+    appFetcher,
+    { refreshInterval: 15_000 }
+  );
+
+  // Derive "last crash" from events
+  const lastCrashAt = useMemo(() => {
+    const crashEvent = events.find((e) => e.eventType === "CRASH");
+    return crashEvent ? new Date(crashEvent.occurredAt) : null;
+  }, [events]);
+
+  const now = useMemo(() => new Date(), []);
+  const nodes = useMemo(() => toTimelineNodes(events, now), [events, now]);
+  const healthyNodes = nodes.filter((n) => n.kind !== "crash");
+
+  const currentSha = app?.commitSha ?? null;
+
+  const handleNodeClick = useCallback(
+    (node: TimelineNode) => {
+      if (node.sha) {
+        setSelectedSha(node.sha);
+        setTimeout(() => {
+          commitPanelRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+        }, 50);
+      }
+    },
+    []
+  );
+
+  const statusLine =
+    app?.status === "RUNNING"
+      ? `running · last deploy ${stats?.lastDeployedAt ? Math.round((Date.now() - new Date(stats.lastDeployedAt).getTime()) / DAY_MS) + "d ago" : "recently"}`
+      : app?.status
+      ? `${app.status.toLowerCase()} · last deploy recently`
+      : null;
+
+  return (
+    <motion.div
+      key="healthy-mode"
+      {...MMOTION.page}
+      style={{ display: "flex", flexDirection: "column", gap: 32 }}
+    >
+      {/* Header */}
+      <div>
+        <PageHeader
+          kicker="APP HISTORY"
+          title="Time Machine"
+          actions={
+            app?.subdomain ? (
+              <Button
+                variant="ghost"
+                leadingIcon="external-link"
+                size="sm"
+                onClick={() =>
+                  window.open(`https://${app.subdomain}`, "_blank")
+                }
+              >
+                Open app
+              </Button>
+            ) : undefined
+          }
+        />
+        {statusLine && (
+          <div
+            style={{
+              marginTop: -40,
+              marginBottom: 24,
+              fontSize: 13,
+              color: M.fg3,
+              fontFamily: M.fontMono,
+            }}
+          >
+            {statusLine}
+          </div>
+        )}
+      </div>
+
+      {/* Healthy stats */}
+      <HealthyStats
+        uptimePercent={uptime?.percent ?? null}
+        deploysCount={stats?.deploys30d ?? null}
+        lastCrashAt={lastCrashAt}
+        avgPullMs={avgPull?.avgMs ?? null}
+        isLoading={uptimeLoading || avgLoading}
+      />
+
+      {/* Horizontal Timeline */}
+      <Section
+        title="Timeline"
+        hint="14 days. Click any deploy to inspect."
+      >
+        <HorizontalTimeline
+          nodes={healthyNodes}
+          scrub={scrub}
+          onScrub={setScrub}
+          onNodeClick={handleNodeClick}
+        />
+      </Section>
+
+      {/* Commit Detail modal-like panel */}
+      <div ref={commitPanelRef}>
+        <AnimatePresence mode="wait">
+          {selectedSha && (
+            <motion.div
+              key={selectedSha}
+              {...MMOTION.modal}
+            >
+              <CommitDetail
+                appName={appName}
+                sha={selectedSha}
+                currentSha={currentSha}
+                deploys={deploys}
+                pinnedImage={app?.pinnedImage ?? null}
+                apiUnavailable={false}
+                onClose={() => setSelectedSha(null)}
+                onRollbackSuccess={() => {
+                  void refreshDeploys();
+                  setSelectedSha(null);
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Recent Deploys */}
+      <Section title="Recent deploys" hint="Click any commit to see what changed.">
+        {deploysLoading ? (
+          <div
+            style={{
+              height: 120,
+              borderRadius: M.rLg,
+              background: M.surface,
+              border: `1px solid ${M.line}`,
+            }}
+          />
+        ) : (
+          <RecentDeploys
+            deploys={deploys}
+            currentSha={currentSha}
+            selectedSha={selectedSha}
+            onSelect={(sha) => {
+              setSelectedSha(sha);
+              setTimeout(() => {
+                commitPanelRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+              }, 50);
+            }}
+          />
+        )}
+      </Section>
+    </motion.div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Page root
+// ────────────────────────────────────────────────────────────────────────────
+
 function TimeMachineContent({ appName }: { appName: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const crashId = searchParams.get("crash");
-  const [selectedSha, setSelectedSha] = useState<string | null>(null);
-  const commitPanelRef = useRef<HTMLDivElement>(null);
 
-  const { events, isLoading: timelineLoading, error: timelineError } = useTimeline(appName);
-  const { stats, isLoading: statsLoading, error: statsError } = useAppStats(appName);
-  const { deploys, isLoading: deploysLoading, error: deploysError, refresh: refreshDeploys } = useRecentDeploys(appName);
-  const { commitsAhead, isLoading: commitsAheadLoading, error: commitsAheadError } = useCommitsAhead(appName);
-  const { data: app, error: appError } = useSWR<Deployment>(
-    `/api/apps/${encodeURIComponent(appName)}`,
-    appFetcher,
-    { refreshInterval: 15_000 },
-  );
-
-  const currentSha = app?.commitSha ?? null;
-  const latestSha = app?.latestKnownSha ?? null;
-  const pinnedImage = app?.pinnedImage ?? null;
-  const analyzerUnavailable = !!timelineError || !!statsError || !!deploysError;
-  const apiUnavailable = !!appError;
-  const hasCrashes = events.some((event) => event.eventType === "CRASH") || (stats?.crashes30d ?? 0) > 0;
-  const selectableEvents = useMemo(
-    () => events.filter((event) => event.commitSha || event.eventType === "CRASH"),
-    [events],
-  );
-
-  useEffect(() => {
-    localStorage.setItem("lastTimeMachineApp", appName);
-  }, [appName]);
-
-  const scrollCommitPanelIntoView = useCallback(() => {
-    window.setTimeout(() => {
-      commitPanelRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-    }, 50);
-  }, []);
-
-  const selectSha = useCallback(
-    (sha: string) => {
-      setSelectedSha(sha);
-      scrollCommitPanelIntoView();
+  const openCrashView = useCallback(
+    (id: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("crash", String(id));
+      router.replace(
+        `/apps/${encodeURIComponent(appName)}/time-machine?${params.toString()}`
+      );
     },
-    [scrollCommitPanelIntoView],
+    [appName, router, searchParams]
   );
 
   const closeCrashView = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("crash");
     const qs = params.toString();
-    router.replace(qs ? `/apps/${encodeURIComponent(appName)}/time-machine?${qs}` : `/apps/${encodeURIComponent(appName)}/time-machine`);
+    router.replace(
+      qs
+        ? `/apps/${encodeURIComponent(appName)}/time-machine?${qs}`
+        : `/apps/${encodeURIComponent(appName)}/time-machine`
+    );
   }, [appName, router, searchParams]);
 
-  const openCrashView = useCallback((id: number) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("crash", String(id));
-    router.replace(`/apps/${encodeURIComponent(appName)}/time-machine?${params.toString()}`);
-  }, [appName, router, searchParams]);
-
-  const stepTimeline = useCallback(
-    (direction: 1 | -1) => {
-      if (selectableEvents.length === 0) return;
-      const currentIndex = selectedSha
-        ? selectableEvents.findIndex((event) => event.commitSha === selectedSha)
-        : -1;
-      const nextIndex =
-        currentIndex < 0
-          ? direction > 0
-            ? 0
-            : selectableEvents.length - 1
-          : Math.min(selectableEvents.length - 1, Math.max(0, currentIndex + direction));
-      const next = selectableEvents[nextIndex];
-      if (!next) return;
-      if (next.eventType === "CRASH" && next.sourceEventId != null) {
-        openCrashView(next.sourceEventId);
-      } else if (next.commitSha) {
-        selectSha(next.commitSha);
-      }
-    },
-    [openCrashView, selectSha, selectableEvents, selectedSha],
-  );
-
+  // Keyboard shortcuts
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (isTypingTarget(event.target)) return;
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-        event.preventDefault();
-        stepTimeline(1);
-      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-        event.preventDefault();
-        stepTimeline(-1);
-      } else if (event.key === " ") {
-        if (crashId) {
-          event.preventDefault();
-          window.dispatchEvent(new CustomEvent("time-machine-toggle-playback"));
-        }
-      } else if (event.key === "Escape") {
-        event.preventDefault();
+    const handler = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
+      if (e.key === " " && crashId) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("time-machine-toggle-playback"));
+      } else if (e.key === "Escape") {
+        e.preventDefault();
         if (crashId) closeCrashView();
-        else if (selectedSha) setSelectedSha(null);
         else router.push("/");
       }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeCrashView, crashId, router, selectedSha, stepTimeline]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [closeCrashView, crashId, router]);
 
+  // Desktop-only note
   return (
-    <div className="flex flex-col">
+    <div>
       <div
-        className="mb-4 rounded-xl px-4 py-3 text-[13px] lg:hidden"
         style={{
-          background: "var(--c-surface-1)",
-          border: "1px solid var(--c-border-1)",
-          color: "var(--c-fg-2)",
+          marginBottom: 16,
+          padding: "12px 16px",
+          borderRadius: M.rMd,
+          background: M.surface,
+          border: `1px solid ${M.line}`,
+          color: M.fg3,
+          fontSize: 13,
+          display: "none", // shown only on mobile via @media — use className below
         }}
+        className="lg:hidden block"
       >
-        Time Machine is desktop-only for now. Use a viewport at least 1024px wide for the timeline, crash replay, and code panels.
+        Time Machine is desktop-only. Use a viewport ≥1024px wide.
       </div>
+
       <div className="hidden lg:block">
-      {/* Header */}
-      <div
-        className="flex items-center gap-2 pb-5 mb-6"
-        style={{ borderBottom: "1px solid var(--c-border-1)" }}
-      >
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 text-[13px] transition-opacity hover:opacity-70"
-          style={{ color: "var(--c-fg-3)" }}
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Apps
-        </Link>
-        <span style={{ color: "var(--c-border-2)" }}>/</span>
-        <span className="text-[13px] font-medium" style={{ color: "var(--c-fg-2)" }}>
-          {appName}
-        </span>
-        <span style={{ color: "var(--c-border-2)" }}>/</span>
-        <span className="text-[13px] font-semibold" style={{ color: "var(--c-fg-0)" }}>
-          Time Machine
-        </span>
-        {pinnedImage && (
-          <span
-            className="ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-            style={{
-              background: "var(--c-accent-soft)",
-              color: "var(--c-accent-fg)",
-              border: "1px solid var(--c-accent-line)",
-            }}
-          >
-            <Pin className="h-3 w-3" />
-            pinned
-          </span>
-        )}
-        <div className="ml-auto">
-          <ShaComparisonIndicator
-            currentSha={currentSha}
-            latestSha={latestSha}
-            pinned={!!pinnedImage}
-            commitsAhead={commitsAhead.count}
-            loading={commitsAheadLoading}
-            error={commitsAheadError}
-          />
-        </div>
-      </div>
-
-      {apiUnavailable && (
-        <div
-          className="mb-4 rounded-xl px-4 py-3 text-[13px]"
-          style={{
-            background: "var(--c-status-building-bg)",
-            border: "1px solid var(--c-status-building-line)",
-            color: "var(--c-status-building-fg)",
-          }}
-        >
-          vector-api is unreachable. Time Machine can still show analyzer history, but deployment actions and live app metadata are unavailable.
-        </div>
-      )}
-
-      {analyzerUnavailable && (
-        <div className="mb-4 rounded-xl overflow-hidden" style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}>
-          <PanelState
-            tone="danger"
-            title="Time Machine unavailable"
-            message="vector-analyzer is unreachable or returned an error. The dashboard can continue working, but historical timeline data is temporarily unavailable."
-          />
-        </div>
-      )}
-
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {statsLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-20 rounded-xl skeleton-shimmer"
-              style={{ background: "var(--c-surface-1)" }}
+        <AnimatePresence mode="wait">
+          {crashId ? (
+            <CrashMode
+              key={crashId}
+              appName={appName}
+              crashId={crashId}
+              onCloseCrash={closeCrashView}
             />
-          ))
-        ) : stats ? (
-          <>
-            <StatCard label="Deploys (30d)"  value={stats.deploys30d}  />
-            <StatCard label="Crashes (30d)"  value={stats.crashes30d}  />
-            <StatCard label="Restarts (30d)" value={stats.restarts30d} />
-            <StatCard label="Commits (30d)"  value={stats.commits30d}  />
-          </>
-        ) : (
-          <div className="col-span-4">
-            <PanelState
-              tone="warning"
-              title="Stats unavailable"
-              message="The analyzer could not load aggregate Time Machine stats."
+          ) : (
+            <HealthyMode
+              key="healthy"
+              appName={appName}
+              onOpenCrash={openCrashView}
             />
-          </div>
-        )}
-      </div>
-
-      {crashId && (
-        <div className="mb-6">
-          <TimeMachinePanelBoundary panelName="Crash replay" resetKey={crashId}>
-            <CrashStateView appName={appName} crashId={crashId} onClose={closeCrashView} />
-          </TimeMachinePanelBoundary>
-        </div>
-      )}
-
-      {!crashId && !timelineLoading && !timelineError && !hasCrashes && (
-        <div
-          className="mb-4 rounded-xl px-4 py-3 text-[12px]"
-          style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)", color: "var(--c-fg-3)" }}
-        >
-          No crashes captured yet. Crash reconstruction will appear here when the analyzer records a crash event.
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-        {/* Left: timeline + commit detail */}
-        <div className="flex flex-col gap-4">
-          {/* Timeline */}
-          <TimeMachinePanelBoundary panelName="Timeline" resetKey={`${appName}:${events.length}`}>
-            <div
-              className="rounded-xl overflow-hidden"
-              style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
-            >
-              <div
-                className="px-4 py-3"
-                style={{ borderBottom: "1px solid var(--c-border-1)" }}
-              >
-                <span className="text-[13px] font-medium" style={{ color: "var(--c-fg-1)" }}>
-                  Timeline - last 14 days
-                </span>
-              </div>
-              {timelineLoading ? (
-                <LoadingPanelState label="Loading timeline events..." />
-              ) : timelineError ? (
-                <PanelState
-                  tone="danger"
-                  title="Timeline unavailable"
-                  message="vector-analyzer could not be reached. Retry when the analyzer service is back online."
-                />
-              ) : events.length === 0 ? (
-                <PanelState
-                  title="No deploy history yet"
-                  message="No deploys, crashes, restarts, or commits are recorded for this app in Time Machine. If this app predates the Vector rename, history before the analyzer cutoff is not available."
-                />
-              ) : (
-                <TimelineList
-                  events={events}
-                  selectedSha={selectedSha}
-                  onSelect={selectSha}
-                  onOpenCrash={openCrashView}
-                  renderItem={(props) => <TimelineItem key={props.event.id} {...props} />}
-                />
-              )}
-            </div>
-          </TimeMachinePanelBoundary>
-
-          {/* Commit detail panel */}
-          <div ref={commitPanelRef}>
-            <TimeMachinePanelBoundary panelName="Commit detail" resetKey={selectedSha}>
-              {selectedSha ? (
-                <CommitDetail
-                  appName={appName}
-                  sha={selectedSha}
-                  currentSha={currentSha}
-                  deploys={deploys}
-                  pinnedImage={pinnedImage}
-                  apiUnavailable={apiUnavailable}
-                  onClose={() => setSelectedSha(null)}
-                  onRollbackSuccess={() => {
-                    void refreshDeploys();
-                    setSelectedSha(null);
-                  }}
-                />
-              ) : (
-                <div
-                  className="flex items-center justify-center rounded-xl py-8 text-[13px]"
-                  style={{
-                    background: "var(--c-surface-1)",
-                    border: "1px solid var(--c-border-1)",
-                    color: "var(--c-fg-3)",
-                  }}
-                >
-                  Select a commit or deploy event above to view details.
-                </div>
-              )}
-            </TimeMachinePanelBoundary>
-          </div>
-        </div>
-
-        {/* Right: recent deploys */}
-        <TimeMachinePanelBoundary panelName="Recent deploys" resetKey={`${appName}:${deploys.length}`}>
-          <div
-            className="rounded-xl overflow-hidden self-start"
-            style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
-          >
-            <div
-              className="px-4 py-3"
-              style={{ borderBottom: "1px solid var(--c-border-1)" }}
-            >
-              <span className="text-[13px] font-medium" style={{ color: "var(--c-fg-1)" }}>
-                Recent Deploys
-              </span>
-            </div>
-            <div className="p-2">
-              {deploysLoading ? (
-                <LoadingPanelState label="Loading recent deploys..." />
-              ) : deploysError ? (
-                <PanelState
-                  tone="danger"
-                  title="Deploy history unavailable"
-                  message="vector-analyzer could not load recent deploys for this app."
-                />
-              ) : (
-                <RecentDeploysList
-                  deploys={deploys}
-                  timelineEvents={events}
-                  currentSha={currentSha}
-                  selectedSha={selectedSha}
-                  onSelect={selectSha}
-                />
-              )}
-            </div>
-          </div>
-        </TimeMachinePanelBoundary>
-      </div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
 }
 
-export default function TimeMachinePage({ params }: { params: { appName: string } }) {
+export default function TimeMachinePage({
+  params,
+}: {
+  params: { appName: string };
+}) {
   return (
     <AppShell>
       <TimeMachineContent appName={params.appName} />
