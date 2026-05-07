@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope, JetBrains_Mono } from "next/font/google";
-import { GradientBackground } from "@/components/shell/GradientBackground";
+import { Background } from "@/components/shell/Background";
 import { Toaster } from "@/components/Toaster";
 import "@/styles/globals.css";
 import "@/design/colors_and_type.css";
@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${manrope.variable} ${mono.variable}`}>
       <body className="min-h-dvh antialiased">
-        <GradientBackground />
+        <Background />
         {children}
         <Toaster />
       </body>

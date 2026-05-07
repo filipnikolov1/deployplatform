@@ -204,3 +204,11 @@ input, textarea, select, button {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ── cmdk command palette item highlight ── */
+[cmdk-item][data-selected="true"] {
+  background: #1C1C24; /* M.surface3 */
+}
+[cmdk-item][data-selected="true"] svg {
+  color: #F5F5F7; /* M.fg */
+}
