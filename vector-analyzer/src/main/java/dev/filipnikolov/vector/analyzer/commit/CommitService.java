@@ -2,7 +2,6 @@ package dev.filipnikolov.vector.analyzer.commit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -98,28 +97,38 @@ public class CommitService {
         return result;
     }
 
-    /** Diff of sha vs its predecessor, fetched from GitHub and cached. */
+    /** Diff of sha vs its git parent. Falls back to the timeline-time predecessor
+     *  only when the git parent is unknown (e.g., commit not in commit_cache and
+     *  GitHub is unreachable). */
     public Map<String, Object> getCommitDiff(String appName, String sha) {
         String slug = repoSlugResolver.resolveForApp(appName);
         if (slug == null || slug.isBlank()) {
             return Map.of("available", false, "reason", "no repo configured");
         }
 
-        // Find the previous timeline event's commit SHA for this app.
-        List<Map<String, Object>> prior = jdbc.queryForList(
-                """
-                SELECT commit_sha FROM analyzer.timeline_event
-                WHERE app_name = ? AND event_type IN ('DEPLOY', 'COMMIT') AND commit_sha IS NOT NULL AND commit_sha != ?
-                  AND occurred_at < COALESCE((
-                      SELECT MIN(occurred_at) FROM analyzer.timeline_event
-                      WHERE app_name = ? AND commit_sha = ? AND event_type IN ('DEPLOY', 'COMMIT')
-                  ), NOW())
-                ORDER BY occurred_at DESC
-                LIMIT 1
-                """,
-                appName, sha, appName, sha);
+        // Prefer the actual git parent — it's the truth for "what did this commit change".
+        String baseSha = github.fetchParentSha(slug, sha);
 
-        String baseSha = prior.isEmpty() ? findParentSha(slug, sha) : (String) prior.get(0).get("commit_sha");
+        if (baseSha == null || baseSha.isBlank()) {
+            // Fallback: most recent prior timeline event for this app. Useful when
+            // the commit isn't in commit_cache and GitHub is unreachable.
+            List<Map<String, Object>> prior = jdbc.queryForList(
+                    """
+                    SELECT commit_sha FROM analyzer.timeline_event
+                    WHERE app_name = ? AND event_type IN ('DEPLOY', 'COMMIT') AND commit_sha IS NOT NULL AND commit_sha != ?
+                      AND occurred_at < COALESCE((
+                          SELECT MIN(occurred_at) FROM analyzer.timeline_event
+                          WHERE app_name = ? AND commit_sha = ? AND event_type IN ('DEPLOY', 'COMMIT')
+                      ), NOW())
+                    ORDER BY occurred_at DESC
+                    LIMIT 1
+                    """,
+                    appName, sha, appName, sha);
+            if (!prior.isEmpty()) {
+                baseSha = (String) prior.get(0).get("commit_sha");
+            }
+        }
+
         if (baseSha == null || baseSha.isBlank()) {
             return Map.of("available", false, "reason", "no previous commit found");
         }
@@ -172,15 +181,4 @@ public class CommitService {
         return result;
     }
 
-    private String findParentSha(String slug, String sha) {
-        try {
-            List<Map<String, Object>> rows = jdbc.queryForList(
-                    "SELECT parent_sha FROM analyzer.commit_cache WHERE repo_full_name = ? AND sha = ? AND parent_sha IS NOT NULL",
-                    slug, sha);
-            return rows.isEmpty() ? null : (String) rows.get(0).get("parent_sha");
-        } catch (DataAccessException e) {
-            log.debug("commit_cache parent_sha unavailable for {}/{}: {}", slug, sha, e.getMessage());
-            return null;
-        }
-    }
 }

@@ -1,6 +1,8 @@
 package dev.filipnikolov.vector.analyzer.commit;
 
 import dev.filipnikolov.vector.github.client.GitHubClient;
+import dev.filipnikolov.vector.github.commit.CommitFetcher;
+import dev.filipnikolov.vector.github.commit.CommitMetadata;
 import dev.filipnikolov.vector.github.diff.DiffFetcher;
 import dev.filipnikolov.vector.github.files.FileFetcher;
 import dev.filipnikolov.vector.github.files.FileFetcher.FileContent;
@@ -11,6 +13,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +35,7 @@ public class GitHubCacheService {
     private final String token;
     private final DiffFetcher diffFetcher;
     private final FileFetcher fileFetcher;
+    private final CommitFetcher commitFetcher;
 
     public GitHubCacheService(JdbcTemplate jdbc,
                                @Value("${github.token:}") String token) {
@@ -40,6 +45,7 @@ public class GitHubCacheService {
         GitHubClient client = new GitHubClient(token);
         this.diffFetcher = new DiffFetcher(client);
         this.fileFetcher = new FileFetcher(client);
+        this.commitFetcher = new CommitFetcher(client);
     }
 
     /**
@@ -126,6 +132,55 @@ public class GitHubCacheService {
         result.put("name", fc.name());
         result.put("path", fc.path());
         return result;
+    }
+
+    /**
+     * Returns the git parent SHA of {@code sha}. Cache-first: hits
+     * {@code analyzer.commit_cache} (accepts short or full SHAs); on miss falls
+     * back to GitHub via {@link CommitFetcher} and backfills the cache.
+     * Returns {@code null} if the commit has no parent (root commit) or is unreachable.
+     */
+    public String fetchParentSha(String slug, String sha) {
+        if (sha == null || sha.isBlank()) return null;
+
+        try {
+            String pattern = sha.length() < 40 ? sha + "%" : sha;
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT parent_sha FROM analyzer.commit_cache WHERE repo_full_name = ? AND sha LIKE ? AND parent_sha IS NOT NULL LIMIT 1",
+                    slug, pattern);
+            if (!rows.isEmpty()) {
+                return (String) rows.get(0).get("parent_sha");
+            }
+        } catch (Exception e) {
+            log.debug("commit_cache parent lookup failed for {}/{}: {}", slug, sha, e.getMessage());
+        }
+
+        if (token == null || token.isBlank()) return null;
+        RepoSlug repoSlug = parseSlug(slug);
+        if (repoSlug == null) return null;
+
+        Optional<CommitMetadata> commit = commitFetcher.getOne(repoSlug, sha);
+        if (commit.isEmpty()) return null;
+        CommitMetadata m = commit.get();
+
+        try {
+            LocalDateTime authoredAt = m.authoredAt() != null
+                    ? LocalDateTime.ofInstant(m.authoredAt(), ZoneOffset.UTC)
+                    : null;
+            jdbc.update("""
+                    INSERT INTO analyzer.commit_cache (repo_full_name, sha, parent_sha, author, authored_at, message)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (repo_full_name, sha) DO UPDATE
+                        SET parent_sha  = COALESCE(analyzer.commit_cache.parent_sha,  EXCLUDED.parent_sha),
+                            author      = COALESCE(analyzer.commit_cache.author,      EXCLUDED.author),
+                            authored_at = COALESCE(analyzer.commit_cache.authored_at, EXCLUDED.authored_at),
+                            message     = COALESCE(analyzer.commit_cache.message,     EXCLUDED.message)
+                    """,
+                    slug, m.sha(), m.parentSha(), m.author(), authoredAt, m.message());
+        } catch (Exception e) {
+            log.debug("commit_cache backfill failed for {}/{}: {}", slug, sha, e.getMessage());
+        }
+        return m.parentSha();
     }
 
     // ---- helpers ----
