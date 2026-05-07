@@ -2,6 +2,7 @@ package dev.filipnikolov.vector.analyzer.timeline;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -16,10 +17,12 @@ public class TimelineController {
 
     private final TimelineEventService service;
     private final TimelineEventRepository repo;
+    private final JdbcTemplate jdbc;
 
-    public TimelineController(TimelineEventService service, TimelineEventRepository repo) {
+    public TimelineController(TimelineEventService service, TimelineEventRepository repo, JdbcTemplate jdbc) {
         this.service = service;
         this.repo = repo;
+        this.jdbc = jdbc;
     }
 
     @GetMapping("/timeline")
@@ -85,5 +88,112 @@ public class TimelineController {
                 .toList();
 
         return ResponseEntity.ok(events);
+    }
+
+    /**
+     * GET /api/analyzer/apps/{appName}/uptime?days=30
+     * Returns { percent, uptimeMs, downtimeMs } computed from deployment_event transitions
+     * over the last N days. Considers the app RUNNING after a DEPLOY_FINISHED SUCCESS,
+     * and DOWN after CRASHED / RESTARTED / STOPPED events.
+     */
+    @GetMapping("/uptime")
+    public ResponseEntity<Map<String, Object>> uptime(
+            @PathVariable String appName,
+            @RequestParam(defaultValue = "30") int days) {
+
+        LocalDateTime since = LocalDateTime.now().minusDays(days);
+        LocalDateTime now = LocalDateTime.now();
+
+        // Fetch all relevant events ordered by time ascending
+        String sql = """
+                SELECT event_type, status, created_at
+                FROM public.deployment_event
+                WHERE app_name = ?
+                  AND created_at >= ?
+                  AND event_type IN ('DEPLOY_FINISHED','CRASHED','RESTARTED','STOPPED')
+                ORDER BY created_at ASC
+                """;
+
+        List<Map<String, Object>> rows = jdbc.queryForList(sql, appName, since);
+
+        long windowMs = java.time.Duration.between(since, now).toMillis();
+        long uptimeMs = 0L;
+
+        // Walk transitions: track when app entered RUNNING state
+        Long runningStart = null;
+
+        for (Map<String, Object> row : rows) {
+            String type = row.get("event_type").toString();
+            String status = row.get("status") != null ? row.get("status").toString() : "";
+            java.time.LocalDateTime ts = toLocalDt(row.get("created_at"));
+            long epochMs = ts.toInstant(java.time.ZoneOffset.UTC).toEpochMilli();
+
+            boolean becomesRunning = "DEPLOY_FINISHED".equals(type) && "SUCCESS".equals(status);
+            boolean becomesDown = "CRASHED".equals(type) || "RESTARTED".equals(type) || "STOPPED".equals(type);
+
+            if (becomesRunning) {
+                runningStart = epochMs;
+            } else if (becomesDown && runningStart != null) {
+                uptimeMs += (epochMs - runningStart);
+                runningStart = null;
+            }
+        }
+
+        // If still running at end of window, count remaining time
+        if (runningStart != null) {
+            long nowMs = now.toInstant(java.time.ZoneOffset.UTC).toEpochMilli();
+            uptimeMs += (nowMs - runningStart);
+        }
+
+        uptimeMs = Math.min(uptimeMs, windowMs);
+        long downtimeMs = Math.max(0, windowMs - uptimeMs);
+        double percent = windowMs > 0 ? Math.round((uptimeMs * 1000.0 / windowMs)) / 10.0 : 0.0;
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("percent", percent);
+        result.put("uptimeMs", uptimeMs);
+        result.put("downtimeMs", downtimeMs);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /api/analyzer/apps/{appName}/avg-pull?days=30
+     * Returns { avgMs, count } computed as AVG(duration_ms) over DEPLOY_FINISHED SUCCESS events.
+     */
+    @GetMapping("/avg-pull")
+    public ResponseEntity<Map<String, Object>> avgPull(
+            @PathVariable String appName,
+            @RequestParam(defaultValue = "30") int days) {
+
+        LocalDateTime since = LocalDateTime.now().minusDays(days);
+
+        String sql = """
+                SELECT AVG(duration_ms) AS avg_ms, COUNT(*) AS cnt
+                FROM public.deployment_event
+                WHERE app_name = ?
+                  AND event_type = 'DEPLOY_FINISHED'
+                  AND status = 'SUCCESS'
+                  AND duration_ms IS NOT NULL
+                  AND created_at >= ?
+                """;
+
+        Map<String, Object> row = jdbc.queryForMap(sql, appName, since);
+        Object avgRaw = row.get("avg_ms");
+        Object cntRaw = row.get("cnt");
+
+        long avgMs = avgRaw != null ? ((Number) avgRaw).longValue() : 0L;
+        long count = cntRaw != null ? ((Number) cntRaw).longValue() : 0L;
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("avgMs", avgMs);
+        result.put("count", count);
+        return ResponseEntity.ok(result);
+    }
+
+    private static java.time.LocalDateTime toLocalDt(Object value) {
+        if (value instanceof java.time.LocalDateTime ldt) return ldt;
+        if (value instanceof java.sql.Timestamp ts) return ts.toLocalDateTime();
+        return java.time.LocalDateTime.parse(value.toString(),
+                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"));
     }
 }

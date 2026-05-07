@@ -2,13 +2,12 @@
 
 import { useEffect } from "react";
 import { useEvents } from "@/hooks/useEvents";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "@/lib/toast";
 
 const STORAGE_KEY = "vector:lastSeenUpdateAt";
 
 export function useUpdateAvailableNotifier() {
   const { events } = useEvents({ limit: 10 });
-  const toast = useToast();
 
   useEffect(() => {
     const lastSeen = Number(localStorage.getItem(STORAGE_KEY) ?? 0);
@@ -18,8 +17,8 @@ export function useUpdateAvailableNotifier() {
     if (!newest) return;
 
     toast.info(`Update available for ${newest.appName}`, {
-      durationMs: 8000,
+      duration: 8000,
     });
     localStorage.setItem(STORAGE_KEY, String(Date.now()));
-  }, [events, toast]);
+  }, [events]);
 }

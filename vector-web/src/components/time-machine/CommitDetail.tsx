@@ -12,7 +12,7 @@ import { VirtualizedLogViewer } from "./VirtualizedLogViewer";
 import { DiffViewer } from "./DiffViewer";
 import { FileViewer } from "./FileViewer";
 import { RollbackModal } from "./RollbackModal";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "@/lib/toast";
 import { LoadingPanelState, PanelState } from "./PanelState";
 import type { RecentDeploy } from "@/types/analyzer";
 
@@ -50,7 +50,6 @@ export function CommitDetail({
   const [showRollbackModal, setShowRollbackModal] = useState(false);
   const [rollingBack, setRollingBack] = useState(false);
   const [pinned, setPinned] = useState(!!pinnedImage);
-  const toast = useToast();
 
   const { commit, isLoading: commitLoading, error: commitError } = useCommitDetail(appName, sha);
   const { logs, isLoading: logsLoading, error: logsError } = useCommitLogs(appName, sha);

@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "@/lib/toast";
 import type { UserPreferences } from "@/types/vector";
 
 function Toggle({
@@ -110,7 +110,6 @@ function SettingsCard({ title, description, children }: { title: string; descrip
 
 export function PreferencesForm() {
   const { prefs, update } = usePreferences();
-  const toast = useToast();
 
   const save = async (patch: Partial<UserPreferences>) => {
     try {

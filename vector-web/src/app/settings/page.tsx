@@ -1,14 +1,12 @@
 "use client";
 
 import { AppShell } from "@/components/shell/AppShell";
-import { ToastProvider } from "@/hooks/useToast";
 import { PreferencesForm } from "@/components/settings/PreferencesForm";
 
 export default function SettingsPage() {
   return (
-    <ToastProvider>
-      <AppShell>
-        <div className="flex flex-col">
+    <AppShell>
+      <div className="flex flex-col">
           {/* Page header */}
           <div
             className="flex items-end justify-between gap-4 pb-5 mb-6 flex-wrap"
@@ -31,7 +29,6 @@ export default function SettingsPage() {
             <PreferencesForm />
           </div>
         </div>
-      </AppShell>
-    </ToastProvider>
+    </AppShell>
   );
 }

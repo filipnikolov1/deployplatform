@@ -1,7 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { AppCard } from "@/components/dashboard/AppCard";
+import { AppsTable } from "@/components/dashboard/AppsTable";
 import type { Deployment } from "@/types/deployment";
+
+// Mock next/navigation for the router used in AppsTable
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 const app: Deployment = {
   id: 1,
@@ -14,28 +21,20 @@ const app: Deployment = {
   updatedAt: new Date(Date.now() - 60_000).toISOString(),
 };
 
-describe("AppCard", () => {
-  it("shows name, image, port, and a status label", () => {
-    render(<AppCard app={app} onOpen={() => {}} />);
+describe("AppsTable (replaces AppCard)", () => {
+  it("shows app name and image in the table", () => {
+    render(<AppsTable apps={[app]} events={[]} />);
     expect(screen.getByText("demo-api")).toBeInTheDocument();
     expect(screen.getByText(/me\/demo-api:latest/)).toBeInTheDocument();
-    expect(screen.getByText(/3000/)).toBeInTheDocument();
-    expect(screen.getByText("Running")).toBeInTheDocument();
   });
 
-  it("calls onOpen with the appName when clicked", () => {
-    const onOpen = vi.fn();
-    render(<AppCard app={app} onOpen={onOpen} />);
-    fireEvent.click(screen.getByRole("button", { name: /demo-api/i }));
-    expect(onOpen).toHaveBeenCalledWith("demo-api");
+  it("shows port in table row", () => {
+    render(<AppsTable apps={[app]} events={[]} />);
+    expect(screen.getByText(/:3000/)).toBeInTheDocument();
   });
 
-  it("is keyboard-activatable via Enter", () => {
-    const onOpen = vi.fn();
-    render(<AppCard app={app} onOpen={onOpen} />);
-    const card = screen.getByRole("button", { name: /demo-api/i });
-    card.focus();
-    fireEvent.keyDown(card, { key: "Enter" });
-    expect(onOpen).toHaveBeenCalledWith("demo-api");
+  it("renders an empty message when no apps", () => {
+    render(<AppsTable apps={[]} events={[]} />);
+    expect(screen.getByText(/No apps match/i)).toBeInTheDocument();
   });
 });

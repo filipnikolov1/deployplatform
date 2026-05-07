@@ -1,0 +1,7 @@
+# TODO: Replace this stub with your actual Dockerfile
+FROM alpine:3.20
+WORKDIR /app
+COPY . .
+EXPOSE 3000
+# TODO: Add your build steps and CMD here
+CMD ["echo", "Replace me"]
