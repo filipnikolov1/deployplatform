@@ -4,6 +4,7 @@ WORKDIR /src
 COPY pom.xml .
 COPY vector-events/ vector-events/
 COPY vector-ai/ vector-ai/
+COPY vector-github/ vector-github/
 COPY vector-api/ vector-api/
 COPY vector-analyzer/ vector-analyzer/
 RUN mvn -pl vector-analyzer -am clean package -DskipTests -q
