@@ -17,6 +17,14 @@ public interface DeploymentEventService {
                            Long durationMs,
                            String errorMessage);
 
+    DeploymentEvent record(DeploymentEventType type,
+                           DeploymentEventStatus status,
+                           String appName,
+                           CreateDeploymentRequest ctx,
+                           Long durationMs,
+                           String errorMessage,
+                           String operationId);
+
     List<DeploymentEvent> listForApp(String appName, int limit);
 
     List<DeploymentEvent> listGlobal(int limit);

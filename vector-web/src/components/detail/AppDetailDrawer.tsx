@@ -32,6 +32,8 @@ import { useEvents } from "@/hooks/useEvents";
 import { useContainerStats } from "@/hooks/useContainerStats";
 import { useCommitsAhead } from "@/hooks/useCommitsAhead";
 import { useSelfAppPending } from "@/hooks/useSelfAppPending";
+import { useOperationProgress } from "@/hooks/useOperationProgress";
+import type { DeploymentEventType } from "@/types/vector";
 import { Loader2 } from "lucide-react";
 import { BuildLogViewer } from "./BuildLogViewer";
 import { EnvVarsTab } from "./EnvVarsTab";
@@ -129,6 +131,32 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
   );
   const toast = useToast();
   const { mutate } = useSWRConfig();
+
+  const drawerActiveOperationId = (() => {
+    if (events.length === 0) return null;
+    const latestEvent = events[0];
+    if (!latestEvent.operationId) return null;
+    const DRAWER_IN_PROGRESS = new Set<DeploymentEventType>([
+      "DEPLOY_TRIGGERED",
+      "PULL_STARTED",
+      "CONTAINER_CREATING",
+      "CONTAINER_STARTED",
+    ]);
+    const DRAWER_TERMINAL = new Set<DeploymentEventType>([
+      "DEPLOY_FINISHED",
+      "HEALTH_OK",
+      "FAILED",
+    ]);
+    if (!DRAWER_IN_PROGRESS.has(latestEvent.eventType)) return null;
+    const opId = latestEvent.operationId;
+    const hasTerminal = events.some(
+      (e) => e.operationId === opId && DRAWER_TERMINAL.has(e.eventType),
+    );
+    if (hasTerminal) return null;
+    return opId;
+  })();
+
+  const drawerProgress = useOperationProgress(drawerActiveOperationId);
 
   useEffect(() => {
     if (pending) setUpdating(false);
@@ -332,6 +360,17 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
                   <X className="h-4 w-4" />
                 </button>
               </div>
+
+              {/* ── Deploy progress bar ── */}
+              {drawerActiveOperationId && (
+                <div className="mt-2">
+                  <DrawerProgressBar
+                    percent={drawerProgress.percent}
+                    message={drawerProgress.message}
+                    stage={drawerProgress.stage}
+                  />
+                </div>
+              )}
 
               {/* ── Info grid ── */}
               {(() => {
@@ -828,5 +867,57 @@ function ActionButton({
       )}
       {children}
     </button>
+  );
+}
+
+const drawerStageLabelMap: Record<string, string> = {
+  PULL_LAYER: "Pulling image…",
+  CONTAINER_CREATE: "Creating container…",
+  CONTAINER_START: "Starting container…",
+  HEALTH_PROBE: "Checking health…",
+  UPDATER_RECREATE: "Restarting updater…",
+  UPDATER_BOOT: "Booting updater…",
+};
+
+function DrawerProgressBar({
+  percent,
+  message,
+  stage,
+}: {
+  percent: number | null;
+  message: string | null;
+  stage: string | null;
+}) {
+  const label = message ?? (stage ? drawerStageLabelMap[stage] ?? stage : "Deploying…");
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <span className="text-[11px]" style={{ color: "var(--c-fg-3)" }}>{label}</span>
+        {percent !== null && (
+          <span className="text-[11px] tabular-nums shrink-0" style={{ color: "var(--c-fg-3)" }}>
+            {percent}%
+          </span>
+        )}
+      </div>
+      <div
+        className="h-1 w-full rounded-full overflow-hidden"
+        style={{ background: "var(--c-border-1)" }}
+      >
+        {percent !== null ? (
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${percent}%`, background: "var(--c-accent-fg)" }}
+          />
+        ) : (
+          <div
+            className="h-full w-1/3 rounded-full"
+            style={{
+              background: "var(--c-accent-fg)",
+              animation: "lp-indeterminate 1.4s ease-in-out infinite",
+            }}
+          />
+        )}
+      </div>
+    </div>
   );
 }

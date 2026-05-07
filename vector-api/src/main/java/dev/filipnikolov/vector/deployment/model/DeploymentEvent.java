@@ -11,7 +11,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "deployment_event", indexes = {
         @Index(name = "idx_app_created", columnList = "appName, createdAt DESC"),
-        @Index(name = "idx_created", columnList = "createdAt DESC")
+        @Index(name = "idx_created", columnList = "createdAt DESC"),
+        @Index(name = "idx_operation_id", columnList = "operationId")
 })
 @Data
 public class DeploymentEvent {
@@ -62,4 +63,7 @@ public class DeploymentEvent {
 
     @Column(length = 64)
     private String rollbackFromSha;
+
+    @Column(length = 36)
+    private String operationId;
 }

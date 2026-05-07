@@ -27,12 +27,24 @@ public class DeploymentEventServiceImpl implements DeploymentEventService {
                                   CreateDeploymentRequest ctx,
                                   Long durationMs,
                                   String errorMessage) {
+        return record(type, status, appName, ctx, durationMs, errorMessage, null);
+    }
+
+    @Override
+    public DeploymentEvent record(DeploymentEventType type,
+                                  DeploymentEventStatus status,
+                                  String appName,
+                                  CreateDeploymentRequest ctx,
+                                  Long durationMs,
+                                  String errorMessage,
+                                  String operationId) {
         DeploymentEvent e = new DeploymentEvent();
         e.setAppName(appName);
         e.setEventType(type);
         e.setStatus(status);
         e.setDurationMs(durationMs);
         e.setErrorMessage(errorMessage);
+        e.setOperationId(operationId);
         e.setCreatedAt(LocalDateTime.now());
         if (status != DeploymentEventStatus.IN_PROGRESS) {
             e.setFinishedAt(LocalDateTime.now());

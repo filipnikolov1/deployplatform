@@ -9,6 +9,7 @@ export interface OverlayView {
   phase: OverlayPhase;
   updatePhase: SelfUpdatePhase | null;
   targetSha: string | null;
+  operationId: string | null;
 }
 
 interface CachedPending {
@@ -135,6 +136,7 @@ export function useUpdatingOverlay({
   const cached = phase === "idle" ? null : readCache(cacheKey, cacheTtlMs);
   const updatePhase = pending?.phase ?? cached?.phase ?? null;
   const targetSha = pending?.targetSha ?? cached?.targetSha ?? null;
+  const operationId = pending?.operationId ?? null;
 
-  return { phase, updatePhase, targetSha };
+  return { phase, updatePhase, targetSha, operationId };
 }

@@ -62,6 +62,11 @@ public class DeployHookController {
             return ResponseEntity.status(401).build();
         }
 
+        if (!deployHookAuthService.registerSignatureOnce(signature)) {
+            log.warn("Duplicate deploy-hook request rejected (replay protection)");
+            return ResponseEntity.status(409).body(Map.of("error", "duplicate request"));
+        }
+
         Map<String, Object> payload = parsePayload(rawBody);
 
         if (!payload.containsKey("timestamp")) {

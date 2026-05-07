@@ -11,6 +11,7 @@ export interface PendingSelfUpdate {
   targetSha: string;
   targetImage: string;
   triggeredAt: string;
+  operationId: string;
 }
 
 const fetcher = async (url: string): Promise<PendingSelfUpdate | null> => {

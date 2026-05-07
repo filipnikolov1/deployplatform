@@ -19,6 +19,7 @@ public record DeploymentEventDto(
         Long durationMs,
         String errorMessage,
         TriggerSource triggeredBy,
+        String rollbackFromSha,
         LocalDateTime createdAt,
         LocalDateTime finishedAt,
         Boolean availableLocally

@@ -10,9 +10,25 @@ import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useCommitsAhead } from "@/hooks/useCommitsAhead";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useToast } from "@/hooks/useToast";
+import { useEvents } from "@/hooks/useEvents";
+import { useOperationProgress } from "@/hooks/useOperationProgress";
 import { getDisplayImageName } from "@/lib/image-display";
 import { statusConfig, toAppStatus } from "@/lib/statusConfig";
 import type { Deployment } from "@/types/deployment";
+import type { DeploymentEventType } from "@/types/vector";
+
+const IN_PROGRESS_TYPES = new Set<DeploymentEventType>([
+  "DEPLOY_TRIGGERED",
+  "PULL_STARTED",
+  "CONTAINER_CREATING",
+  "CONTAINER_STARTED",
+]);
+
+const TERMINAL_TYPES = new Set<DeploymentEventType>([
+  "DEPLOY_FINISHED",
+  "HEALTH_OK",
+  "FAILED",
+]);
 
 interface Props {
   app: Deployment;
@@ -35,6 +51,25 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
   const trigger = () => onOpen(app.appName);
   const isPinned = prefs.pinned_apps.includes(app.appName);
   const branchLabel = app.branch ?? null;
+
+  // Detect in-progress operation for this app
+  const { events } = useEvents({ appName: app.appName, limit: 10 });
+  const activeOperationId = (() => {
+    if (events.length === 0) return null;
+    const latestEvent = events[0];
+    if (!latestEvent.operationId) return null;
+    if (!IN_PROGRESS_TYPES.has(latestEvent.eventType)) return null;
+    // Check that no terminal event exists for the same operationId
+    const opId = latestEvent.operationId;
+    const hasTerminal = events.some(
+      (e) => e.operationId === opId && TERMINAL_TYPES.has(e.eventType),
+    );
+    if (hasTerminal) return null;
+    return opId;
+  })();
+
+  const { stage, message, percent } = useOperationProgress(activeOperationId);
+  const isDeploying = activeOperationId !== null;
 
   const closeMenu = () => setMenuOpen(false);
 
@@ -262,6 +297,11 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
               {commitsAhead.count} ahead
             </a>
           )}
+          {isDeploying && (
+            <div className="w-full mt-1">
+              <OperationProgressBar percent={percent} message={message} stage={stage} />
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -271,6 +311,12 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
             <Icon className="h-3 w-3" />
             {config.label}
           </div>
+
+          {isDeploying && (
+            <div className="mt-3">
+              <OperationProgressBar percent={percent} message={message} stage={stage} />
+            </div>
+          )}
 
           <div className="flex items-center justify-between gap-2 pt-3 pb-3 border-t border-white/[0.08] mt-3">
             <span className="text-xs text-slate-400 truncate font-mono">
@@ -335,3 +381,47 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
     </motion.article>
   );
 }
+
+function OperationProgressBar({
+  percent,
+  message,
+  stage,
+}: {
+  percent: number | null;
+  message: string | null;
+  stage: string | null;
+}) {
+  const label = message ?? (stage ? stageLabelMap[stage] ?? stage : "Deploying…");
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <span className="text-[10px] text-slate-400 truncate">{label}</span>
+        {percent !== null && (
+          <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{percent}%</span>
+        )}
+      </div>
+      <div className="h-1 w-full rounded-full overflow-hidden bg-white/[0.08]">
+        {percent !== null ? (
+          <div
+            className="h-full rounded-full bg-violet-400/70 transition-all duration-300"
+            style={{ width: `${percent}%` }}
+          />
+        ) : (
+          <div
+            className="h-full w-1/3 rounded-full bg-violet-400/50"
+            style={{ animation: "lp-indeterminate 1.4s ease-in-out infinite" }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+const stageLabelMap: Record<string, string> = {
+  PULL_LAYER: "Pulling image…",
+  CONTAINER_CREATE: "Creating container…",
+  CONTAINER_START: "Starting container…",
+  HEALTH_PROBE: "Checking health…",
+  UPDATER_RECREATE: "Restarting updater…",
+  UPDATER_BOOT: "Booting updater…",
+};

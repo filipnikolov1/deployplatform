@@ -95,7 +95,10 @@ public class PostgresEventListener {
                 PGNotification[] notifications = conn.unwrap(PGConnection.class).getNotifications();
                 if (notifications != null) {
                     for (PGNotification n : notifications) {
-                        timelineEventService.processNotification(n.getParameter());
+                        String payload = n.getParameter();
+                        TimelineEventService.ProcessedDeploymentEvent event =
+                                timelineEventService.processNotification(payload);
+                        maybeRestartLogTail(event);
                     }
                 }
                 Thread.sleep(500);
@@ -124,6 +127,15 @@ public class PostgresEventListener {
     private void closeQuietly(Connection conn) {
         if (conn != null) {
             try { conn.close(); } catch (Exception ignored) {}
+        }
+    }
+
+    void maybeRestartLogTail(TimelineEventService.ProcessedDeploymentEvent event) {
+        if (event == null || event.appName() == null || !"SUCCESS".equals(event.status())) return;
+        if ("DEPLOY_FINISHED".equals(event.eventType())
+                || "RESTARTED".equals(event.eventType())
+                || "MANUAL_ROLLBACK".equals(event.eventType())) {
+            logTailService.onDeployFinished(event.appName());
         }
     }
 }

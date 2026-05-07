@@ -19,6 +19,12 @@ public class SecurityConfig {
     @Value("${app.api-key:}")
     private String apiKey;
 
+    private final RateLimitFilter rateLimitFilter;
+
+    public SecurityConfig(RateLimitFilter rateLimitFilter) {
+        this.rateLimitFilter = rateLimitFilter;
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -42,9 +48,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    public FilterRegistrationBean<RateLimitFilter> rateLimitFilter() {
+    public FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration() {
         FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new RateLimitFilter());
+        registration.setFilter(rateLimitFilter);
         registration.addUrlPatterns("/*");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return registration;

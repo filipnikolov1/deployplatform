@@ -81,6 +81,7 @@ public class AnalysisGeneratorService {
             return;
         }
         CrashAnalysis a = opt.get();
+        markPending(crashAnalysisId, a);
 
         if (!aiProvider.isAvailable()) {
             log.info("AI provider unavailable — marking crash_analysis id={} UNAVAILABLE", crashAnalysisId);
@@ -123,6 +124,21 @@ public class AnalysisGeneratorService {
             log.error("Unexpected AI generation error for crash_analysis id={}", crashAnalysisId, e);
             markUnavailable(crashAnalysisId, "unexpected error: " + e.getMessage(), isRegeneration, a);
         }
+    }
+
+    private void markPending(long crashAnalysisId, CrashAnalysis a) {
+        jdbc.update("""
+                        UPDATE analyzer.crash_analysis
+                           SET ai_narration_status = ?,
+                               ai_failure_reason = NULL
+                         WHERE id = ?
+                        """,
+                STATUS_PENDING, crashAnalysisId);
+        broadcaster.publish(a.getAppName(), "narrationStarted", Map.of(
+                "crashId", a.getCrashEventId(),
+                "analysisId", crashAnalysisId,
+                "status", STATUS_PENDING
+        ));
     }
 
     private void markUnavailable(long crashAnalysisId, String reason, boolean isRegeneration, CrashAnalysis a) {

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -28,7 +29,7 @@ class DeploymentTransactionHelper {
     private int defaultContainerPort;
 
     @Transactional
-    Deployment preCreate(CreateDeploymentRequest req) {
+    LifecycleStart preCreate(CreateDeploymentRequest req) {
         Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(req.appName())
                 .orElseGet(() -> {
                     Deployment d = new Deployment();
@@ -51,16 +52,18 @@ class DeploymentTransactionHelper {
         deployment.setUpdatedAt(LocalDateTime.now());
         deploymentRepository.save(deployment);
 
+        String operationId = UUID.randomUUID().toString();
         eventService.record(DeploymentEventType.DEPLOY_TRIGGERED, DeploymentEventStatus.IN_PROGRESS,
-                req.appName(), req, null, null);
+                req.appName(), req, null, null, operationId);
         eventService.record(DeploymentEventType.DEPLOY_STARTED, DeploymentEventStatus.IN_PROGRESS,
-                req.appName(), req, null, null);
-        return deployment;
+                req.appName(), req, null, null, operationId);
+        return new LifecycleStart(deployment, operationId);
     }
 
     @Transactional
     void postCreate(String appName, DeploymentStatus status,
-                    CreateDeploymentRequest req, long durationMs, String error) {
+                    CreateDeploymentRequest req, long durationMs, String error,
+                    String operationId) {
         Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
                 .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
         deployment.setStatus(status);
@@ -73,26 +76,28 @@ class DeploymentTransactionHelper {
 
         if (status == DeploymentStatus.RUNNING) {
             eventService.record(DeploymentEventType.DEPLOY_FINISHED, DeploymentEventStatus.SUCCESS,
-                    appName, req, durationMs, null);
+                    appName, req, durationMs, null, operationId);
         } else {
             eventService.record(DeploymentEventType.FAILED, DeploymentEventStatus.FAILURE,
-                    appName, req, durationMs, error);
+                    appName, req, durationMs, error, operationId);
             notificationService.sendDeployFailedAlert(appName);
         }
     }
 
     @Transactional
-    Deployment preRestart(String appName) {
+    LifecycleStart preRestart(String appName) {
         Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
                 .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
         deployment.setStatus(DeploymentStatus.PENDING);
         deployment.setUpdatedAt(LocalDateTime.now());
-        return deploymentRepository.save(deployment);
+        Deployment saved = deploymentRepository.save(deployment);
+        return new LifecycleStart(saved, UUID.randomUUID().toString());
     }
 
     @Transactional
     Deployment postRestart(String appName, DeploymentStatus status,
-                           CreateDeploymentRequest ctx, long durationMs, String error) {
+                           CreateDeploymentRequest ctx, long durationMs, String error,
+                           String operationId) {
         Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
                 .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
         deployment.setStatus(status);
@@ -101,9 +106,11 @@ class DeploymentTransactionHelper {
 
         eventService.record(DeploymentEventType.RESTARTED,
                 status == DeploymentStatus.RUNNING ? DeploymentEventStatus.SUCCESS : DeploymentEventStatus.FAILURE,
-                appName, ctx, durationMs, error);
+                appName, ctx, durationMs, error, operationId);
         return deployment;
     }
+
+    record LifecycleStart(Deployment deployment, String operationId) {}
 
     @Transactional
     Deployment saveSubdomainChange(String appName, String subdomain) {

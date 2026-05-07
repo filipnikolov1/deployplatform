@@ -1,5 +1,7 @@
 package dev.filipnikolov.vector.docker.service;
 
+import dev.filipnikolov.vector.progress.ProgressFrame;
+
 import java.io.Closeable;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -24,6 +26,8 @@ public interface DockerService {
      * @throws InterruptedException if the pull operation is interrupted
      */
     String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars) throws InterruptedException;
+
+    String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars, Consumer<ProgressFrame> progressCallback) throws InterruptedException;
 
     /**
      * Stops and removes a container by name. Silently ignores if the container
