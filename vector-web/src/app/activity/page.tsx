@@ -1,132 +1,138 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+/**
+ * Activity page — F4
+ *
+ * Shows every deploy, restart, and crash across the workspace, newest first.
+ * Filter pills (All / Deploys / Failures) morph via layoutId animation.
+ * Deploy operations collapse into one row with a live mini-stepper.
+ * SSE-arrived rows animate in from the top with reflow.
+ */
+
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
+import { PageHeader } from "@/design/primitives/PageHeader";
+import { FilterPills } from "@/components/activity/FilterPills";
+import { EventList } from "@/components/activity/EventList";
 import { useEvents } from "@/hooks/useEvents";
-import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
-import { EmptyState } from "@/components/dashboard/EmptyState";
-import { Button } from "@/components/primitives/Button";
-import type { DeploymentEventType } from "@/types/vector";
+import type { DeploymentEvent, DeploymentEventType } from "@/types/vector";
+import type { ActivityFilter } from "@/components/activity/FilterPills";
 
-type FilterKey =
-  | "all"
-  | "deploys"
-  | "builds"
-  | "failures"
-  | "rollbacks"
-  | "updates"
-  | "ignored";
+// ── Filter logic ─────────────────────────────────────────────────────────────
 
-const filterMap: Record<FilterKey, DeploymentEventType[] | null> = {
-  all: null,
-  deploys: ["DEPLOY_TRIGGERED", "DEPLOY_STARTED", "DEPLOY_FINISHED"],
-  builds: ["BUILD_STARTED", "BUILD_FINISHED"],
-  failures: ["FAILED", "CRASHED"],
-  rollbacks: ["MANUAL_ROLLBACK", "PIN_RELEASED"],
-  updates: ["UPDATE_AVAILABLE", "UPDATE_TRIGGERED", "UPDATE_SUCCESS", "UPDATE_FAILED", "SELF_APP_BOOTSTRAPPED"],
-  ignored: ["WEBHOOK_IGNORED"],
-};
+const DEPLOY_TYPES = new Set<DeploymentEventType>([
+  "DEPLOY_TRIGGERED",
+  "DEPLOY_STARTED",
+  "PULL_STARTED",
+  "PULL_FINISHED",
+  "CONTAINER_CREATING",
+  "CONTAINER_STARTED",
+  "BUILD_STARTED",
+  "BUILD_FINISHED",
+  "DEPLOY_FINISHED",
+  "HEALTH_OK",
+  "MANUAL_ROLLBACK",
+]);
 
-const FILTER_LABELS: Record<FilterKey, string> = {
-  all: "All events",
-  deploys: "Deploys",
-  builds: "Builds",
-  failures: "Failures",
-  rollbacks: "Rollbacks",
-  updates: "Self-updates",
-  ignored: "Ignored",
-};
+const FAILURE_TYPES = new Set<DeploymentEventType>([
+  "FAILED",
+  "CRASHED",
+]);
+
+function applyFilter(events: DeploymentEvent[], filter: ActivityFilter): DeploymentEvent[] {
+  if (filter === "all") return events;
+  if (filter === "deploys") return events.filter((e) => DEPLOY_TYPES.has(e.eventType));
+  if (filter === "failures") return events.filter((e) => FAILURE_TYPES.has(e.eventType));
+  return events;
+}
+
+// ── Inner component (inside Suspense for useSearchParams) ────────────────────
 
 function ActivityContent() {
-  const [filter, setFilter] = useState<FilterKey>("all");
-  const { events, isLoading } = useEvents({ limit: 50 });
-  const allowed = filterMap[filter];
-  const filtered = allowed
-    ? events.filter((e) => allowed.includes(e.eventType))
-    : events;
+  const searchParams = useSearchParams();
+  const rawFilter = searchParams.get("filter") ?? "all";
+  const filter: ActivityFilter = (["all", "deploys", "failures"].includes(rawFilter)
+    ? rawFilter
+    : "all") as ActivityFilter;
+
+  const { events, isLoading } = useEvents({ limit: 100 });
+  const filtered = applyFilter(events, filter);
 
   return (
-    <div className="flex flex-col">
-      <div
-        className="flex items-end justify-between gap-4 pb-5 mb-6 flex-wrap"
-        style={{ borderBottom: "1px solid var(--c-border-1)" }}
-      >
-        <div>
-          <h1
-            className="text-2xl font-semibold tracking-[-0.01em] m-0"
-            style={{ color: "var(--c-fg-0)", lineHeight: 1.2 }}
-          >
-            Activity
-          </h1>
-          <p className="mt-1.5 text-[13px]" style={{ color: "var(--c-fg-2)" }}>
-            Recent deploys, failures, rollbacks, and automation events.
-          </p>
-        </div>
-      </div>
+    <div
+      style={{
+        maxWidth: 740,
+        width: "100%",
+      }}
+    >
+      <PageHeader
+        kicker="HISTORY"
+        title="Activity"
+        subtitle="Every deploy, restart, and crash across your workspace, newest first."
+        actions={<FilterPills />}
+      />
 
-      <div className="flex flex-wrap gap-1.5 mb-5" role="group" aria-label="Filter events">
-        {(Object.keys(filterMap) as FilterKey[]).map((key) => {
-          const sel = filter === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setFilter(key)}
-              aria-pressed={sel}
-              className="rounded-full px-3.5 py-[7px] text-[13px] font-medium transition-all duration-fast outline-none focus-visible:ring-2 focus-visible:ring-accent-light"
+      {isLoading && events.length === 0 ? (
+        // Loading skeleton
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
               style={{
-                background: sel ? "var(--c-accent-soft)" : "var(--c-surface-1)",
-                border: `1px solid ${sel ? "var(--c-accent-line)" : "var(--c-border-1)"}`,
-                color: sel ? "var(--c-accent-fg)" : "var(--c-fg-2)",
-                cursor: "pointer",
+                display: "flex",
+                gap: 18,
+                opacity: 1 - i * 0.25,
               }}
             >
-              {FILTER_LABELS[key]}
-            </button>
-          );
-        })}
-      </div>
-
-      <div aria-live="polite">
-        {isLoading ? (
-          <div
-            className="h-32 rounded-xl skeleton-shimmer"
-            style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-border-1)" }}
-          />
-        ) : filtered.length === 0 ? (
-          <EmptyState>
-            <EmptyState.Media />
-            <EmptyState.Title>No activity yet</EmptyState.Title>
-            <EmptyState.Description>
-              Deploys and build events will appear here
-            </EmptyState.Description>
-            <EmptyState.Actions>
-              <Link href="/setup">
-                <Button>Deploy your first app</Button>
-              </Link>
-            </EmptyState.Actions>
-          </EmptyState>
-        ) : (
-          <div
-            className="rounded-xl overflow-hidden"
-            style={{
-              background: "var(--c-surface-1)",
-              border: "1px solid var(--c-border-1)",
-            }}
-          >
-            <ActivityTimeline events={filtered} />
-          </div>
-        )}
-      </div>
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: "50%",
+                  background: M_SURFACE,
+                  border: `1px solid ${M_LINE}`,
+                  flexShrink: 0,
+                }}
+              />
+              <div
+                style={{
+                  flex: 1,
+                  height: 72,
+                  borderRadius: 10,
+                  background: M_SURFACE,
+                  border: `1px solid ${M_LINE}`,
+                  opacity: 0.6,
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EventList events={filtered} />
+      )}
     </div>
   );
 }
 
+// Inline token constants to avoid import at page level (keeps the skeleton clean)
+const M_SURFACE = "#0E0E12";
+const M_LINE = "rgba(255,255,255,0.06)";
+
+// ── Page export ──────────────────────────────────────────────────────────────
+
 export default function ActivityPage() {
   return (
     <AppShell>
-      <ActivityContent />
+      <Suspense>
+        <ActivityContent />
+      </Suspense>
     </AppShell>
   );
 }
