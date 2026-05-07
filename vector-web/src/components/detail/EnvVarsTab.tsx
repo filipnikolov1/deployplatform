@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { Eye, EyeOff, KeyRound, Plus, Trash2 } from "lucide-react";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "@/lib/toast";
 
 interface Props {
   appName: string;
@@ -21,7 +21,6 @@ export function EnvVarsTab({ appName }: Props) {
     endpoint,
     fetcher,
   );
-  const toast = useToast();
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
   const [busy, setBusy] = useState(false);

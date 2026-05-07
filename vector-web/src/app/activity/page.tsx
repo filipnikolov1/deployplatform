@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/shell/AppShell";
-import { ToastProvider } from "@/hooks/useToast";
 import { useEvents } from "@/hooks/useEvents";
 import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { EmptyState } from "@/components/dashboard/EmptyState";
@@ -126,10 +125,8 @@ function ActivityContent() {
 
 export default function ActivityPage() {
   return (
-    <ToastProvider>
-      <AppShell>
-        <ActivityContent />
-      </AppShell>
-    </ToastProvider>
+    <AppShell>
+      <ActivityContent />
+    </AppShell>
   );
 }

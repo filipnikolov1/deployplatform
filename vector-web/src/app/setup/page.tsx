@@ -1,13 +1,11 @@
 "use client";
 
 import { AppShell } from "@/components/shell/AppShell";
-import { ToastProvider } from "@/hooks/useToast";
 import { SetupGuide } from "@/components/setup/SetupGuide";
 
 export default function SetupPage() {
   return (
-    <ToastProvider>
-      <AppShell>
+    <AppShell>
         <div className="flex flex-col max-w-[820px]">
           {/* Page header */}
           <div
@@ -30,6 +28,5 @@ export default function SetupPage() {
           <SetupGuide />
         </div>
       </AppShell>
-    </ToastProvider>
   );
 }

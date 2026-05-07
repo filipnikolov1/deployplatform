@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { toast as sonner } from "sonner";
 import { useEvents } from "@/hooks/useEvents";
-import { useToast } from "@/hooks/useToast";
 import type { DeploymentEvent, DeploymentEventType } from "@/types/vector";
 
 const DEPLOY_EVENT_TYPES: readonly DeploymentEventType[] = [
@@ -28,13 +28,12 @@ function formatDuration(ms: number | null): string | undefined {
 }
 
 interface TrackedToast {
-  toastId: number;
+  toastId: string;
   lastEventId: number;
 }
 
 export function useDeployProgressNotifier() {
   const { events } = useEvents({ limit: 30 });
-  const toast = useToast();
   const router = useRouter();
   const trackedRef = useRef<Map<string, TrackedToast>>(new Map());
   const seededRef = useRef(false);
@@ -70,9 +69,10 @@ export function useDeployProgressNotifier() {
 
       if (evt.status === "IN_PROGRESS") {
         if (tracked) continue;
-        const toastId = toast.progress(appName, {
-          sublabel: "Deploying…",
-          persistent: true,
+        const toastId = `deploy-progress-${appName}`;
+        sonner.loading(`Deploying ${appName}…`, {
+          id: toastId,
+          duration: Infinity,
           action: {
             label: "View",
             onClick: () => router.push(`/?app=${encodeURIComponent(appName)}`),
@@ -92,26 +92,22 @@ export function useDeployProgressNotifier() {
 
         const duration = formatDuration(evt.durationMs);
         if (evt.status === "SUCCESS") {
-          toast.update(tracked.toastId, {
-            variant: "success",
-            message: `Deployed ${appName}`,
-            sublabel: duration,
-            persistent: false,
-            durationMs: 5000,
+          sonner.success(`Deployed ${appName}`, {
+            id: tracked.toastId,
+            description: duration,
+            duration: 5000,
           });
         } else {
           const reason = evt.errorMessage?.trim();
-          toast.update(tracked.toastId, {
-            variant: "error",
-            message: reason ? `Deploy failed: ${reason}` : `Deploy failed: ${appName}`,
-            sublabel: duration,
-            persistent: false,
-            durationMs: 6000,
+          sonner.error(reason ? `Deploy failed: ${reason}` : `Deploy failed: ${appName}`, {
+            id: tracked.toastId,
+            description: duration,
+            duration: 6000,
           });
         }
         seenResolvedRef.current.add(evt.id);
         trackedRef.current.delete(appName);
       }
     }
-  }, [events, toast, router]);
+  }, [events, router]);
 }

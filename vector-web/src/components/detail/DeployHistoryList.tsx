@@ -5,7 +5,7 @@ import { useSWRConfig } from "swr";
 import { RotateCcw, CheckCircle2, XCircle, Clock, HardDrive, Download } from "lucide-react";
 import type { DeploymentEvent } from "@/types/vector";
 import { RollbackConfirmDialog } from "./RollbackConfirmDialog";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "@/lib/toast";
 
 interface Props {
   appName: string;
@@ -14,7 +14,6 @@ interface Props {
 }
 
 export function DeployHistoryList({ appName, events, currentImage }: Props) {
-  const toast = useToast();
   const { mutate } = useSWRConfig();
   const [rollbackTarget, setRollbackTarget] =
     useState<DeploymentEvent | null>(null);

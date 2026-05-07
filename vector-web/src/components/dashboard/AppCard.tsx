@@ -9,7 +9,7 @@ import { formatRelative } from "@/lib/time";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useCommitsAhead } from "@/hooks/useCommitsAhead";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "@/lib/toast";
 import { useEvents } from "@/hooks/useEvents";
 import { useOperationProgress } from "@/hooks/useOperationProgress";
 import { getDisplayImageName } from "@/lib/image-display";
@@ -41,7 +41,6 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const { commitsAhead } = useCommitsAhead(app.appName);
   const { prefs } = usePreferences();
-  const toast = useToast();
   const { mutate } = useSWRConfig();
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -138,26 +137,24 @@ export function AppCard({ app, onOpen, mode = "grid" }: Props) {
           toast.error("Delete failed");
           return;
         }
-        toast.success(`${app.appName} deleted`, {
-          durationMs: 10_000,
-          action: {
-            label: "Undo",
-            onClick: async () => {
-              try {
-                const restore = await fetch(
-                  `/api/apps/${encodeURIComponent(app.appName)}/restore`,
-                  { method: "POST" },
-                );
-                if (!restore.ok) {
-                  toast.error("Undo failed");
-                  return;
-                }
-                toast.success("Restored");
-                refreshApps();
-              } catch {
+        toast.action(`${app.appName} deleted`, {
+          label: "Undo",
+          duration: 10_000,
+          onClick: async () => {
+            try {
+              const restore = await fetch(
+                `/api/apps/${encodeURIComponent(app.appName)}/restore`,
+                { method: "POST" },
+              );
+              if (!restore.ok) {
                 toast.error("Undo failed");
+                return;
               }
-            },
+              toast.success("Restored");
+              refreshApps();
+            } catch {
+              toast.error("Undo failed");
+            }
           },
         });
         refreshApps();

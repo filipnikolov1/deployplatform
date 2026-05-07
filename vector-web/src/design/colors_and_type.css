@@ -1,0 +1,101 @@
+/* =====================================================================
+   Vector Platform — Design Tokens
+   Flat near-black surfaces · Geist sans · JetBrains Mono · single violet accent
+   Source of truth for these values: src/design/tokens.ts (the M object)
+   Mirror of: docs/planning/2026-05-05/design-handoff/.../colors_and_type.css
+   ===================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* ---------- Surfaces (flat, four steps, no glass) ---------- */
+  --vp-bg:        #08080A;   /* page body */
+  --vp-surface:   #0E0E12;   /* default card / row hover background */
+  --vp-surface-2: #15151B;   /* raised card / segmented control fill */
+  --vp-surface-3: #1C1C24;   /* highest surface (rarely needed) */
+
+  /* ---------- Borders (single hairline scale) ---------- */
+  --vp-line:   rgba(255, 255, 255, 0.06);   /* default hairline */
+  --vp-line-2: rgba(255, 255, 255, 0.10);   /* hover / focus border */
+  --vp-line-3: rgba(255, 255, 255, 0.16);   /* selected stat tile, scrub thumb ring */
+
+  /* ---------- Foreground (4-step ramp, no white) ---------- */
+  --vp-fg:    #F5F5F7;   /* primary text */
+  --vp-fg-2:  #9090A0;   /* secondary / metadata */
+  --vp-fg-3:  #5A5A68;   /* tertiary / kicker */
+  --vp-fg-4:  #3A3A44;   /* disabled / line numbers */
+
+  /* ---------- Accent — single violet, used sparingly ---------- */
+  --vp-accent:        #A78BFA;
+  --vp-accent-light:  #DDD6FE;
+  --vp-accent-soft:   rgba(167, 139, 250, 0.10);   /* tinted fill */
+  --vp-accent-line:   rgba(167, 139, 250, 0.28);   /* tinted border */
+
+  /* ---------- Status (pastel + matching soft fill) ---------- */
+  --vp-ok:        #86EFAC;   --vp-ok-soft:   rgba(134, 239, 172, 0.10);
+  --vp-warn:      #FCD34D;   --vp-warn-soft: rgba(252, 211, 77, 0.10);
+  --vp-err:       #FCA5A5;   --vp-err-soft:  rgba(252, 165, 165, 0.10);
+
+  /* ---------- Type ---------- */
+  --vp-font-sans: 'Geist', 'Inter', -apple-system, system-ui, sans-serif;
+  --vp-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Scale (px, fixed — no fluid sizing in this system) */
+  --vp-text-kicker:  11px;   /* uppercase, 0.16em tracking, fg-3 */
+  --vp-text-meta:    11.5px; /* timestamps, footnotes */
+  --vp-text-mono-sm: 12px;   /* SHAs, log lines */
+  --vp-text-body:    13.5px; /* default UI text */
+  --vp-text-row:     14px;   /* table cells, primary list rows */
+  --vp-text-card:    14.5px; /* card titles */
+  --vp-text-page-sub:15px;   /* page subtitles */
+  --vp-text-h2:      22px;   /* drawer titles, login title */
+  --vp-text-h1:      32px;   /* page titles ("Apps", "Activity") */
+
+  /* Tracking */
+  --vp-track-display: -0.025em;  /* page title, login wordmark */
+  --vp-track-title:   -0.02em;   /* drawer header */
+  --vp-track-tight:   -0.005em;  /* dense UI runs */
+  --vp-track-kicker:   0.16em;   /* uppercase kicker */
+  --vp-track-mono:     0.04em;   /* mono runs (default) */
+
+  /* Weights — only 500 / 600. 400 only inside body prose. */
+  --vp-fw-medium:   500;
+  --vp-fw-semibold: 600;
+
+  /* ---------- Shape ---------- */
+  --vp-r-sm:   6px;    /* tiny chips, code blocks */
+  --vp-r-md:  10px;    /* inputs, small cards, log viewer */
+  --vp-r-lg:  14px;    /* default card, panels */
+  --vp-r-xl:  20px;    /* login card, big modals */
+  --vp-r-pill: 9999px; /* segmented controls, status chips, sidebar nav */
+
+  /* ---------- Spacing scale (px) ---------- */
+  --vp-s-1:   4px;
+  --vp-s-2:   8px;
+  --vp-s-3:  12px;
+  --vp-s-4:  16px;
+  --vp-s-5:  20px;
+  --vp-s-6:  24px;
+  --vp-s-8:  32px;
+  --vp-s-12: 48px;
+  --vp-s-14: 56px;   /* gap below page header to first content block */
+  --vp-s-20: 80px;
+
+  /* Layout constants used in code */
+  --vp-sidebar-w:    220px;
+  --vp-content-max: 1280px;
+  --vp-content-pad:   56px;
+
+  /* ---------- Shadow (sparingly used; flat system) ---------- */
+  --vp-shadow-sm: 0 1px 2px rgba(0,0,0,0.40);
+  --vp-shadow-md: 0 8px 24px rgba(0,0,0,0.40);
+  --vp-shadow-lg: 0 20px 60px rgba(0,0,0,0.55);
+}
+
+/* ---------- Recommended motion ---------- */
+:root {
+  --vp-ease: cubic-bezier(0.22, 1, 0.36, 1);   /* page enter, list item */
+  --vp-spring-soft:  300/24;   /* { stiffness: 300, damping: 24 }  — hover lift */
+  --vp-spring-snap:  380/32;   /* { stiffness: 380, damping: 32 }  — pill swap */
+  --vp-spring-drawer:260/32;   /* drawer open */
+}

@@ -27,7 +27,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "@/lib/toast";
 import { useEvents } from "@/hooks/useEvents";
 import { useContainerStats } from "@/hooks/useContainerStats";
 import { useCommitsAhead } from "@/hooks/useCommitsAhead";
@@ -129,7 +129,6 @@ export function AppDetailDrawer({ appName, onClose }: Props) {
   const { pending, refresh: refreshPending } = useSelfAppPending(
     app?.isSelfApp ? app.appName : null,
   );
-  const toast = useToast();
   const { mutate } = useSWRConfig();
 
   const drawerActiveOperationId = (() => {

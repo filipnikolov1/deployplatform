@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { ArrowLeft, CheckCircle2, Pin, Unplug } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
-import { ToastProvider } from "@/hooks/useToast";
 import { useTimeline } from "@/hooks/useTimeline";
 import { useAppStats } from "@/hooks/useAppStats";
 import { useRecentDeploys } from "@/hooks/useRecentDeploys";
@@ -560,10 +559,8 @@ function TimeMachineContent({ appName }: { appName: string }) {
 
 export default function TimeMachinePage({ params }: { params: { appName: string } }) {
   return (
-    <ToastProvider>
-      <AppShell>
-        <TimeMachineContent appName={params.appName} />
-      </AppShell>
-    </ToastProvider>
+    <AppShell>
+      <TimeMachineContent appName={params.appName} />
+    </AppShell>
   );
 }
