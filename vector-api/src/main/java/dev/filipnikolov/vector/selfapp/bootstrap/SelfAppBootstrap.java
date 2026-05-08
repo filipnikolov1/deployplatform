@@ -101,6 +101,14 @@ public class SelfAppBootstrap {
             d.setPinnedAt(LocalDateTime.now());
         }
         info.applyTo(d);
+        // If the running SHA matches what was advertised as the "latest known" version,
+        // clear the latestKnown fields — otherwise the dashboard will show an Update
+        // button indefinitely for an update that was already applied.
+        if (info.sha() != null && info.sha().equals(d.getLatestKnownSha())) {
+            d.setLatestKnownImage(null);
+            d.setLatestKnownSha(null);
+            d.setLatestKnownMessage(null);
+        }
         d.setUpdatedAt(LocalDateTime.now());
         deploymentRepository.save(d);
 
@@ -118,6 +126,15 @@ public class SelfAppBootstrap {
             if (runningSha != null && runningSha.equals(p.getTargetSha())) {
                 Deployment d = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName).orElse(null);
                 if (d != null) {
+                    d.setImageName(p.getTargetImage());
+                    d.setPinnedImage(p.getTargetImage());
+                    d.setPinnedAt(LocalDateTime.now());
+                    d.setLatestKnownImage(null);
+                    d.setLatestKnownSha(null);
+                    d.setLatestKnownMessage(null);
+                    d.setUpdatedAt(LocalDateTime.now());
+                    deploymentRepository.save(d);
+
                     CreateDeploymentRequest ctx = new CreateDeploymentRequest(
                             appName, d.getRepoUrl(), p.getTargetImage(), d.getContainerPort(),
                             d.getBranch(), p.getTargetSha(), selfBuild.message(),

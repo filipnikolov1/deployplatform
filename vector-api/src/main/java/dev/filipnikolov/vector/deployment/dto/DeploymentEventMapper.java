@@ -19,6 +19,7 @@ public final class DeploymentEventMapper {
         return new DeploymentEventDto(
                 e.getId(),
                 e.getAppName(),
+                e.getOperationId(),
                 e.getEventType(),
                 e.getStatus(),
                 e.getImageName(),
