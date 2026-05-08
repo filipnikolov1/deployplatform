@@ -14,8 +14,6 @@ import java.util.Optional;
  *
  * <p>This class is retained as a Spring bean for the DB-backed {@link #resolveForApp}
  * convenience used by {@code CommitService} and {@code CrashAnalysisService}.
- * The old inline {@code parse()} implementation has been replaced by the canonical
- * {@link dev.filipnikolov.vector.github.repo.RepoSlugResolver#parse} from the shared module.
  */
 @Component
 public class RepoSlugResolver {

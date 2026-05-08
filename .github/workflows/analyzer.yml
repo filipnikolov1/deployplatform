@@ -1,0 +1,69 @@
+name: Analyzer
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'vector-analyzer/**'
+      - 'vector-events/**'
+      - 'vector-github/**'
+      - 'pom.xml'
+
+jobs:
+  build-push-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: meta
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image=filipn123/vector-analyzer:git-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: vector-analyzer/Dockerfile
+          push: true
+          tags: |
+            filipn123/vector-analyzer:latest
+            ${{ steps.meta.outputs.image }}
+          build-args: |
+            VECTOR_GIT_SHA=${{ github.sha }}
+            VECTOR_GIT_MESSAGE=${{ github.event.head_commit.message }}
+            VECTOR_GIT_BRANCH=${{ github.ref_name }}
+
+      - name: Post to deploy-hook
+        env:
+          HOOK_URL: ${{ secrets.VECTOR_DEPLOY_HOOK_URL }}
+          HOOK_KEY: ${{ secrets.VECTOR_DEPLOY_KEY }}
+          IMAGE: ${{ steps.meta.outputs.image }}
+          SHA: ${{ github.sha }}
+          MSG: ${{ toJSON(github.event.head_commit.message) }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if [ -z "$IMAGE" ]; then
+            echo "::error::IMAGE is empty — aborting notify" >&2
+            exit 1
+          fi
+          PAYLOAD=$(jq -n \
+            --arg app "vector-analyzer" \
+            --arg image "$IMAGE" \
+            --arg sha "$SHA" \
+            --argjson msg "$MSG" \
+            --arg branch "$BRANCH" \
+            --arg ts "$(date +%s)000" \
+            '{app_name:$app, image:$image, commit_sha:$sha, commit_message:$msg, branch:$branch, timestamp:($ts|tonumber)}')
+          SIG="sha256=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$HOOK_KEY" -hex | awk '{print $2}')"
+          curl -fsS -X POST "$HOOK_URL" \
+            -H "X-Signature-256: $SIG" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
