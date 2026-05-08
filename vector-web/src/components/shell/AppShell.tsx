@@ -3,46 +3,21 @@
 /**
  * AppShell — root layout shell.
  *
- * - Wraps {children} in AnimatePresence mode="wait" keyed by pathname (page crossfade).
  * - Mounts <CommandPalette /> (Toaster already in app/layout.tsx — NOT mounted again).
  * - Binds global Cmd+K / Ctrl+K keydown to commandPaletteStore.
  * - Renders <Sidebar /> + main column (margin-left: 220px, max-width: 1280px, padding: 0 56px 80px).
  */
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
 
 import { Sidebar, SIDEBAR_WIDTH } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
-import { BackendUpdatingOverlay } from "./BackendUpdatingOverlay";
-import { FrontendUpdatingOverlay } from "./FrontendUpdatingOverlay";
 import { CommandPalette } from "@/components/command-palette";
 import { commandPaletteStore } from "@/hooks/useCommandPalette";
 import { useUpdateAvailableNotifier } from "@/hooks/useUpdateAvailableNotifier";
 import { useDeployProgressNotifier } from "@/hooks/useDeployProgressNotifier";
 import { EventStreamProvider } from "@/hooks/useEventStream";
-import { MMOTION } from "@/design/tokens";
-
-// ── Page transition wrapper ───────────────────────────────────────────────────
-
-function PageTransition({ children, pathname }: { children: ReactNode; pathname: string }) {
-  return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={pathname}
-        initial={MMOTION.page.initial}
-        animate={MMOTION.page.animate}
-        exit={MMOTION.page.exit}
-        transition={MMOTION.page.transition}
-        style={{ minHeight: "100%" }}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
-  );
-}
 
 // ── Global Cmd+K / Ctrl+K binding ────────────────────────────────────────────
 
@@ -66,8 +41,6 @@ function useGlobalCmdK() {
 // ── AppShellInner (uses hooks — must be inside EventStreamProvider) ───────────
 
 function AppShellInner({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-
   useUpdateAvailableNotifier();
   useDeployProgressNotifier();
   useGlobalCmdK();
@@ -98,17 +71,11 @@ function AppShellInner({ children }: { children: ReactNode }) {
             }
           }
         `}</style>
-        <PageTransition pathname={pathname}>
-          {children}
-        </PageTransition>
+        {children}
       </main>
 
       {/* Mobile bottom nav */}
       <BottomNav />
-
-      {/* Overlay panels (self-update flows) */}
-      <BackendUpdatingOverlay />
-      <FrontendUpdatingOverlay />
 
       {/* Global Cmd+K palette — Toaster is in app/layout.tsx, not here */}
       <CommandPalette />

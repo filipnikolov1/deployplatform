@@ -17,9 +17,10 @@ interface SelfAppsSectionProps {
   apps: DeploymentModel[];
   onOpen: (appName: string) => void;
   updateAvailableEvents: DeploymentEvent[];
+  events: DeploymentEvent[];
 }
 
-export function SelfAppsSection({ apps, onOpen, updateAvailableEvents }: SelfAppsSectionProps) {
+export function SelfAppsSection({ apps, onOpen, updateAvailableEvents, events }: SelfAppsSectionProps) {
   if (!apps.length) return null;
 
   return (
@@ -47,6 +48,7 @@ export function SelfAppsSection({ apps, onOpen, updateAvailableEvents }: SelfApp
               app={app}
               onOpen={onOpen}
               updateAvailableEvent={updateEvent}
+              events={events}
             />
           );
         })}

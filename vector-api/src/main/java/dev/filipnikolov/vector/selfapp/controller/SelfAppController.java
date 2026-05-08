@@ -24,9 +24,10 @@ public class SelfAppController {
     @PostMapping("/{appName}/update")
     public ResponseEntity<Map<String, Object>> update(@PathVariable String appName) {
         String operationId = updateService.triggerUpdate(appName);
-        return ResponseEntity.accepted().body(Map.of(
-                "status", "triggered",
-                "operationId", operationId));
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("status", "triggered");
+        body.put("operationId", operationId);
+        return ResponseEntity.accepted().body(body);
     }
 
     @GetMapping("/{appName}/pending")

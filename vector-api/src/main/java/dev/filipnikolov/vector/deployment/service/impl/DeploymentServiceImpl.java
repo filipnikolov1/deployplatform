@@ -16,6 +16,7 @@ import dev.filipnikolov.vector.docker.service.DockerService;
 import dev.filipnikolov.vector.envvar.service.EnvVarService;
 import dev.filipnikolov.vector.exception.ResourceNotFoundException;
 import dev.filipnikolov.vector.progress.ProgressHub;
+import dev.filipnikolov.vector.selfapp.service.SelfAppUpdateService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +46,7 @@ public class DeploymentServiceImpl implements DeploymentService {
     private final DeploymentEventService eventService;
     private final DeploymentTransactionHelper txHelper;
     private final ProgressHub progressHub;
+    private final SelfAppUpdateService selfAppUpdateService;
 
     @Value("${app.default-port:3000}")
     private int defaultContainerPort;
@@ -289,7 +291,16 @@ public class DeploymentServiceImpl implements DeploymentService {
     public void handleWebhookDeployAsync(CreateDeploymentRequest req, ActionLockService.LockHandle lock) {
         try {
             if (txHelper.handlePinnedWebhook(req)) {
-                log.info("Update available for pinned app {} — new image {}", req.appName(), req.imageName());
+                if (txHelper.shouldAutoTriggerSelfUpdate(req.appName())) {
+                    try {
+                        selfAppUpdateService.triggerUpdate(req.appName());
+                        log.info("Auto-triggered self-update for {} — new image {}", req.appName(), req.imageName());
+                    } catch (Exception e) {
+                        log.error("Auto-trigger failed for {}: {}", req.appName(), e.getMessage(), e);
+                    }
+                } else {
+                    log.info("Update available for {} — new image {}", req.appName(), req.imageName());
+                }
                 return;
             }
             createDeployment(req);

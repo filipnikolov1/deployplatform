@@ -139,10 +139,11 @@ public class SelfAppUpdateExecutor {
 
     private void finalizeSuccess(String appName, String service, String targetImage,
                                  String targetSha, String targetMessage, String operationId) {
-        // For vector-api, the new container reconciles on startup via SelfAppBootstrap.
-        // This code path mostly runs for vector-web; for the API it may not be reached
-        // because the container is killed during recreation.
-        if (!"vector-web".equals(service)) {
+        // vector-api can't reach this path — its old container is killed during recreate
+        // and the new container reconciles via SelfAppBootstrap on startup. Every other
+        // self-app stays alive while the updater swaps the target container, so we
+        // finalize the DB row here.
+        if ("vector-api".equals(service)) {
             return;
         }
 
@@ -155,22 +156,19 @@ public class SelfAppUpdateExecutor {
 
             d.setImageName(targetImage);
             d.setCommitSha(targetSha);
-            d.setPinnedImage(targetImage);
-            d.setPinnedAt(LocalDateTime.now());
             d.setLatestKnownImage(null);
             d.setLatestKnownSha(null);
             d.setLatestKnownMessage(null);
             d.setUpdatedAt(LocalDateTime.now());
             deploymentRepository.save(d);
 
-            eventService.record(DeploymentEventType.UPDATE_SUCCESS,
-                    DeploymentEventStatus.SUCCESS, appName, null, null,
-                    "Updated to " + targetImage, operationId);
-
             CreateDeploymentRequest historyCtx = new CreateDeploymentRequest(
                     appName, d.getRepoUrl(), targetImage, d.getContainerPort(),
                     d.getBranch(), targetSha, targetMessage,
                     d.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.SELF_UPDATE);
+            eventService.record(DeploymentEventType.UPDATE_SUCCESS,
+                    DeploymentEventStatus.SUCCESS, appName, historyCtx, null,
+                    "Updated to " + targetImage, operationId);
             eventService.record(DeploymentEventType.DEPLOY_FINISHED,
                     DeploymentEventStatus.SUCCESS, appName, historyCtx, null, null, operationId);
 

@@ -97,7 +97,7 @@ services:
       - "traefik.http.services.vector-web.loadbalancer.server.port=3000"
 
   vector-analyzer:
-    image: filipn123/vector-analyzer:latest
+    image: ${VECTOR_ANALYZER_IMAGE:-filipn123/vector-analyzer:latest}
     container_name: vector-analyzer
     build:
       context: .
@@ -125,6 +125,7 @@ services:
 
   vector-updater:
     image: filipn123/vector-updater:latest
+    container_name: vector-updater
     build:
       context: ./vector-updater
       dockerfile: Dockerfile

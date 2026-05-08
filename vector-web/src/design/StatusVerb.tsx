@@ -51,13 +51,19 @@ function resolveVerb(
       return { verb: "ROLLED BACK", color: M.accent };
 
     case "UPDATE_AVAILABLE":
-    case "UPDATE_SUCCESS":
-      return { verb: "UPDATE", color: "#67E8F9" }; // cyan — no token, hardcoded per plan
+      return { verb: "UPDATE AVAILABLE", color: "#67E8F9" };
 
     case "UPDATE_TRIGGERED":
+      return { verb: "UPDATING", color: "#67E8F9" };
+
+    case "UPDATE_SUCCESS":
+      return { verb: "UPDATED", color: M.ok };
+
     case "UPDATE_FAILED":
+      return { verb: "UPDATE FAILED", color: M.err };
+
     case "UPDATER_UNREACHABLE":
-      return { verb: "UPDATE", color: "#67E8F9" };
+      return { verb: "UPDATER OFFLINE", color: M.err };
 
     case "PIN_RELEASED":
       return { verb: "UNPINNED", color: M.fg3 };

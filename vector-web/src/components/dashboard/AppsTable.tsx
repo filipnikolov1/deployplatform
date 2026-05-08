@@ -15,7 +15,7 @@ import { useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
-import { M, MSTATUS, MMOTION } from "@/design/tokens";
+import { M, MSTATUS } from "@/design/tokens";
 import { Button } from "@/design/primitives/Button";
 import { Mono } from "@/design/primitives/Mono";
 import { Icon } from "@/design/primitives/Icon";
@@ -79,8 +79,7 @@ function AppRow({ app, onOpen, onTimeMachine, activeOperationId }: AppRowProps) 
     : "—";
 
   return (
-    <motion.tr
-      variants={MMOTION.item}
+    <tr
       onClick={() => onOpen(app.appName)}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -253,7 +252,7 @@ function AppRow({ app, onOpen, onTimeMachine, activeOperationId }: AppRowProps) 
           )}
         </AnimatePresence>
       </td>
-    </motion.tr>
+    </tr>
   );
 }
 
@@ -321,7 +320,7 @@ export function AppsTable({ apps, events }: AppsTableProps) {
             ))}
           </tr>
         </thead>
-        <motion.tbody variants={MMOTION.list} initial="initial" animate="animate">
+        <tbody>
           {apps.length === 0 ? (
             <tr>
               <td
@@ -348,7 +347,7 @@ export function AppsTable({ apps, events }: AppsTableProps) {
               />
             ))
           )}
-        </motion.tbody>
+        </tbody>
       </table>
     </div>
   );
