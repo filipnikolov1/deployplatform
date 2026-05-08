@@ -1,8 +1,10 @@
 package dev.filipnikolov.vector.selfapp.service;
 
+import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
 import dev.filipnikolov.vector.deployment.model.Deployment;
 import dev.filipnikolov.vector.events.DeploymentEventStatus;
 import dev.filipnikolov.vector.events.DeploymentEventType;
+import dev.filipnikolov.vector.events.TriggerSource;
 import dev.filipnikolov.vector.deployment.repository.DeploymentRepository;
 import dev.filipnikolov.vector.deployment.service.DeploymentEventService;
 import dev.filipnikolov.vector.exception.ResourceNotFoundException;
@@ -56,8 +58,12 @@ public class SelfAppUpdateService {
         final String targetMessage = d.getLatestKnownMessage();
         final String operationId = UUID.randomUUID().toString();
 
+        CreateDeploymentRequest triggerCtx = new CreateDeploymentRequest(
+                appName, d.getRepoUrl(), targetImage, d.getContainerPort(),
+                d.getBranch(), targetSha, targetMessage,
+                d.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.SELF_UPDATE);
         eventService.record(DeploymentEventType.UPDATE_TRIGGERED,
-                DeploymentEventStatus.IN_PROGRESS, appName, null, null,
+                DeploymentEventStatus.IN_PROGRESS, appName, triggerCtx, null,
                 "Target: " + targetImage, operationId);
 
         final String service = appName;

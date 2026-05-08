@@ -124,8 +124,13 @@ class DeploymentTransactionHelper {
     @Transactional
     boolean handlePinnedWebhook(CreateDeploymentRequest req) {
         return deploymentRepository.findByAppName(req.appName()).map(d -> {
-            if (d.getPinnedImage() == null) return false;
-            if (d.isSelfApp()) {
+            // Self-apps always go through this branch — they have a separate update
+            // path (updater binary) that preserves docker-compose config, so we never
+            // fall through to createDeployment for them. handleWebhookDeployAsync
+            // looks at isSelfApp + pinnedImage to decide whether to auto-trigger.
+            boolean isSelfApp = d.isSelfApp();
+            if (d.getPinnedImage() == null && !isSelfApp) return false;
+            if (isSelfApp) {
                 d.setLatestKnownImage(req.imageName());
                 d.setLatestKnownSha(req.commitSha());
                 d.setLatestKnownMessage(req.commitMessage());
@@ -137,5 +142,20 @@ class DeploymentTransactionHelper {
                     req.appName(), req, null, "New version available: " + req.imageName());
             return true;
         }).orElse(false);
+    }
+
+    /**
+     * Returns true if the app should auto-trigger an update after recording UPDATE_AVAILABLE.
+     * Auto-trigger fires for unpinned non-API self-apps that the updater can handle. vector-api
+     * stays manual (kill-self problem), pinned apps stay manual (user opted out), vector-updater
+     * is excluded because it can't recreate itself via the updater binary.
+     */
+    boolean shouldAutoTriggerSelfUpdate(String appName) {
+        return deploymentRepository.findByAppName(appName).map(d ->
+                d.isSelfApp()
+                        && d.getPinnedImage() == null
+                        && !"vector-api".equals(appName)
+                        && !"vector-updater".equals(appName)
+        ).orElse(false);
     }
 }

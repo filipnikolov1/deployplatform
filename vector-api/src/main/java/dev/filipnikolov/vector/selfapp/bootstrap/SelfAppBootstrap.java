@@ -28,6 +28,8 @@ public class SelfAppBootstrap {
     private static final String REPO_URL = "https://github.com/filipnikolov1/vector-platform";
     private static final String VECTOR_API = "vector-api";
     private static final String VECTOR_WEB = "vector-web";
+    private static final String VECTOR_ANALYZER = "vector-analyzer";
+    private static final String VECTOR_UPDATER = "vector-updater";
 
     private final DeploymentRepository deploymentRepository;
     private final DeploymentEventService eventService;
@@ -51,6 +53,12 @@ public class SelfAppBootstrap {
     @Value("${VECTOR_FRONTEND_IMAGE:filipn123/vector-web:latest}")
     private String frontendImage;
 
+    @Value("${VECTOR_ANALYZER_IMAGE:filipn123/vector-analyzer:latest}")
+    private String analyzerImage;
+
+    @Value("${VECTOR_UPDATER_IMAGE:filipn123/vector-updater:latest}")
+    private String updaterImage;
+
     @PostConstruct
     public void bootstrap() {
         reconcileStuckPending();
@@ -64,6 +72,8 @@ public class SelfAppBootstrap {
         BuildInfo selfBuild = BuildInfo.fromEnv(envSha, envMessage, envBranch);
         ensureSelfApp(VECTOR_API, backendImage, 8082, selfBuild);
         ensureSelfApp(VECTOR_WEB, frontendImage, 3000, BuildInfo.empty());
+        ensureSelfApp(VECTOR_ANALYZER, analyzerImage, 8082, BuildInfo.empty());
+        ensureSelfApp(VECTOR_UPDATER, updaterImage, 8080, BuildInfo.empty());
         reconcilePendingUpdates(VECTOR_API, selfBuild);
     }
 
@@ -96,10 +106,9 @@ public class SelfAppBootstrap {
                 });
         d.setSelfApp(true);
         d.setImageName(defaultImage);
-        if (d.getPinnedImage() == null) {
-            d.setPinnedImage(defaultImage);
-            d.setPinnedAt(LocalDateTime.now());
-        }
+        // Self-apps are unpinned by default — webhooks auto-deploy them. The user
+        // can pin a self-app via rollback to lock it to a specific version, which
+        // surfaces the manual Update button instead.
         info.applyTo(d);
         // If the running SHA matches what was advertised as the "latest known" version,
         // clear the latestKnown fields — otherwise the dashboard will show an Update
@@ -127,8 +136,6 @@ public class SelfAppBootstrap {
                 Deployment d = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName).orElse(null);
                 if (d != null) {
                     d.setImageName(p.getTargetImage());
-                    d.setPinnedImage(p.getTargetImage());
-                    d.setPinnedAt(LocalDateTime.now());
                     d.setLatestKnownImage(null);
                     d.setLatestKnownSha(null);
                     d.setLatestKnownMessage(null);
@@ -140,16 +147,21 @@ public class SelfAppBootstrap {
                             d.getBranch(), p.getTargetSha(), selfBuild.message(),
                             d.getCommitAuthor(), null, d.getSubdomain(), TriggerSource.SELF_UPDATE);
                     eventService.record(DeploymentEventType.DEPLOY_FINISHED,
-                            DeploymentEventStatus.SUCCESS, appName, ctx, null, null);
+                            DeploymentEventStatus.SUCCESS, appName, ctx, null, null, p.getOperationId());
+                    eventService.record(DeploymentEventType.UPDATE_SUCCESS,
+                            DeploymentEventStatus.SUCCESS, appName, ctx, null,
+                            "Reconciled after self-update to " + p.getTargetSha(), p.getOperationId());
+                } else {
+                    eventService.record(DeploymentEventType.UPDATE_SUCCESS,
+                            DeploymentEventStatus.SUCCESS, appName, null, null,
+                            "Reconciled after self-update to " + p.getTargetSha(), p.getOperationId());
                 }
-                eventService.record(DeploymentEventType.UPDATE_SUCCESS,
-                        DeploymentEventStatus.SUCCESS, appName, null, null,
-                        "Reconciled after self-update to " + p.getTargetSha());
                 log.info("Self-update reconciled successfully: {} -> {}", appName, p.getTargetSha());
             } else {
                 eventService.record(DeploymentEventType.UPDATE_FAILED,
                         DeploymentEventStatus.FAILURE, appName, null, null,
-                        "Running SHA " + runningSha + " differs from target " + p.getTargetSha());
+                        "Running SHA " + runningSha + " differs from target " + p.getTargetSha(),
+                        p.getOperationId());
                 log.warn("Self-update reconciliation mismatch: running={} target={}",
                         runningSha, p.getTargetSha());
             }

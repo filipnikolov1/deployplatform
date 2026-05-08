@@ -17,8 +17,9 @@ import (
 const keepImageTags = 3
 
 var allowedServices = map[string]bool{
-	"vector-api": true,
-	"vector-web": true,
+	"vector-api":      true,
+	"vector-web":      true,
+	"vector-analyzer": true,
 }
 
 // serviceAliases maps legacy service names (pre-rename) to current Compose service names.
@@ -27,8 +28,9 @@ var serviceAliases = map[string]string{
 }
 
 var imageEnvByService = map[string]string{
-	"vector-api": "VECTOR_BACKEND_IMAGE",
-	"vector-web": "VECTOR_FRONTEND_IMAGE",
+	"vector-api":      "VECTOR_BACKEND_IMAGE",
+	"vector-web":      "VECTOR_FRONTEND_IMAGE",
+	"vector-analyzer": "VECTOR_ANALYZER_IMAGE",
 }
 
 type phase string
