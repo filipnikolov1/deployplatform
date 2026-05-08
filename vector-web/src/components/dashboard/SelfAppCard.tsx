@@ -12,7 +12,7 @@
  * Hover: y: -3 spring + soft violet radial-gradient glow pinned to cursor position.
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSWRConfig } from "swr";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -27,15 +27,52 @@ import { toast } from "@/lib/toast";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { toAppStatus } from "@/lib/statusConfig";
 import type { Deployment } from "@/types/deployment";
-import type { DeploymentEvent } from "@/types/vector";
+import type { DeploymentEvent, DeploymentEventType } from "@/types/vector";
+
+const IN_PROGRESS_TYPES = new Set<DeploymentEventType>([
+  "UPDATE_TRIGGERED",
+  "DEPLOY_TRIGGERED",
+  "DEPLOY_STARTED",
+  "PULL_STARTED",
+  "PULL_FINISHED",
+  "CONTAINER_CREATING",
+  "CONTAINER_STARTED",
+  "BUILD_STARTED",
+  "BUILD_FINISHED",
+  "HEALTH_OK",
+]);
+
+const TERMINAL_TYPES = new Set<DeploymentEventType>([
+  "DEPLOY_FINISHED",
+  "UPDATE_SUCCESS",
+  "UPDATE_FAILED",
+  "UPDATER_UNREACHABLE",
+  "FAILED",
+  "CRASHED",
+]);
+
+function findActiveOperationId(appName: string, events: DeploymentEvent[]): string | null {
+  const appEvents = events.filter((e) => e.appName === appName);
+  for (const event of appEvents) {
+    if (!event.operationId) continue;
+    if (!IN_PROGRESS_TYPES.has(event.eventType)) continue;
+    const opId = event.operationId;
+    const hasTerminal = appEvents.some(
+      (e) => e.operationId === opId && TERMINAL_TYPES.has(e.eventType),
+    );
+    if (!hasTerminal) return opId;
+  }
+  return null;
+}
 
 interface SelfAppCardProps {
   app: Deployment;
   onOpen: (appName: string) => void;
   updateAvailableEvent?: DeploymentEvent | null;
+  events: DeploymentEvent[];
 }
 
-export function SelfAppCard({ app, onOpen, updateAvailableEvent }: SelfAppCardProps) {
+export function SelfAppCard({ app, onOpen, updateAvailableEvent, events }: SelfAppCardProps) {
   const reduced = usePrefersReducedMotion();
   const { mutate } = useSWRConfig();
   const router = useRouter();
@@ -43,8 +80,21 @@ export function SelfAppCard({ app, onOpen, updateAvailableEvent }: SelfAppCardPr
   const [hover, setHover] = useState(false);
   const [glowPos, setGlowPos] = useState({ x: "50%", y: "0%" });
   const [busy, setBusy] = useState(false);
-  const [operationId, setOperationId] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // operationId is derived from the events feed — works for both manual click
+  // (event arrives via SSE shortly after the POST) and auto-trigger (webhook
+  // path, no click ever happens).
+  const operationId = findActiveOperationId(app.appName, events);
+  const prevOperationIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    // When an in-flight operation transitions to terminal (operationId becomes null
+    // after being set), refetch /api/apps so the row picks up the new image/sha.
+    if (prevOperationIdRef.current && !operationId) {
+      void mutate("/api/apps");
+    }
+    prevOperationIdRef.current = operationId;
+  }, [operationId, mutate]);
 
   const appStatus = toAppStatus(app.status);
   // Map DeploymentStatus to MStatus for StatusChip
@@ -62,6 +112,14 @@ export function SelfAppCard({ app, onOpen, updateAvailableEvent }: SelfAppCardPr
   const hasUpdate = !!updateAvailableEvent || (
     !!app.latestKnownSha && !!app.commitSha && app.latestKnownSha !== app.commitSha
   );
+
+  // Manual-update path: vector-api always (kill-self problem), plus any self-app
+  // the user has pinned. Auto-update self-apps (unpinned, non-API) deploy themselves
+  // on webhook so no button is needed. vector-updater can't recreate itself via the
+  // updater binary, so we just surface "manual rebuild" status without a button.
+  const isManualUpdate = app.appName === "vector-api" || !!app.pinnedImage;
+  const isUpdaterSelf = app.appName === "vector-updater";
+  const showUpdateButton = isManualUpdate && hasUpdate && !isUpdaterSelf;
 
   const updatedAt = app.updatedAt
     ? formatDistanceToNow(new Date(app.updatedAt), { addSuffix: true })
@@ -91,24 +149,12 @@ export function SelfAppCard({ app, onOpen, updateAvailableEvent }: SelfAppCardPr
         toast.error("Update failed");
         return;
       }
-      const data = (await res.json().catch(() => ({}))) as { operationId?: string; status?: string };
-      if (data.operationId) {
-        setOperationId(data.operationId);
-      }
       toast.success("Update started");
     } catch {
       toast.error("Update failed");
     } finally {
       setBusy(false);
     }
-  };
-
-  const handleProgressEnd = () => {
-    // Fade the bar then refetch
-    setTimeout(() => {
-      setOperationId(null);
-      void mutate("/api/apps");
-    }, 500);
   };
 
   const handleTimeMachine = (e: React.MouseEvent) => {
@@ -237,7 +283,7 @@ export function SelfAppCard({ app, onOpen, updateAvailableEvent }: SelfAppCardPr
               >
                 Updating…
               </motion.span>
-            ) : hasUpdate ? (
+            ) : showUpdateButton ? (
               <motion.button
                 key="update"
                 type="button"
@@ -270,7 +316,11 @@ export function SelfAppCard({ app, onOpen, updateAvailableEvent }: SelfAppCardPr
               </motion.button>
             ) : (
               <span key="utd" style={{ color: M.fg3 }}>
-                Up to date
+                {hasUpdate
+                  ? isUpdaterSelf
+                    ? "Rebuild from compose"
+                    : "Auto-updating…"
+                  : "Up to date"}
               </span>
             )}
           </AnimatePresence>
@@ -307,12 +357,6 @@ export function SelfAppCard({ app, onOpen, updateAvailableEvent }: SelfAppCardPr
               position: "relative",
               marginTop: 14,
               overflow: "hidden",
-            }}
-            onAnimationComplete={(def) => {
-              // When exit animation completes (height back to 0), clean up
-              if (typeof def === "object" && (def as Record<string, unknown>).height === 0) {
-                handleProgressEnd();
-              }
             }}
           >
             <OperationProgress operationId={operationId} variant="inline" />

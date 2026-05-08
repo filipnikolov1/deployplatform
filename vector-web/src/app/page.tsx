@@ -237,6 +237,7 @@ function DashboardInner() {
             router.push(`${pathname}?${params.toString()}`);
           }}
           updateAvailableEvents={updateAvailableEvents}
+          events={events}
         />
       )}
 

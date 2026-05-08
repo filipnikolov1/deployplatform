@@ -93,16 +93,25 @@ const IN_FLIGHT_TYPES = new Set<DeploymentEventType>([
   "BUILD_STARTED",
   "BUILD_FINISHED",
   "HEALTH_OK",
+  "UPDATE_TRIGGERED",
 ]);
 
 const TERMINAL_TYPES = new Set<DeploymentEventType>([
   "DEPLOY_FINISHED",
   "FAILED",
   "CRASHED",
+  "UPDATE_SUCCESS",
+  "UPDATE_FAILED",
+  "UPDATER_UNREACHABLE",
 ]);
 
 function getStepperIndex(latestEventType: DeploymentEventType): DeployStepIndex {
-  if (latestEventType === "DEPLOY_TRIGGERED" || latestEventType === "DEPLOY_STARTED") return 0;
+  if (
+    latestEventType === "DEPLOY_TRIGGERED" ||
+    latestEventType === "DEPLOY_STARTED" ||
+    latestEventType === "UPDATE_TRIGGERED" ||
+    latestEventType === "UPDATER_UNREACHABLE"
+  ) return 0;
   if (latestEventType === "PULL_STARTED" || latestEventType === "BUILD_STARTED") return 1;
   if (
     latestEventType === "PULL_FINISHED" ||
@@ -122,6 +131,8 @@ function getTerminalState(
   if (eventType === "DEPLOY_FINISHED" && status === "SUCCESS") return "success";
   if (eventType === "DEPLOY_FINISHED" && status === "FAILURE") return "failure";
   if (eventType === "FAILED" || eventType === "CRASHED") return "failure";
+  if (eventType === "UPDATE_SUCCESS") return "success";
+  if (eventType === "UPDATE_FAILED" || eventType === "UPDATER_UNREACHABLE") return "failure";
   return null;
 }
 
@@ -169,10 +180,10 @@ export function EventRow({ event, groupedEvents, isLast = false, isNew = false }
     };
   }, [isNew]);
 
-  // Resolve the event to display — prefer grouped, fall back to single
-  const displayEvent = groupedEvents
-    ? groupedEvents[groupedEvents.length - 1] // latest in the group
-    : event;
+  // Resolve the event to display — prefer grouped, fall back to single.
+  // groupedEvents is newest-first (events come from the API newest-first and
+  // buildGroups preserves that order), so [0] is the latest stage.
+  const displayEvent = groupedEvents ? groupedEvents[0] : event;
 
   if (!displayEvent) return null;
 
