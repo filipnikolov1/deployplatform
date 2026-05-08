@@ -114,12 +114,16 @@ function DashboardInner() {
     .filter(Boolean)
     .join(". ");
 
-  // UPDATE_AVAILABLE events for self-apps (most recent per app)
+  // UPDATE_AVAILABLE events for self-apps — only count if the event's SHA differs from
+  // the app's current commitSha. Otherwise the update was already applied and the historical
+  // event would keep the button visible forever.
   const updateAvailableEvents = selfApps
     .map((app) => {
-      return events.find(
+      const ev = events.find(
         (e) => e.appName === app.appName && e.eventType === "UPDATE_AVAILABLE",
-      ) ?? null;
+      );
+      if (!ev || !ev.commitSha || ev.commitSha === app.commitSha) return null;
+      return ev;
     })
     .filter((e): e is NonNullable<typeof e> => e !== null);
 

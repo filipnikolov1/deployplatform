@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public record DeploymentEventDto(
         Long id,
         String appName,
+        String operationId,
         DeploymentEventType eventType,
         DeploymentEventStatus status,
         String imageName,
