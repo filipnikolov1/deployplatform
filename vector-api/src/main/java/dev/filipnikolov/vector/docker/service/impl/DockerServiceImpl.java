@@ -63,6 +63,7 @@ public class DockerServiceImpl implements DockerService {
 
     @Override
     public String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars, Consumer<ProgressFrame> progressCallback) throws InterruptedException {
+        Consumer<ProgressFrame> emit = progressCallback != null ? progressCallback : f -> {};
         var pullCmd = dockerClient.pullImageCmd(imageName);
         if (authConfig != null) {
             pullCmd.withAuthConfig(authConfig);
@@ -76,17 +77,15 @@ public class DockerServiceImpl implements DockerService {
 
             @Override
             public void onNext(PullResponseItem item) {
-                if (progressCallback != null) {
-                    Long current = null;
-                    Long total = null;
-                    if (item.getProgressDetail() != null) {
-                        current = item.getProgressDetail().getCurrent();
-                        total = item.getProgressDetail().getTotal();
-                    }
-                    String msg = (item.getStatus() != null ? item.getStatus() : "")
-                            + (item.getId() != null ? " " + item.getId() : "");
-                    progressCallback.accept(new ProgressFrame("PULL_LAYER", msg.strip(), current, total, "bytes", Instant.now()));
+                Long current = null;
+                Long total = null;
+                if (item.getProgressDetail() != null) {
+                    current = item.getProgressDetail().getCurrent();
+                    total = item.getProgressDetail().getTotal();
                 }
+                String msg = (item.getStatus() != null ? item.getStatus() : "")
+                        + (item.getId() != null ? " " + item.getId() : "");
+                emit.accept(new ProgressFrame("PULL_LAYER", msg.strip(), current, total, "bytes", Instant.now()));
             }
 
             @Override
@@ -121,9 +120,7 @@ public class DockerServiceImpl implements DockerService {
                 .map(e -> e.getKey() + "=" + e.getValue())
                 .toList();
 
-        if (progressCallback != null) {
-            progressCallback.accept(new ProgressFrame("CONTAINER_CREATE", "Creating container " + appName, null, null, null, Instant.now()));
-        }
+        emit.accept(new ProgressFrame("CONTAINER_CREATE", "Creating container " + appName, null, null, null, Instant.now()));
 
         String containerId = dockerClient.createContainerCmd(imageName)
                 .withName(appName)
@@ -139,9 +136,7 @@ public class DockerServiceImpl implements DockerService {
                 .exec()
                 .getId();
 
-        if (progressCallback != null) {
-            progressCallback.accept(new ProgressFrame("CONTAINER_START", "Starting container " + appName, null, null, null, Instant.now()));
-        }
+        emit.accept(new ProgressFrame("CONTAINER_START", "Starting container " + appName, null, null, null, Instant.now()));
 
         dockerClient.startContainerCmd(containerId).exec();
         return containerId;
