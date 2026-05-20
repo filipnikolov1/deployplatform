@@ -195,6 +195,14 @@ func setPhase(service, updateId string, p phase, errMsg string) {
 	defer stateMu.Unlock()
 	s, ok := state[service]
 	if !ok || s.UpdateId != updateId {
+		// State was replaced by a newer /update before this terminal phase landed.
+		// Don't silently drop terminal results — log them so the operator and the
+		// poller can distinguish "first run succeeded but was superseded" from
+		// "first run never reported anything".
+		if p == phaseCompleted || p == phaseFailed {
+			log.Printf("[%s] terminal phase=%s for superseded run on service=%s (err=%q)",
+				updateId, p, service, errMsg)
+		}
 		return
 	}
 	s.Phase = p
@@ -213,6 +221,10 @@ func newUpdateId() string {
 
 // pruneOldImages removes old git-* tagged images for the given repo,
 // keeping only the newest keepImageTags entries. Other tags (e.g. :latest) are left alone.
+//
+// Sorts by RFC3339 .Created from `docker inspect` — the prior string-sort on
+// docker's human-readable {{.CreatedAt}} was lexicographic, which mis-orders
+// images across day/month/TZ boundaries and could rmi the just-deployed image.
 func pruneOldImages(image string) {
 	repo := strings.SplitN(image, ":", 2)[0]
 	if repo == "" {
@@ -221,7 +233,7 @@ func pruneOldImages(image string) {
 
 	out, err := exec.Command(
 		"docker", "images",
-		"--format", "{{.ID}}|{{.Repository}}:{{.Tag}}|{{.CreatedAt}}",
+		"--format", "{{.ID}}|{{.Repository}}:{{.Tag}}",
 		repo,
 	).Output()
 	if err != nil {
@@ -230,24 +242,34 @@ func pruneOldImages(image string) {
 	}
 
 	type entry struct {
-		id        string
-		ref       string
-		createdAt string
+		id      string
+		ref     string
+		created time.Time
 	}
 	var candidates []entry
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		if line == "" {
 			continue
 		}
-		parts := strings.SplitN(line, "|", 3)
-		if len(parts) != 3 {
+		parts := strings.SplitN(line, "|", 2)
+		if len(parts) != 2 {
 			continue
 		}
 		tag := strings.TrimPrefix(parts[1], repo+":")
 		if !strings.HasPrefix(tag, "git-") {
 			continue
 		}
-		candidates = append(candidates, entry{id: parts[0], ref: parts[1], createdAt: parts[2]})
+		createdRaw, err := exec.Command("docker", "inspect", "--format", "{{.Created}}", parts[0]).Output()
+		if err != nil {
+			log.Printf("prune: inspect %s failed: %v", parts[0], err)
+			continue
+		}
+		created, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(string(createdRaw)))
+		if err != nil {
+			log.Printf("prune: parse created for %s failed: %v", parts[0], err)
+			continue
+		}
+		candidates = append(candidates, entry{id: parts[0], ref: parts[1], created: created})
 	}
 
 	if len(candidates) <= keepImageTags {
@@ -255,7 +277,7 @@ func pruneOldImages(image string) {
 	}
 
 	sort.Slice(candidates, func(i, j int) bool {
-		return candidates[i].createdAt > candidates[j].createdAt
+		return candidates[i].created.After(candidates[j].created)
 	})
 
 	for _, e := range candidates[keepImageTags:] {
