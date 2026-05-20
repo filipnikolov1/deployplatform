@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -122,7 +123,17 @@ public class DeployHookController {
             return ResponseEntity.status(409).body(Map.of("error", "Deployment already in progress for " + appName));
         }
 
-        deploymentService.handleWebhookDeployAsync(req, maybeLock.get());
+        ActionLockService.LockHandle lock = maybeLock.get();
+        try {
+            deploymentService.handleWebhookDeployAsync(req, lock);
+        } catch (TaskRejectedException e) {
+            // Async submission failed synchronously (executor saturated / shutting down).
+            // The @Async method never runs, so its finally-close never fires — release here
+            // or the per-app semaphore is leaked permanently.
+            lock.close();
+            log.warn("Deploy executor rejected task for {}, returning 503", appName, e);
+            return ResponseEntity.status(503).body(Map.of("error", "deploy queue saturated, retry later"));
+        }
         return ResponseEntity.status(202).body(Map.of("status", "accepted", "appName", appName));
     }
 }
