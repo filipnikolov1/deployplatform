@@ -11,9 +11,9 @@ import (
 var updaterAuthToken string
 
 func init() {
-	updaterAuthToken = os.Getenv("UPDATER_AUTH_TOKEN")
+	updaterAuthToken = os.Getenv("VECTOR_UPDATER_AUTH_TOKEN")
 	if updaterAuthToken == "" {
-		log.Println("WARNING: UPDATER_AUTH_TOKEN is not set — /update and /status/ endpoints are unauthenticated")
+		log.Println("WARNING: VECTOR_UPDATER_AUTH_TOKEN is not set — /update and /status/ endpoints are unauthenticated")
 	}
 }
 

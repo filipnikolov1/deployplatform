@@ -6,7 +6,7 @@ const PROXY_TIMEOUT_MS = 30_000;
 async function isAuthorized(req: Request): Promise<boolean> {
   const token = getSessionToken(req);
   if (!token) return false;
-  const secret = process.env.SESSION_SECRET;
+  const secret = process.env.VECTOR_SESSION_SECRET;
   if (!secret) return false;
   const payload = await verifySession(secret, token);
   return payload !== null;
@@ -37,8 +37,8 @@ export async function proxyToAnalyzer(
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const analyzer = process.env.ANALYZER_URL;
-  const apiKey = process.env.API_KEY;
+  const analyzer = process.env.VECTOR_ANALYZER_URL;
+  const apiKey = process.env.VECTOR_API_KEY;
   if (!analyzer || !apiKey) {
     return new Response("Server misconfigured", { status: 500 });
   }
@@ -77,8 +77,8 @@ export async function proxyToBackend(
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const backend = process.env.BACKEND_URL;
-  const apiKey = process.env.API_KEY;
+  const backend = process.env.VECTOR_BACKEND_URL;
+  const apiKey = process.env.VECTOR_API_KEY;
   if (!backend || !apiKey) {
     return new Response("Server misconfigured", { status: 500 });
   }

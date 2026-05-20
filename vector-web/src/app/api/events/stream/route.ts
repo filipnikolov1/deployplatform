@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 async function isAuthorized(req: Request): Promise<boolean> {
   const token = getSessionToken(req);
-  const secret = process.env.SESSION_SECRET;
+  const secret = process.env.VECTOR_SESSION_SECRET;
   if (!token || !secret) return false;
   const payload = await verifySession(secret, token);
   return payload !== null;
@@ -14,8 +14,8 @@ export async function GET(req: Request) {
   if (!(await isAuthorized(req))) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const backend = process.env.BACKEND_URL;
-  const apiKey = process.env.API_KEY;
+  const backend = process.env.VECTOR_BACKEND_URL;
+  const apiKey = process.env.VECTOR_API_KEY;
   if (!backend || !apiKey) {
     return new Response("Server misconfigured", { status: 500 });
   }
