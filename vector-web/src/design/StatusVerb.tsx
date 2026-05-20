@@ -42,7 +42,8 @@ function resolveVerb(
       return { verb: "CRASHED", color: M.err };
 
     case "RESTARTED":
-      return { verb: "RESTARTED", color: M.fg };
+      if (status === "FAILURE") return { verb: "RESTART FAILED", color: M.err };
+      return { verb: "RESTARTED", color: M.ok };
 
     case "STOPPED":
       return { verb: "STOPPED", color: M.fg3 };

@@ -36,13 +36,9 @@ export function OperationProgress({
   operationId,
   variant = "inline",
 }: OperationProgressProps) {
-  const { stage, message, percent } = useOperationProgress(operationId);
+  const { stage, message, percent, streamClosed } = useOperationProgress(operationId);
   const [visible, setVisible] = useState(true);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // When stage becomes null and percent becomes null, the stream has closed.
-  // Auto-disappear after 300ms.
-  const streamClosed = stage === null && percent === null && message === null;
 
   useEffect(() => {
     if (streamClosed) {

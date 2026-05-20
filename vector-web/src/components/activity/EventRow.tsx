@@ -51,6 +51,7 @@ const VERB_ICON_MAP: Partial<Record<DeploymentEventType, string>> = {
 
 function resolveIcon(eventType: DeploymentEventType, status?: string | null): string {
   if (eventType === "DEPLOY_FINISHED" && status === "FAILURE") return "x";
+  if (eventType === "RESTARTED" && status === "FAILURE") return "x";
   return VERB_ICON_MAP[eventType] ?? "circle";
 }
 
@@ -58,7 +59,8 @@ function resolveIconColor(eventType: DeploymentEventType, status?: string | null
   if (eventType === "FAILED" || eventType === "CRASHED") return M.err;
   if (eventType === "DEPLOY_FINISHED" && status === "FAILURE") return M.err;
   if (eventType === "DEPLOY_FINISHED" && status === "SUCCESS") return M.ok;
-  if (eventType === "RESTARTED") return M.fg;
+  if (eventType === "RESTARTED" && status === "FAILURE") return M.err;
+  if (eventType === "RESTARTED") return M.ok;
   if (eventType === "STOPPED") return M.fg3;
   if (eventType === "MANUAL_ROLLBACK") return M.accent;
   if (
@@ -100,6 +102,7 @@ const TERMINAL_TYPES = new Set<DeploymentEventType>([
   "DEPLOY_FINISHED",
   "FAILED",
   "CRASHED",
+  "RESTARTED",
   "UPDATE_SUCCESS",
   "UPDATE_FAILED",
   "UPDATER_UNREACHABLE",
@@ -131,6 +134,8 @@ function getTerminalState(
   if (eventType === "DEPLOY_FINISHED" && status === "SUCCESS") return "success";
   if (eventType === "DEPLOY_FINISHED" && status === "FAILURE") return "failure";
   if (eventType === "FAILED" || eventType === "CRASHED") return "failure";
+  if (eventType === "RESTARTED" && status === "SUCCESS") return "success";
+  if (eventType === "RESTARTED" && status === "FAILURE") return "failure";
   if (eventType === "UPDATE_SUCCESS") return "success";
   if (eventType === "UPDATE_FAILED" || eventType === "UPDATER_UNREACHABLE") return "failure";
   return null;

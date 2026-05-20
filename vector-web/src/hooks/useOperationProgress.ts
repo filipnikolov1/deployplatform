@@ -10,6 +10,8 @@ interface OperationProgressResult {
   message: string | null;
   percent: number | null;
   frames: ProgressFrame[];
+  /** True once the SSE stream has explicitly closed. False while connecting or connected. */
+  streamClosed: boolean;
 }
 
 const EMPTY: OperationProgressResult = {
@@ -17,6 +19,7 @@ const EMPTY: OperationProgressResult = {
   message: null,
   percent: null,
   frames: [],
+  streamClosed: false,
 };
 
 export function useOperationProgress(operationId: string | null): OperationProgressResult {
@@ -24,20 +27,26 @@ export function useOperationProgress(operationId: string | null): OperationProgr
   const [message, setMessage] = useState<string | null>(null);
   const [percent, setPercent] = useState<number | null>(null);
   const [frames, setFrames] = useState<ProgressFrame[]>([]);
+  const [streamClosed, setStreamClosed] = useState(false);
   const esRef = useRef<EventSource | null>(null);
   const activeRef = useRef(false);
 
   useEffect(() => {
     if (!operationId) {
-      // Reset state when operationId becomes null
       setStage(null);
       setMessage(null);
       setPercent(null);
       setFrames([]);
+      setStreamClosed(false);
       return;
     }
 
     activeRef.current = true;
+    setStage(null);
+    setMessage(null);
+    setPercent(null);
+    setFrames([]);
+    setStreamClosed(false);
 
     const es = new EventSource(`/api/operations/${encodeURIComponent(operationId)}/progress`);
     esRef.current = es;
@@ -66,7 +75,7 @@ export function useOperationProgress(operationId: string | null): OperationProgr
 
     es.onerror = () => {
       if (es.readyState === EventSource.CLOSED) {
-        // Stream closed — operation reached terminal state
+        if (activeRef.current) setStreamClosed(true);
         esRef.current = null;
       }
     };
@@ -79,5 +88,5 @@ export function useOperationProgress(operationId: string | null): OperationProgr
   }, [operationId]);
 
   if (!operationId) return EMPTY;
-  return { stage, message, percent, frames };
+  return { stage, message, percent, frames, streamClosed };
 }
