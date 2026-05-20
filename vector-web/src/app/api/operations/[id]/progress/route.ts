@@ -1,14 +1,9 @@
-import { verifySession, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { getSessionToken, verifySession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 async function isAuthorized(req: Request): Promise<boolean> {
-  const raw = req.headers.get("cookie") ?? "";
-  let token: string | undefined;
-  for (const part of raw.split(";")) {
-    const [k, ...v] = part.trim().split("=");
-    if (k === SESSION_COOKIE_NAME) token = v.join("=");
-  }
+  const token = getSessionToken(req);
   const secret = process.env.SESSION_SECRET;
   if (!token || !secret) return false;
   const payload = await verifySession(secret, token);

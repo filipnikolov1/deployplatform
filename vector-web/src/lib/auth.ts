@@ -93,3 +93,18 @@ export function buildSessionCookie(token: string, maxAgeSeconds: number): string
 
 export const SESSION_COOKIE_NAME = "vector-session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+
+// Single first-wins cookie reader. Aligns with Next.js's req.cookies.get(...) so
+// the middleware accept/reject decision matches what the route handlers see.
+export function getSessionToken(req: Request): string | undefined {
+  const raw = req.headers.get("cookie") ?? "";
+  for (const part of raw.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    const name = part.slice(0, eq).trim();
+    if (name === SESSION_COOKIE_NAME) {
+      return part.slice(eq + 1).trim();
+    }
+  }
+  return undefined;
+}
