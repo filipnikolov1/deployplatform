@@ -33,9 +33,9 @@ class DeployHookControllerLockLeakTest {
         deploymentService = mock(DeploymentService.class);
         deployHookAuthService = mock(DeployHookAuthService.class);
         actionLockService = new ActionLockService();
-        controller = new DeployHookController(deploymentService, deployHookAuthService, actionLockService);
-        ReflectionTestUtils.setField(controller, "defaultContainerPort", 3000);
         mapper = new ObjectMapper();
+        controller = new DeployHookController(deploymentService, deployHookAuthService, actionLockService, mapper);
+        ReflectionTestUtils.setField(controller, "defaultContainerPort", 3000);
 
         when(deployHookAuthService.isValidSignature(any(), any())).thenReturn(true);
         when(deployHookAuthService.registerSignatureOnce(any())).thenReturn(true);

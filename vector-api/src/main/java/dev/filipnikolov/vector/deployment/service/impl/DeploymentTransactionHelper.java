@@ -40,6 +40,7 @@ class DeploymentTransactionHelper {
                 });
         deployment.setRepoUrl(req.repoUrl());
         deployment.setImageName(req.imageName());
+        // The webhook path always sets a port, so this fallback only fires for non-webhook callers.
         deployment.setContainerPort(req.containerPort() != null ? req.containerPort() : defaultContainerPort);
         deployment.setBranch(req.branch());
         deployment.setCommitSha(req.commitSha());

@@ -20,7 +20,6 @@ import dev.filipnikolov.vector.selfapp.service.SelfAppUpdateService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -47,9 +46,6 @@ public class DeploymentServiceImpl implements DeploymentService {
     private final DeploymentTransactionHelper txHelper;
     private final ProgressHub progressHub;
     private final SelfAppUpdateService selfAppUpdateService;
-
-    @Value("${app.default-port:3000}")
-    private int defaultContainerPort;
 
     @Override
     public Deployment createDeployment(CreateDeploymentRequest req) {
