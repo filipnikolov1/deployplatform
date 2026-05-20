@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,12 +119,13 @@ public class CrashAnalysisService {
                 : Map.of();
 
         List<Map<String, Object>> evidence = buildEvidence(logLines, diffJson, commitMeta, repoSlug, suspectSha);
-        Map<String, Object> signals = Map.of(
-                "timeSinceDeployMinutes", timeSinceDeployMin,
-                "crashCountForCommit", crashCountForCommit,
-                "crashedAt", crashTime.toString(),
-                "lastDeployedAt", lastDeployTime != null ? lastDeployTime.toString() : null
-        );
+        // HashMap, not Map.of — both timeSinceDeployMinutes and lastDeployedAt are null
+        // on a first-deploy crash-loop (no prior DEPLOY_FINISHED), and Map.of NPEs on nulls.
+        Map<String, Object> signals = new HashMap<>();
+        signals.put("timeSinceDeployMinutes", timeSinceDeployMin);
+        signals.put("crashCountForCommit", crashCountForCommit);
+        signals.put("crashedAt", crashTime.toString());
+        signals.put("lastDeployedAt", lastDeployTime != null ? lastDeployTime.toString() : null);
 
         String evidenceText = writeJson(evidence);
         String signalsText = writeJson(signals);

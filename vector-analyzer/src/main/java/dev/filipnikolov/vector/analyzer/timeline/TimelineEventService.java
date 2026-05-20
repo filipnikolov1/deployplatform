@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -204,6 +206,11 @@ public class TimelineEventService {
         if (value instanceof LocalDateTime ldt) return ldt;
         if (value instanceof java.sql.Timestamp ts) return ts.toLocalDateTime();
         String s = value.toString();
+        // Offset-bearing strings (e.g. "2026-05-20T12:00:00+02:00") must be normalized to
+        // UTC LocalDateTime, otherwise the timeline either drops the event or mis-orders it.
+        try {
+            return OffsetDateTime.parse(s).withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        } catch (DateTimeParseException ignored) {}
         for (DateTimeFormatter fmt : List.of(
                 DateTimeFormatter.ISO_LOCAL_DATE_TIME,
                 DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"),

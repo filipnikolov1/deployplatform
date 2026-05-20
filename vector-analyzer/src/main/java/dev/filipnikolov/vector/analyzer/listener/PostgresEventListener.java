@@ -86,31 +86,37 @@ public class PostgresEventListener {
     }
 
     private void listenLoop(Connection conn) {
-        while (!shutdown.get() && !Thread.currentThread().isInterrupted()) {
-            try {
-                // A dummy query is required to flush pending notifications from the socket.
-                try (Statement s = conn.createStatement()) {
-                    s.execute("SELECT 1");
-                }
-                PGNotification[] notifications = conn.unwrap(PGConnection.class).getNotifications();
-                if (notifications != null) {
-                    for (PGNotification n : notifications) {
-                        String payload = n.getParameter();
-                        TimelineEventService.ProcessedDeploymentEvent event =
-                                timelineEventService.processNotification(payload);
-                        maybeRestartLogTail(event);
+        try {
+            while (!shutdown.get() && !Thread.currentThread().isInterrupted()) {
+                try {
+                    // A dummy query is required to flush pending notifications from the socket.
+                    try (Statement s = conn.createStatement()) {
+                        s.execute("SELECT 1");
                     }
+                    PGNotification[] notifications = conn.unwrap(PGConnection.class).getNotifications();
+                    if (notifications != null) {
+                        for (PGNotification n : notifications) {
+                            String payload = n.getParameter();
+                            TimelineEventService.ProcessedDeploymentEvent event =
+                                    timelineEventService.processNotification(payload);
+                            maybeRestartLogTail(event);
+                        }
+                    }
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                } catch (Exception e) {
+                    if (!shutdown.get()) {
+                        log.error("LISTEN loop error (will reconnect): {}", e.getMessage());
+                    }
+                    return;
                 }
-                Thread.sleep(500);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            } catch (Exception e) {
-                if (!shutdown.get()) {
-                    log.error("LISTEN loop error (will reconnect): {}", e.getMessage());
-                }
-                return;
             }
+        } finally {
+            // Always close the connection — without this, exiting on error leaked the
+            // PG connection until JVM restart, eventually exhausting the pool.
+            closeQuietly(conn);
         }
     }
 

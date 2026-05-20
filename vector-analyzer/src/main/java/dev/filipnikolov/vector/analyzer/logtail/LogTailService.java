@@ -47,10 +47,10 @@ public class LogTailService {
         return t;
     });
 
-    /** appName → Future of the currently running tail loop */
-    private final ConcurrentHashMap<String, Future<?>> activeTails = new ConcurrentHashMap<>();
-    /** appName → cancel flag for the running tail */
-    private final ConcurrentHashMap<String, AtomicBoolean> cancelFlags = new ConcurrentHashMap<>();
+    private record TailHandle(Future<?> future, AtomicBoolean cancel) {}
+
+    /** appName → handle for the currently running tail (future + its cancel flag). */
+    private final ConcurrentHashMap<String, TailHandle> tails = new ConcurrentHashMap<>();
 
     private final AtomicBoolean shutdown = new AtomicBoolean(false);
 
@@ -82,15 +82,16 @@ public class LogTailService {
     public void onDeployFinished(String appName) {
         if (apiUrl == null || apiUrl.isBlank() || apiKey == null || apiKey.isBlank()) return;
         if (shutdown.get()) return;
-        // Cancel existing tail and start fresh — deployment ID may have changed
-        cancelTail(appName);
+        // Cancel existing tail and start fresh — deployment ID may have changed.
+        // Done atomically via compute() so concurrent onDeployFinished calls can't leave
+        // two tails running for the same app (which would double-insert log_entry rows).
         startTail(appName);
     }
 
     @PreDestroy
     public void shutdown() {
         shutdown.set(true);
-        cancelFlags.forEach((app, flag) -> flag.set(true));
+        tails.forEach((app, handle) -> handle.cancel().set(true));
         executor.shutdownNow();
         flusher.shutdownNow();
     }
@@ -98,17 +99,15 @@ public class LogTailService {
     // ── internals ────────────────────────────────────────────────────────────
 
     private void startTail(String appName) {
-        AtomicBoolean cancel = new AtomicBoolean(false);
-        cancelFlags.put(appName, cancel);
-        Future<?> future = executor.submit(() -> tailWithBackoff(appName, cancel));
-        activeTails.put(appName, future);
-    }
-
-    private void cancelTail(String appName) {
-        AtomicBoolean flag = cancelFlags.get(appName);
-        if (flag != null) flag.set(true);
-        Future<?> f = activeTails.remove(appName);
-        if (f != null) f.cancel(true);
+        tails.compute(appName, (key, existing) -> {
+            if (existing != null) {
+                existing.cancel().set(true);
+                existing.future().cancel(true);
+            }
+            AtomicBoolean cancel = new AtomicBoolean(false);
+            Future<?> future = executor.submit(() -> tailWithBackoff(appName, cancel));
+            return new TailHandle(future, cancel);
+        });
     }
 
     private void tailWithBackoff(String appName, AtomicBoolean cancel) {

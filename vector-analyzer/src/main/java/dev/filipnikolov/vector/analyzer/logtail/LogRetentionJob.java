@@ -27,21 +27,20 @@ public class LogRetentionJob {
     @Scheduled(fixedDelayString = "${analyzer.retention.interval-ms:21600000}")
     public void run() {
         try {
-            // Delete log entries older than retentionDays AND not from the last retentionDeploys per app
+            // Delete log entries older than retentionDays AND not from the last retentionDeploys per app.
+            // ROW_NUMBER() partitions per app_name so we keep the latest N deploys per app —
+            // the previous LIMIT ? form picked the top N globally, breaking the per-app guarantee.
             int deleted = jdbc.update("""
                     DELETE FROM analyzer.log_entry
-                    WHERE id IN (
-                        SELECT le.id FROM analyzer.log_entry le
-                        WHERE le.timestamp < NOW() - INTERVAL '1 day' * ?
-                          AND le.deployment_id NOT IN (
-                              SELECT DISTINCT d.id
-                              FROM public.deployment d
-                              WHERE d.app_name = le.app_name
-                                AND d.deleted_at IS NULL
-                              ORDER BY d.id DESC
-                              LIMIT ?
-                          )
-                    )
+                    WHERE timestamp < NOW() - INTERVAL '1 day' * ?
+                      AND deployment_id NOT IN (
+                          SELECT id FROM (
+                              SELECT id, ROW_NUMBER() OVER (PARTITION BY app_name ORDER BY id DESC) AS rn
+                              FROM public.deployment
+                              WHERE deleted_at IS NULL
+                          ) ranked
+                          WHERE rn <= ?
+                      )
                     """, retentionDays, retentionDeploys);
 
             // Purge diff_cache older than 7 days
