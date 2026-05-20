@@ -254,18 +254,8 @@ public class DeploymentServiceImpl implements DeploymentService {
 
     @Override
     public Deployment updateSubdomain(String appName, String subdomain) {
-        if (subdomain != null) {
-            if (!SUBDOMAIN_PATTERN.matcher(subdomain).matches()) {
-                throw new IllegalArgumentException("Invalid subdomain");
-            }
-            Deployment current = getDeployment(appName);
-            Long currentId = current.getId();
-            deploymentRepository.findBySubdomainAndDeletedAtIsNull(subdomain)
-                    .filter(other -> !other.getId().equals(currentId))
-                    .ifPresent(other -> { throw new IllegalArgumentException("Subdomain already in use"); });
-            deploymentRepository.findByAppNameAndDeletedAtIsNull(subdomain)
-                    .filter(other -> !other.getId().equals(currentId))
-                    .ifPresent(other -> { throw new IllegalArgumentException("Subdomain already in use"); });
+        if (subdomain != null && !SUBDOMAIN_PATTERN.matcher(subdomain).matches()) {
+            throw new IllegalArgumentException("Invalid subdomain");
         }
 
         Deployment current = getDeployment(appName);
@@ -276,7 +266,13 @@ public class DeploymentServiceImpl implements DeploymentService {
         Deployment deployment = txHelper.saveSubdomainChange(appName, subdomain);
 
         if (deployment.getStatus() == DeploymentStatus.RUNNING) {
-            restartDeployment(appName);
+            try {
+                restartDeployment(appName);
+            } catch (RuntimeException e) {
+                log.error("Subdomain row updated but restart failed for {}: {}", appName, e.getMessage(), e);
+                throw new IllegalStateException(
+                        "Subdomain saved but container restart failed; retry restart manually", e);
+            }
         }
 
         eventService.record(DeploymentEventType.SUBDOMAIN_CHANGED, DeploymentEventStatus.SUCCESS,

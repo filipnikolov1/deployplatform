@@ -11,6 +11,7 @@ import dev.filipnikolov.vector.exception.ResourceNotFoundException;
 import dev.filipnikolov.vector.monitoring.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -116,9 +117,23 @@ class DeploymentTransactionHelper {
     Deployment saveSubdomainChange(String appName, String subdomain) {
         Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
                 .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
+        if (subdomain != null) {
+            Long currentId = deployment.getId();
+            deploymentRepository.findBySubdomainAndDeletedAtIsNull(subdomain)
+                    .filter(other -> !other.getId().equals(currentId))
+                    .ifPresent(other -> { throw new IllegalArgumentException("Subdomain already in use"); });
+            deploymentRepository.findByAppNameAndDeletedAtIsNull(subdomain)
+                    .filter(other -> !other.getId().equals(currentId))
+                    .ifPresent(other -> { throw new IllegalArgumentException("Subdomain already in use"); });
+        }
         deployment.setSubdomain(subdomain);
         deployment.setUpdatedAt(LocalDateTime.now());
-        return deploymentRepository.save(deployment);
+        try {
+            return deploymentRepository.saveAndFlush(deployment);
+        } catch (DataIntegrityViolationException e) {
+            // Concurrent updateSubdomain raced past the check above; unique index caught it.
+            throw new IllegalArgumentException("Subdomain already in use", e);
+        }
     }
 
     @Transactional
