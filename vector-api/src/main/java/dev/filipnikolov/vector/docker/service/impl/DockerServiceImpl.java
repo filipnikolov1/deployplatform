@@ -4,10 +4,13 @@ import dev.filipnikolov.vector.docker.service.DockerService;
 import dev.filipnikolov.vector.progress.ProgressFrame;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
+import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.AuthConfig;
 import com.github.dockerjava.api.model.Frame;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.PullResponseItem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +27,8 @@ import java.util.function.Consumer;
 
 @Service
 public class DockerServiceImpl implements DockerService {
+
+    private static final Logger log = LoggerFactory.getLogger(DockerServiceImpl.class);
 
     private final DockerClient dockerClient;
     private final String traefikNetwork;
@@ -168,13 +173,17 @@ public class DockerServiceImpl implements DockerService {
     public void stopAndRemoveContainer(String containerName) {
         try {
             dockerClient.stopContainerCmd(containerName).exec();
+        } catch (NotFoundException ignored) {
+            // Container doesn't exist — fine, nothing to stop.
         } catch (Exception e) {
-            // Container not running or doesn't exist
+            log.warn("Docker stop failed for {} (continuing to remove): {}", containerName, e.getMessage());
         }
         try {
             dockerClient.removeContainerCmd(containerName).exec();
+        } catch (NotFoundException ignored) {
+            // Container doesn't exist — fine, nothing to remove.
         } catch (Exception e) {
-            // Container doesn't exist
+            log.warn("Docker remove failed for {}: {}", containerName, e.getMessage());
         }
     }
 
