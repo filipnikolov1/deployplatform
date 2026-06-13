@@ -15,6 +15,9 @@ public class CommitService {
 
     private static final Logger log = LoggerFactory.getLogger(CommitService.class);
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     private final JdbcTemplate jdbc;
     private final GitHubCacheService github;
     private final RepoSlugResolver repoSlugResolver;
@@ -57,16 +60,20 @@ public class CommitService {
             }
         }
 
-        // Also pull message from timeline COMMIT event metadata if not in commit_cache
+        // Fall back to timeline COMMIT-event metadata when commit_cache has no row
         if (!result.containsKey("message") || result.get("message") == null) {
             List<Map<String, Object>> te = jdbc.queryForList(
                     "SELECT metadata_json FROM analyzer.timeline_event WHERE app_name = ? AND commit_sha = ? AND event_type = 'COMMIT' LIMIT 1",
                     appName, sha);
-            if (!te.isEmpty()) {
-                String meta = (String) te.get(0).get("metadata_json");
-                if (meta != null) {
-                    // Extract message field — simple approach, avoid pulling in Jackson here
-                    result.put("metadataJson", meta);
+            if (!te.isEmpty() && te.get(0).get("metadata_json") != null) {
+                try {
+                    Map<String, Object> meta = MAPPER.readValue(
+                            (String) te.get(0).get("metadata_json"),
+                            new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                    if (meta.get("message") != null) result.put("message", meta.get("message"));
+                    if (result.get("author") == null && meta.get("author") != null) result.put("author", meta.get("author"));
+                } catch (Exception ignored) {
+                    // unparseable metadata — leave the fields absent
                 }
             }
         }

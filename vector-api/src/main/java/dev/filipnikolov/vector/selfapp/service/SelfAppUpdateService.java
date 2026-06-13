@@ -25,6 +25,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SelfAppUpdateService {
 
+    /** Anything older than this is an orphan — the executor gives up at 15 min. */
+    private static final java.time.Duration PENDING_STALE_AFTER = java.time.Duration.ofMinutes(20);
+
     private final DeploymentRepository deploymentRepository;
     private final DeploymentEventService eventService;
     private final PendingSelfUpdateRepository pendingRepo;
@@ -43,7 +46,12 @@ public class SelfAppUpdateService {
         }
 
         pendingRepo.findFirstByAppNameOrderByTriggeredAtDesc(appName).ifPresent(p -> {
-            throw new IllegalStateException("Update already in progress for " + appName);
+            if (p.getTriggeredAt() != null
+                    && p.getTriggeredAt().isAfter(LocalDateTime.now().minus(PENDING_STALE_AFTER))) {
+                throw new IllegalStateException("Update already in progress for " + appName);
+            }
+            // Orphaned by a crash/restart mid-update — clear it and proceed.
+            pendingRepo.delete(p);
         });
 
         if (!updaterClient.health()) {
@@ -80,12 +88,16 @@ public class SelfAppUpdateService {
 
         final UUID pendingId = pending.getUpdateId();
 
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                updateExecutor.executeUpdate(appName, service, targetImage, targetSha, targetMessage, pendingId, operationId);
-            }
-        });
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    updateExecutor.executeUpdate(appName, service, targetImage, targetSha, targetMessage, pendingId, operationId);
+                }
+            });
+        } else {
+            updateExecutor.executeUpdate(appName, service, targetImage, targetSha, targetMessage, pendingId, operationId);
+        }
 
         return operationId;
     }

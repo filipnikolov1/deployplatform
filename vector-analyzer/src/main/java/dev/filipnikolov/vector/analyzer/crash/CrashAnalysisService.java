@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.filipnikolov.vector.analyzer.commit.GitHubCacheService;
 import dev.filipnikolov.vector.analyzer.commit.RepoSlugResolver;
+import dev.filipnikolov.vector.analyzer.common.AfterCommitRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -29,25 +30,25 @@ public class CrashAnalysisService {
     /** How many log lines preceding the crash are bundled as evidence. */
     private static final int CRASH_LOG_WINDOW = 80;
 
-    /** Lookback for finding stack frames in log lines. */
-    private static final int STACK_TRACE_SCAN_LINES = 200;
-
     private final JdbcTemplate jdbc;
     private final GitHubCacheService github;
     private final RepoSlugResolver repoSlugResolver;
     private final AnalysisStreamBroadcaster broadcaster;
     private final AnalysisGeneratorService analysisGenerator;
+    private final AfterCommitRunner afterCommit;
 
     public CrashAnalysisService(JdbcTemplate jdbc,
                                 GitHubCacheService github,
                                 RepoSlugResolver repoSlugResolver,
                                 AnalysisStreamBroadcaster broadcaster,
-                                AnalysisGeneratorService analysisGenerator) {
+                                AnalysisGeneratorService analysisGenerator,
+                                AfterCommitRunner afterCommit) {
         this.jdbc = jdbc;
         this.github = github;
         this.repoSlugResolver = repoSlugResolver;
         this.broadcaster = broadcaster;
         this.analysisGenerator = analysisGenerator;
+        this.afterCommit = afterCommit;
     }
 
     /**
@@ -92,7 +93,6 @@ public class CrashAnalysisService {
 
         StackTraceParser.Frame topFrame = StackTraceParser.findTopFrame(
                 logLines.stream()
-                        .limit(STACK_TRACE_SCAN_LINES)
                         .map(r -> (String) r.get("line"))
                         .toList()
         ).orElse(null);
@@ -143,13 +143,18 @@ public class CrashAnalysisService {
 
         CrashAnalysis saved = findByCrashEventId(crashEventId).orElse(null);
         if (saved != null) {
-            broadcaster.publish(appName, "crashAnalysisCreated", Map.of(
-                    "crashId", crashEventId,
-                    "analysisId", saved.getId()
-            ));
-            // Kick the AI narration off in the background. Generation can take ~5–10s
-            // and must not block the LISTEN/NOTIFY thread that drove us here.
-            analysisGenerator.generateInitialAsync(saved.getId());
+            final long analysisId = saved.getId();
+            final String app = saved.getAppName();
+            // Both the SSE event and the @Async AI generation must wait for COMMIT:
+            // the async thread reads the row on a different connection, and SSE clients
+            // immediately GET the row — neither can see uncommitted data.
+            afterCommit.run(() -> {
+                broadcaster.publish(app, "crashAnalysisCreated", Map.of(
+                        "crashId", crashEventId,
+                        "analysisId", analysisId
+                ));
+                analysisGenerator.generateInitialAsync(analysisId);
+            });
         }
         return saved;
     }

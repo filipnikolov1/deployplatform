@@ -4,9 +4,18 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class LogTailServiceTest {
+
+    @Test
+    void offsetTimestampsAreNormalizedToUtc() {
+        LocalDateTime arrival = LocalDateTime.of(2026, 6, 10, 12, 0);
+        var parsed = LogTailService.parseLogLine("2026-06-10T14:30:00+02:00 hello", arrival);
+        assertThat(parsed.timestamp()).isEqualTo(LocalDateTime.of(2026, 6, 10, 12, 30));
+        assertThat(parsed.line()).isEqualTo("hello");
+    }
 
     @Test
     void parsesTimestampAndStreamFromSseDataWhenPresent() {

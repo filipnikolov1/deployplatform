@@ -17,7 +17,7 @@ import java.util.Map;
 public class GeminiClient {
 
     private static final String ENDPOINT =
-            "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s";
+            "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent";
 
     private final GeminiConfig config;
     private final HttpClient httpClient;
@@ -31,7 +31,7 @@ public class GeminiClient {
     }
 
     public String generateContent(String prompt) {
-        String url = String.format(ENDPOINT, config.model(), config.apiKey());
+        String url = String.format(ENDPOINT, config.model());
         Map<String, Object> body = Map.of(
                 "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt))))
         );
@@ -40,6 +40,7 @@ public class GeminiClient {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
+                    .header("x-goog-api-key", config.apiKey())
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .timeout(Duration.ofSeconds(config.timeoutSeconds()))
                     .build();

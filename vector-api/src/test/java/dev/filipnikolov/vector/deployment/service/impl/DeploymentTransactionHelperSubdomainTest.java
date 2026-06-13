@@ -1,8 +1,10 @@
 package dev.filipnikolov.vector.deployment.service.impl;
 
+import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
 import dev.filipnikolov.vector.deployment.model.Deployment;
 import dev.filipnikolov.vector.deployment.repository.DeploymentRepository;
 import dev.filipnikolov.vector.deployment.service.DeploymentEventService;
+import dev.filipnikolov.vector.events.TriggerSource;
 import dev.filipnikolov.vector.monitoring.service.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,5 +65,24 @@ class DeploymentTransactionHelperSubdomainTest {
         assertThatThrownBy(() -> helper.saveSubdomainChange("my-app", "racey"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Subdomain already in use");
+    }
+
+    @Test
+    void preCreateRejectsAppNameCollidingWithExistingSubdomain() {
+        // repo.findByAppNameAndDeletedAtIsNull("shop") → empty (new app)
+        // repo.findBySubdomainAndDeletedAtIsNull("shop") → existing other app
+        Deployment other = new Deployment();
+        other.setAppName("storefront");
+        other.setSubdomain("shop");
+        when(deploymentRepository.findByAppNameAndDeletedAtIsNull("shop")).thenReturn(Optional.empty());
+        when(deploymentRepository.findBySubdomainAndDeletedAtIsNull("shop")).thenReturn(Optional.of(other));
+
+        CreateDeploymentRequest req = new CreateDeploymentRequest(
+                "shop", null, "repo/shop:latest", 3000, "main", null, null, null, null, null,
+                TriggerSource.AUTOMATIC);
+
+        assertThatThrownBy(() -> helper.preCreate(req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("subdomain");
     }
 }

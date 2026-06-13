@@ -30,28 +30,40 @@ public final class StackTraceParser {
     private StackTraceParser() {}
 
     /**
-     * Returns the topmost stack frame extracted from the given log lines (most recent first
-     * as iterated). Returns empty if no frame matched.
+     * Returns the most likely crash-site frame from log lines ordered NEWEST-FIRST.
+     *
+     * JVM/Node/Go print the crash-site frame first (earliest), so scanning newest-first
+     * walks the trace bottom-up: the last frame of the first contiguous frame-run is the
+     * top frame. Python prints most-recent-call-last, so its first match IS the site.
      */
     public static Optional<Frame> findTopFrame(List<String> logLines) {
+        Frame lastInRun = null;
+        boolean inRun = false;
         for (String line : logLines) {
-            if (line == null || line.isBlank()) continue;
-
+            if (line == null || line.isBlank()) {
+                if (inRun) break;
+                continue;
+            }
             Matcher m;
-            if ((m = JVM_FRAME.matcher(line)).find()) {
-                return Optional.of(new Frame(m.group(1), parseLine(m.group(2))));
-            }
-            if ((m = NODE_FRAME.matcher(line)).find()) {
-                return Optional.of(new Frame(m.group(1), parseLine(m.group(2))));
-            }
             if ((m = PYTHON_FRAME.matcher(line)).find()) {
                 return Optional.of(new Frame(m.group(1), parseLine(m.group(2))));
             }
-            if ((m = GO_FRAME.matcher(line)).find()) {
-                return Optional.of(new Frame(m.group(1), parseLine(m.group(2))));
+            Frame f = null;
+            if ((m = JVM_FRAME.matcher(line)).find()) {
+                f = new Frame(m.group(1), parseLine(m.group(2)));
+            } else if ((m = NODE_FRAME.matcher(line)).find()) {
+                f = new Frame(m.group(1), parseLine(m.group(2)));
+            } else if ((m = GO_FRAME.matcher(line)).find()) {
+                f = new Frame(m.group(1), parseLine(m.group(2)));
+            }
+            if (f != null) {
+                inRun = true;
+                lastInRun = f;
+            } else if (inRun) {
+                break; // left the contiguous frame block — lastInRun is the top frame
             }
         }
-        return Optional.empty();
+        return Optional.ofNullable(lastInRun);
     }
 
     private static int parseLine(String s) {
