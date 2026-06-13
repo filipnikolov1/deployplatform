@@ -20,7 +20,6 @@ import dev.filipnikolov.vector.selfapp.service.SelfAppUpdateService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -47,9 +46,6 @@ public class DeploymentServiceImpl implements DeploymentService {
     private final DeploymentTransactionHelper txHelper;
     private final ProgressHub progressHub;
     private final SelfAppUpdateService selfAppUpdateService;
-
-    @Value("${app.default-port:3000}")
-    private int defaultContainerPort;
 
     @Override
     public Deployment createDeployment(CreateDeploymentRequest req) {
@@ -254,18 +250,8 @@ public class DeploymentServiceImpl implements DeploymentService {
 
     @Override
     public Deployment updateSubdomain(String appName, String subdomain) {
-        if (subdomain != null) {
-            if (!SUBDOMAIN_PATTERN.matcher(subdomain).matches()) {
-                throw new IllegalArgumentException("Invalid subdomain");
-            }
-            Deployment current = getDeployment(appName);
-            Long currentId = current.getId();
-            deploymentRepository.findBySubdomainAndDeletedAtIsNull(subdomain)
-                    .filter(other -> !other.getId().equals(currentId))
-                    .ifPresent(other -> { throw new IllegalArgumentException("Subdomain already in use"); });
-            deploymentRepository.findByAppNameAndDeletedAtIsNull(subdomain)
-                    .filter(other -> !other.getId().equals(currentId))
-                    .ifPresent(other -> { throw new IllegalArgumentException("Subdomain already in use"); });
+        if (subdomain != null && !SUBDOMAIN_PATTERN.matcher(subdomain).matches()) {
+            throw new IllegalArgumentException("Invalid subdomain");
         }
 
         Deployment current = getDeployment(appName);
@@ -276,7 +262,13 @@ public class DeploymentServiceImpl implements DeploymentService {
         Deployment deployment = txHelper.saveSubdomainChange(appName, subdomain);
 
         if (deployment.getStatus() == DeploymentStatus.RUNNING) {
-            restartDeployment(appName);
+            try {
+                restartDeployment(appName);
+            } catch (RuntimeException e) {
+                log.error("Subdomain row updated but restart failed for {}: {}", appName, e.getMessage(), e);
+                throw new IllegalStateException(
+                        "Subdomain saved but container restart failed; retry restart manually", e);
+            }
         }
 
         eventService.record(DeploymentEventType.SUBDOMAIN_CHANGED, DeploymentEventStatus.SUCCESS,

@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 @RestController
 @RequestMapping("/api/internal/apps")
@@ -42,38 +43,49 @@ public class InternalLogController {
             return emitter;
         }
 
-        // tail=0 means follow from now only; no historical lines sent
-        Closeable stream = dockerService.streamContainerLogs(
-                appName,
-                0,
-                line -> {
-                    try {
-                        emitter.send(SseEmitter.event().data(line));
-                    } catch (Exception ignored) {}
-                },
-                emitter::completeWithError,
-                () -> {
-                    try {
-                        emitter.send(SseEmitter.event().name("done").data(""));
-                    } catch (Exception ignored) {}
-                    emitter.complete();
-                });
-
-        ScheduledFuture<?> heartbeat = HEARTBEAT_EXECUTOR.scheduleAtFixedRate(
-                () -> {
-                    try {
-                        emitter.send(SseEmitter.event().comment("keepalive"));
-                    } catch (Exception ignored) {}
-                },
-                HEARTBEAT_INTERVAL_SEC, HEARTBEAT_INTERVAL_SEC, TimeUnit.SECONDS);
+        AtomicReference<Closeable> streamRef = new AtomicReference<>();
+        AtomicReference<ScheduledFuture<?>> heartbeatRef = new AtomicReference<>();
 
         Runnable closeAll = () -> {
-            heartbeat.cancel(false);
-            try { stream.close(); } catch (Exception ignored) {}
+            ScheduledFuture<?> hb = heartbeatRef.getAndSet(null);
+            if (hb != null) hb.cancel(false);
+            Closeable s = streamRef.getAndSet(null);
+            if (s != null) try { s.close(); } catch (Exception ignored) {}
         };
         emitter.onCompletion(closeAll);
         emitter.onTimeout(closeAll);
         emitter.onError(e -> closeAll.run());
+
+        heartbeatRef.set(HEARTBEAT_EXECUTOR.scheduleAtFixedRate(
+                () -> {
+                    try {
+                        emitter.send(SseEmitter.event().comment("keepalive"));
+                    } catch (Exception e) {
+                        closeAll.run();
+                    }
+                },
+                HEARTBEAT_INTERVAL_SEC, HEARTBEAT_INTERVAL_SEC, TimeUnit.SECONDS));
+
+        try {
+            streamRef.set(dockerService.streamContainerLogs(
+                    appName,
+                    0,
+                    line -> {
+                        try {
+                            emitter.send(SseEmitter.event().data(line));
+                        } catch (Exception ignored) {}
+                    },
+                    emitter::completeWithError,
+                    () -> {
+                        try {
+                            emitter.send(SseEmitter.event().name("done").data(""));
+                        } catch (Exception ignored) {}
+                        emitter.complete();
+                    }));
+        } catch (RuntimeException e) {
+            closeAll.run();
+            emitter.completeWithError(e);
+        }
 
         return emitter;
     }

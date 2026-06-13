@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 public class WebhookIdempotencyRecord {
 
     @Id
+    // 80 = "sha256=" (7) + 64 hex chars (71), with headroom.
     @Column(name = "signature", length = 80)
     private String signature;
 

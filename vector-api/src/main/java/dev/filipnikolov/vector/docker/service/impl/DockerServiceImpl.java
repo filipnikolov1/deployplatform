@@ -4,10 +4,13 @@ import dev.filipnikolov.vector.docker.service.DockerService;
 import dev.filipnikolov.vector.progress.ProgressFrame;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
+import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.AuthConfig;
 import com.github.dockerjava.api.model.Frame;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.PullResponseItem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +27,8 @@ import java.util.function.Consumer;
 
 @Service
 public class DockerServiceImpl implements DockerService {
+
+    private static final Logger log = LoggerFactory.getLogger(DockerServiceImpl.class);
 
     private final DockerClient dockerClient;
     private final String traefikNetwork;
@@ -58,6 +63,7 @@ public class DockerServiceImpl implements DockerService {
 
     @Override
     public String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars, Consumer<ProgressFrame> progressCallback) throws InterruptedException {
+        Consumer<ProgressFrame> emit = progressCallback != null ? progressCallback : f -> {};
         var pullCmd = dockerClient.pullImageCmd(imageName);
         if (authConfig != null) {
             pullCmd.withAuthConfig(authConfig);
@@ -71,17 +77,15 @@ public class DockerServiceImpl implements DockerService {
 
             @Override
             public void onNext(PullResponseItem item) {
-                if (progressCallback != null) {
-                    Long current = null;
-                    Long total = null;
-                    if (item.getProgressDetail() != null) {
-                        current = item.getProgressDetail().getCurrent();
-                        total = item.getProgressDetail().getTotal();
-                    }
-                    String msg = (item.getStatus() != null ? item.getStatus() : "")
-                            + (item.getId() != null ? " " + item.getId() : "");
-                    progressCallback.accept(new ProgressFrame("PULL_LAYER", msg.strip(), current, total, "bytes", Instant.now()));
+                Long current = null;
+                Long total = null;
+                if (item.getProgressDetail() != null) {
+                    current = item.getProgressDetail().getCurrent();
+                    total = item.getProgressDetail().getTotal();
                 }
+                String msg = (item.getStatus() != null ? item.getStatus() : "")
+                        + (item.getId() != null ? " " + item.getId() : "");
+                emit.accept(new ProgressFrame("PULL_LAYER", msg.strip(), current, total, "bytes", Instant.now()));
             }
 
             @Override
@@ -116,9 +120,7 @@ public class DockerServiceImpl implements DockerService {
                 .map(e -> e.getKey() + "=" + e.getValue())
                 .toList();
 
-        if (progressCallback != null) {
-            progressCallback.accept(new ProgressFrame("CONTAINER_CREATE", "Creating container " + appName, null, null, null, Instant.now()));
-        }
+        emit.accept(new ProgressFrame("CONTAINER_CREATE", "Creating container " + appName, null, null, null, Instant.now()));
 
         String containerId = dockerClient.createContainerCmd(imageName)
                 .withName(appName)
@@ -134,9 +136,7 @@ public class DockerServiceImpl implements DockerService {
                 .exec()
                 .getId();
 
-        if (progressCallback != null) {
-            progressCallback.accept(new ProgressFrame("CONTAINER_START", "Starting container " + appName, null, null, null, Instant.now()));
-        }
+        emit.accept(new ProgressFrame("CONTAINER_START", "Starting container " + appName, null, null, null, Instant.now()));
 
         dockerClient.startContainerCmd(containerId).exec();
         return containerId;
@@ -168,13 +168,17 @@ public class DockerServiceImpl implements DockerService {
     public void stopAndRemoveContainer(String containerName) {
         try {
             dockerClient.stopContainerCmd(containerName).exec();
+        } catch (NotFoundException ignored) {
+            // Container doesn't exist — fine, nothing to stop.
         } catch (Exception e) {
-            // Container not running or doesn't exist
+            log.warn("Docker stop failed for {} (continuing to remove): {}", containerName, e.getMessage());
         }
         try {
             dockerClient.removeContainerCmd(containerName).exec();
+        } catch (NotFoundException ignored) {
+            // Container doesn't exist — fine, nothing to remove.
         } catch (Exception e) {
-            // Container doesn't exist
+            log.warn("Docker remove failed for {}: {}", containerName, e.getMessage());
         }
     }
 

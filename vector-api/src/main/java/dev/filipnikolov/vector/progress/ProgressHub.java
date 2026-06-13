@@ -39,9 +39,11 @@ public class ProgressHub {
         OperationState state = ops.get(operationId);
         if (state == null) return;
 
-        state.buffer.add(frame);
-        if (state.buffer.size() > RING_SIZE) {
-            state.buffer.remove(0);
+        synchronized (state.buffer) {
+            state.buffer.add(frame);
+            if (state.buffer.size() > RING_SIZE) {
+                state.buffer.remove(0);
+            }
         }
 
         String json;
@@ -87,7 +89,10 @@ public class ProgressHub {
         }
 
         // Replay buffered frames
-        List<ProgressFrame> snapshot = new ArrayList<>(state.buffer);
+        List<ProgressFrame> snapshot;
+        synchronized (state.buffer) {
+            snapshot = new ArrayList<>(state.buffer);
+        }
         for (ProgressFrame frame : snapshot) {
             try {
                 emitter.send(SseEmitter.event().name("progress").data(MAPPER.writeValueAsString(frame)));

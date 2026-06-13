@@ -52,17 +52,21 @@ const TERMINAL_TYPES = new Set<DeploymentEventType>([
 ]);
 
 function findActiveOperationId(appName: string, events: DeploymentEvent[]): string | null {
+  // events is newest-first. Only the latest event decides whether an operation is
+  // still in flight — if the latest event for this app isn't in-progress, no operation
+  // is active, even if older events look incomplete (legacy rows had NULL opIds on
+  // their terminal events, which would otherwise trick a full scan into returning a
+  // stale opId forever).
   const appEvents = events.filter((e) => e.appName === appName);
-  for (const event of appEvents) {
-    if (!event.operationId) continue;
-    if (!IN_PROGRESS_TYPES.has(event.eventType)) continue;
-    const opId = event.operationId;
-    const hasTerminal = appEvents.some(
-      (e) => e.operationId === opId && TERMINAL_TYPES.has(e.eventType),
-    );
-    if (!hasTerminal) return opId;
-  }
-  return null;
+  if (!appEvents.length) return null;
+  const latest = appEvents[0];
+  if (!latest.operationId) return null;
+  if (!IN_PROGRESS_TYPES.has(latest.eventType)) return null;
+  const opId = latest.operationId;
+  const hasTerminal = appEvents.some(
+    (e) => e.operationId === opId && TERMINAL_TYPES.has(e.eventType),
+  );
+  return hasTerminal ? null : opId;
 }
 
 interface SelfAppCardProps {

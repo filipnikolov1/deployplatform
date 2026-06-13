@@ -11,7 +11,7 @@ export async function middleware(req: NextRequest) {
   if (pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
     return NextResponse.next();
   }
-  const secret = process.env.SESSION_SECRET;
+  const secret = process.env.VECTOR_SESSION_SECRET;
   const cookie = req.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!secret || !cookie || !(await verifySession(secret, cookie))) {
     if (pathname.startsWith("/api/")) {

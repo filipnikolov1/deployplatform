@@ -55,10 +55,22 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserAccount mergePreferences(Map<String, Object> partial) {
+        validatePreferences(partial);
         UserAccount user = getOwner();
         if (user.getPreferences() == null) user.setPreferences(new HashMap<>());
         user.getPreferences().putAll(partial);
         return repository.save(user);
+    }
+
+    private static void validatePreferences(Map<String, Object> partial) {
+        if (partial == null) return;
+        Object pinned = partial.get("pinned_apps");
+        if (pinned != null) {
+            if (!(pinned instanceof List<?> list)
+                    || list.stream().anyMatch(v -> !(v instanceof String))) {
+                throw new IllegalArgumentException("pinned_apps must be an array of strings");
+            }
+        }
     }
 
     @Override

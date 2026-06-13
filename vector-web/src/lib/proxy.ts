@@ -1,21 +1,31 @@
-import { verifySession, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { getSessionToken, verifySession } from "@/lib/auth";
 
-function getCookie(req: Request, name: string): string | undefined {
-  const raw = req.headers.get("cookie") ?? "";
-  for (const part of raw.split(";")) {
-    const [k, ...v] = part.trim().split("=");
-    if (k === name) return v.join("=");
-  }
-  return undefined;
-}
+const FORWARDABLE_HEADERS = new Set(["content-type", "accept"]);
+const PROXY_TIMEOUT_MS = 30_000;
 
 async function isAuthorized(req: Request): Promise<boolean> {
-  const token = getCookie(req, SESSION_COOKIE_NAME);
+  const token = getSessionToken(req);
   if (!token) return false;
-  const secret = process.env.SESSION_SECRET;
+  const secret = process.env.VECTOR_SESSION_SECRET;
   if (!secret) return false;
   const payload = await verifySession(secret, token);
   return payload !== null;
+}
+
+function buildHeaders(init: RequestInit, apiKey: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (init.headers) {
+    const existing = new Headers(init.headers);
+    existing.forEach((value, key) => {
+      // Whitelist forwarded headers — never blind-copy caller headers into the
+      // privileged API-key request (defence in depth against header injection).
+      if (FORWARDABLE_HEADERS.has(key.toLowerCase())) {
+        headers[key] = value;
+      }
+    });
+  }
+  headers["X-API-Key"] = apiKey;
+  return headers;
 }
 
 export async function proxyToAnalyzer(
@@ -27,27 +37,19 @@ export async function proxyToAnalyzer(
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const analyzer = process.env.ANALYZER_URL;
-  const apiKey = process.env.API_KEY;
+  const analyzer = process.env.VECTOR_ANALYZER_URL;
+  const apiKey = process.env.VECTOR_API_KEY;
   if (!analyzer || !apiKey) {
     return new Response("Server misconfigured", { status: 500 });
   }
-
-  const headers: Record<string, string> = {};
-  if (init.headers) {
-    const existing = new Headers(init.headers);
-    existing.forEach((value, key) => {
-      headers[key] = value;
-    });
-  }
-  headers["X-API-Key"] = apiKey;
 
   let upstream: Response;
   try {
     upstream = await fetch(`${analyzer}${path}`, {
       method: init.method ?? req.method,
-      headers,
+      headers: buildHeaders(init, apiKey),
       body: init.body,
+      signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
     });
   } catch {
     return Response.json(
@@ -75,27 +77,19 @@ export async function proxyToBackend(
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const backend = process.env.BACKEND_URL;
-  const apiKey = process.env.API_KEY;
+  const backend = process.env.VECTOR_BACKEND_URL;
+  const apiKey = process.env.VECTOR_API_KEY;
   if (!backend || !apiKey) {
     return new Response("Server misconfigured", { status: 500 });
   }
-
-  const headers: Record<string, string> = {};
-  if (init.headers) {
-    const existing = new Headers(init.headers);
-    existing.forEach((value, key) => {
-      headers[key] = value;
-    });
-  }
-  headers["X-API-Key"] = apiKey;
 
   let upstream: Response;
   try {
     upstream = await fetch(`${backend}${path}`, {
       method: init.method ?? req.method,
-      headers,
+      headers: buildHeaders(init, apiKey),
       body: init.body,
+      signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
     });
   } catch {
     return Response.json(

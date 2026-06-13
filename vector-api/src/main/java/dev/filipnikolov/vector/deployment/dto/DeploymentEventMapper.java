@@ -5,6 +5,8 @@ import dev.filipnikolov.vector.events.PlatformEventEnvelope;
 import dev.filipnikolov.vector.events.dto.DeploymentEventDto;
 import dev.filipnikolov.vector.events.dto.DeploymentEventPayload;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
 public final class DeploymentEventMapper {
@@ -37,6 +39,8 @@ public final class DeploymentEventMapper {
     }
 
     public static PlatformEventEnvelope envelopeFrom(DeploymentEvent e) {
+        LocalDateTime createdAt = e.getCreatedAt();
+        Instant occurredAt = createdAt != null ? createdAt.toInstant(ZoneOffset.UTC) : Instant.now();
         return new PlatformEventEnvelope(
                 1,
                 e.getId(),
@@ -44,7 +48,7 @@ public final class DeploymentEventMapper {
                 e.getAppName(),
                 e.getEventType(),
                 e.getStatus(),
-                e.getCreatedAt().toInstant(ZoneOffset.UTC),
+                occurredAt,
                 new DeploymentEventPayload(
                         e.getImageName(),
                         e.getBranch(),

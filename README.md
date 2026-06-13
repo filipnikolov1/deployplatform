@@ -135,23 +135,18 @@ Vector is driven by the `POST /deploy-hook` endpoint. Your CI (GitHub Actions, G
 **Example GitHub Actions step** (after your image is pushed to DockerHub):
 
 ```yaml
-- name: Trigger deploy
-  env:
-    VECTOR_DEPLOY_HOOK_SECRET: ${{ secrets.VECTOR_DEPLOY_HOOK_SECRET }}
-  run: |
-    PAYLOAD=$(jq -nc \
-      --arg app "my-app" \
-      --arg image "$DOCKERHUB_USER/my-app:latest" \
-      --arg repo "https://github.com/${{ github.repository }}" \
-      --argjson port 3000 \
-      --argjson ts $(($(date +%s) * 1000)) \
-      '{app_name:$app, image:$image, repo_url:$repo, port:$port, timestamp:$ts}')
-    SIG=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$VECTOR_DEPLOY_HOOK_SECRET" -hex | awk '{print $2}')
-    curl -fsS -X POST https://vector-api.your-domain/deploy-hook \
-      -H "Content-Type: application/json" \
-      -H "X-Signature-256: sha256=$SIG" \
-      --data "$PAYLOAD"
+- uses: filipnikolov1/vector-deploy-action@v1
+  with:
+    app: my-app
+    image: ${{ env.IMAGE }}
+    url: ${{ secrets.VECTOR_DEPLOY_URL }}
+    secret: ${{ secrets.VECTOR_HMAC_SECRET }}
 ```
+
+The composite action signs and POSTs the payload. Action source lives at
+`tooling/vector-deploy-action/action.yml`; mirror it to a public
+`filipnikolov1/vector-deploy-action` repo tagged `v1` for the `uses:` reference
+to resolve in users' workflows.
 
 ---
 

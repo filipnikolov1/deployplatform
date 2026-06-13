@@ -1,15 +1,10 @@
-import { verifySession, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { getSessionToken, verifySession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 async function isAuthorized(req: Request): Promise<boolean> {
-  const raw = req.headers.get("cookie") ?? "";
-  let token: string | undefined;
-  for (const part of raw.split(";")) {
-    const [k, ...v] = part.trim().split("=");
-    if (k === SESSION_COOKIE_NAME) token = v.join("=");
-  }
-  const secret = process.env.SESSION_SECRET;
+  const token = getSessionToken(req);
+  const secret = process.env.VECTOR_SESSION_SECRET;
   if (!token || !secret) return false;
   const payload = await verifySession(secret, token);
   return payload !== null;
@@ -22,8 +17,8 @@ export async function GET(
   if (!(await isAuthorized(req))) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const analyzer = process.env.ANALYZER_URL;
-  const apiKey = process.env.API_KEY;
+  const analyzer = process.env.VECTOR_ANALYZER_URL;
+  const apiKey = process.env.VECTOR_API_KEY;
   if (!analyzer || !apiKey) {
     return new Response("Server misconfigured", { status: 500 });
   }

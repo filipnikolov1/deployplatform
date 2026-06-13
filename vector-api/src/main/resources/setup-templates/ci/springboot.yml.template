@@ -34,21 +34,9 @@ jobs:
           docker buildx build --platform linux/amd64 --push -t "$IMAGE" .
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 
-      - name: Trigger Vector deploy
-        run: |
-          TIMESTAMP=$(date +%s%3N)
-          PAYLOAD=$(jq -n \
-            --arg app "@@app@@" \
-            --arg image "$IMAGE" \
-            --arg branch "@@branch@@" \
-            --arg commit_sha "$GITHUB_SHA" \
-            --arg commit_message "$(git log -1 --pretty=%s)" \
-            --arg commit_author "$(git log -1 --pretty=%an)" \
-            --argjson commit_timestamp "$(git log -1 --format='%ct')" \
-            --argjson timestamp "$TIMESTAMP" \
-            '{app_name: $app, image: $image, branch: $branch, commit_sha: $commit_sha, commit_message: $commit_message, commit_author: $commit_author, commit_timestamp: $commit_timestamp, timestamp: $timestamp}')
-          SIG=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "${{ secrets.VECTOR_HMAC_SECRET }}" | sed 's/.* //')
-          curl -fsSL -X POST "${{ secrets.VECTOR_DEPLOY_URL }}" \
-            -H "Content-Type: application/json" \
-            -H "X-Signature-256: sha256=$SIG" \
-            -d "$PAYLOAD"
+      - uses: filipnikolov1/vector-deploy-action@v1
+        with:
+          app: "@@app@@"
+          image: ${{ env.IMAGE }}
+          url: ${{ secrets.VECTOR_DEPLOY_URL }}
+          secret: ${{ secrets.VECTOR_HMAC_SECRET }}

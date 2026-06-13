@@ -8,7 +8,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro
+      - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock:ro
     networks:
       - traefik
 
@@ -41,7 +41,7 @@ services:
     ports:
       - "8085:8080"
     volumes:
-      - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+      - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
       - ../docker-compose.yml:/workspace/docker-compose.yml:ro
       - ../.env:/workspace/.env:ro
     networks:

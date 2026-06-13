@@ -51,10 +51,9 @@ services:
     env_file:
       - .env
     environment:
-      VECTOR_DB_URL: jdbc:postgresql://postgres:5432/launchpad
       VECTOR_DOCKER_SOCKET: unix:///var/run/docker.sock
-      UPDATER_BASE_URL: http://vector-updater:8080
-      UPDATER_AUTH_TOKEN: ${UPDATER_AUTH_TOKEN:-}
+      VECTOR_UPDATER_BASE_URL: http://vector-updater:8080
+      VECTOR_UPDATER_AUTH_TOKEN: ${VECTOR_UPDATER_AUTH_TOKEN:-}
       VECTOR_SELF_HOSTED: "true"
     volumes:
       - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
@@ -81,11 +80,11 @@ services:
       context: ./vector-web
       dockerfile: Dockerfile
     environment:
-      BACKEND_URL: http://vector-api:8082
-      ANALYZER_URL: http://vector-analyzer:8082
-      API_KEY: ${VECTOR_API_KEY}
-      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
-      SESSION_SECRET: ${VECTOR_SESSION_SECRET}
+      VECTOR_BACKEND_URL: http://vector-api:8082
+      VECTOR_ANALYZER_URL: http://vector-analyzer:8082
+      VECTOR_API_KEY: ${VECTOR_API_KEY}
+      VECTOR_DASHBOARD_PASSWORD: ${VECTOR_DASHBOARD_PASSWORD}
+      VECTOR_SESSION_SECRET: ${VECTOR_SESSION_SECRET}
     depends_on:
       - vector-api
     networks:
@@ -105,7 +104,6 @@ services:
     env_file:
       - .env
     environment:
-      VECTOR_DB_URL: jdbc:postgresql://postgres:5432/launchpad
       VECTOR_DB_USER: ${VECTOR_ANALYZER_DB_USER:-vector_analyzer}
       VECTOR_DB_PASS: ${VECTOR_ANALYZER_DB_PASS:-vector_analyzer}
       VECTOR_API_INTERNAL_URL: http://vector-api:8082
@@ -130,8 +128,8 @@ services:
       context: ./vector-updater
       dockerfile: Dockerfile
     environment:
-      COMPOSE_PROJECT_NAME: vector-platform
-      UPDATER_AUTH_TOKEN: ${UPDATER_AUTH_TOKEN:-}
+      VECTOR_COMPOSE_PROJECT_NAME: vector-platform
+      VECTOR_UPDATER_AUTH_TOKEN: ${VECTOR_UPDATER_AUTH_TOKEN:-}
     volumes:
       - ${VECTOR_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
       # Mount the project dir, not individual files — editor-driven inode replacement

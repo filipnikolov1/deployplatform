@@ -16,7 +16,7 @@ public class ActionLockService {
         Semaphore lock = locks.computeIfAbsent(key, k -> new Semaphore(1));
         try {
             if (lock.tryAcquire(5, TimeUnit.SECONDS)) {
-                return Optional.of(new LockHandle(key, lock));
+                return Optional.of(new LockHandle(key, lock, this));
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -27,6 +27,8 @@ public class ActionLockService {
     private void tryRemoveIfIdle(String key, Semaphore lock) {
         locks.compute(key, (k, existing) -> {
             if (existing == null) return null;
+            // Re-create race guard: another caller may have removed-then-recreated the
+            // semaphore for this key while we were closing the old handle.
             if (existing != lock) return existing;
             if (existing.availablePermits() == 1 && !existing.hasQueuedThreads()) {
                 return null;
@@ -35,13 +37,15 @@ public class ActionLockService {
         });
     }
 
-    public class LockHandle implements AutoCloseable {
+    public static class LockHandle implements AutoCloseable {
         private final String key;
         private final Semaphore lock;
+        private final ActionLockService owner;
 
-        LockHandle(String key, Semaphore lock) {
+        LockHandle(String key, Semaphore lock, ActionLockService owner) {
             this.key = key;
             this.lock = lock;
+            this.owner = owner;
         }
 
         @Override
@@ -49,7 +53,7 @@ public class ActionLockService {
             try {
                 lock.release();
             } finally {
-                tryRemoveIfIdle(key, lock);
+                owner.tryRemoveIfIdle(key, lock);
             }
         }
     }

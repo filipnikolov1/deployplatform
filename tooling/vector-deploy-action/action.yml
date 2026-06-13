@@ -1,0 +1,57 @@
+name: Vector deploy
+description: Sign and POST a deploy webhook to a Vector platform.
+inputs:
+  app:
+    description: Application name registered in Vector.
+    required: true
+  image:
+    description: Fully qualified Docker image (registry/repo:tag) that was just pushed.
+    required: true
+  url:
+    description: Vector deploy-hook URL (the value of secrets.VECTOR_DEPLOY_URL).
+    required: true
+  secret:
+    description: HMAC shared secret (the value of secrets.VECTOR_HMAC_SECRET).
+    required: true
+  branch:
+    description: Branch that triggered the deploy.
+    required: false
+    default: ${{ github.ref_name }}
+runs:
+  using: composite
+  steps:
+    - name: Trigger Vector deploy
+      shell: bash
+      env:
+        VECTOR_APP: ${{ inputs.app }}
+        VECTOR_IMAGE: ${{ inputs.image }}
+        VECTOR_URL: ${{ inputs.url }}
+        VECTOR_SECRET: ${{ inputs.secret }}
+        VECTOR_BRANCH: ${{ inputs.branch }}
+      run: |
+        set -euo pipefail
+        TIMESTAMP=$(date +%s%3N)
+        COMMIT_SHA="${GITHUB_SHA}"
+        COMMIT_MSG=$(git log -1 --pretty=%s)
+        COMMIT_AUTHOR=$(git log -1 --pretty=%an)
+        COMMIT_TS=$(git log -1 --format='%ct')
+
+        # Build payload exactly once and HMAC/curl the same string — Vector hashes
+        # the raw received bytes, so any re-serialization would break the signature.
+        PAYLOAD=$(jq -n \
+          --arg app "${VECTOR_APP}" \
+          --arg image "${VECTOR_IMAGE}" \
+          --arg branch "${VECTOR_BRANCH}" \
+          --arg commit_sha "${COMMIT_SHA}" \
+          --arg commit_message "${COMMIT_MSG}" \
+          --arg commit_author "${COMMIT_AUTHOR}" \
+          --argjson commit_timestamp "${COMMIT_TS}" \
+          --argjson timestamp "${TIMESTAMP}" \
+          '{app_name: $app, image: $image, branch: $branch, commit_sha: $commit_sha, commit_message: $commit_message, commit_author: $commit_author, commit_timestamp: $commit_timestamp, timestamp: $timestamp}')
+
+        SIG=$(printf '%s' "${PAYLOAD}" | openssl dgst -sha256 -hmac "${VECTOR_SECRET}" | sed 's/.* //')
+
+        curl -fsSL -X POST "${VECTOR_URL}" \
+          -H "Content-Type: application/json" \
+          -H "X-Signature-256: sha256=${SIG}" \
+          -d "${PAYLOAD}"

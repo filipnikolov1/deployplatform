@@ -14,8 +14,8 @@ function constantTimeEquals(a: string, b: string): boolean {
 }
 
 export async function POST(req: Request) {
-  const secret = process.env.SESSION_SECRET;
-  const expected = process.env.DASHBOARD_PASSWORD;
+  const secret = process.env.VECTOR_SESSION_SECRET;
+  const expected = process.env.VECTOR_DASHBOARD_PASSWORD;
   if (!secret || !expected) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
