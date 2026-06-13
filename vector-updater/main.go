@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -15,6 +16,11 @@ import (
 )
 
 const keepImageTags = 3
+
+const (
+	pullTimeout     = 10 * time.Minute
+	recreateTimeout = 5 * time.Minute
+)
 
 var allowedServices = map[string]bool{
 	"vector-api":      true,
@@ -169,19 +175,31 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 
 func runUpdate(service, image, updateId string) {
 	log.Printf("[%s] pulling %s", updateId, image)
-	if out, err := exec.Command("docker", "pull", image).CombinedOutput(); err != nil {
-		log.Printf("[%s] pull failed: %s", updateId, strings.TrimSpace(string(out)))
-		setPhase(service, updateId, phaseFailed, "pull failed: "+strings.TrimSpace(string(out)))
+	pullCtx, cancelPull := context.WithTimeout(context.Background(), pullTimeout)
+	defer cancelPull()
+	if out, err := exec.CommandContext(pullCtx, "docker", "pull", image).CombinedOutput(); err != nil {
+		msg := strings.TrimSpace(string(out))
+		if pullCtx.Err() == context.DeadlineExceeded {
+			msg = "pull timed out after " + pullTimeout.String()
+		}
+		log.Printf("[%s] pull failed: %s", updateId, msg)
+		setPhase(service, updateId, phaseFailed, "pull failed: "+msg)
 		return
 	}
 
 	setPhase(service, updateId, phaseRecreating, "")
 	log.Printf("[%s] recreating service %s", updateId, service)
-	cmd := exec.Command("docker", "compose", "--env-file", "/workspace/.env", "-f", "/workspace/docker-compose.yml", "up", "-d", "--force-recreate", "--no-deps", service)
+	recreateCtx, cancelRecreate := context.WithTimeout(context.Background(), recreateTimeout)
+	defer cancelRecreate()
+	cmd := exec.CommandContext(recreateCtx, "docker", "compose", "--env-file", "/workspace/.env", "-f", "/workspace/docker-compose.yml", "up", "-d", "--force-recreate", "--no-deps", service)
 	cmd.Env = append(os.Environ(), imageEnvByService[service]+"="+image)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		log.Printf("[%s] recreate failed: %s", updateId, strings.TrimSpace(string(out)))
-		setPhase(service, updateId, phaseFailed, "recreate failed: "+strings.TrimSpace(string(out)))
+		msg := strings.TrimSpace(string(out))
+		if recreateCtx.Err() == context.DeadlineExceeded {
+			msg = "recreate timed out after " + recreateTimeout.String()
+		}
+		log.Printf("[%s] recreate failed: %s", updateId, msg)
+		setPhase(service, updateId, phaseFailed, "recreate failed: "+msg)
 		return
 	}
 

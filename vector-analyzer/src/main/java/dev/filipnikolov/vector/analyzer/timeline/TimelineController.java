@@ -117,34 +117,24 @@ public class TimelineController {
         List<Map<String, Object>> rows = jdbc.queryForList(sql, appName, since);
 
         long windowMs = java.time.Duration.between(since, now).toMillis();
-        long uptimeMs = 0L;
 
-        // Walk transitions: track when app entered RUNNING state
-        Long runningStart = null;
-
-        for (Map<String, Object> row : rows) {
-            String type = row.get("event_type").toString();
-            String status = row.get("status") != null ? row.get("status").toString() : "";
-            java.time.LocalDateTime ts = toLocalDt(row.get("created_at"));
-            long epochMs = ts.toInstant(java.time.ZoneOffset.UTC).toEpochMilli();
-
-            boolean becomesRunning = "DEPLOY_FINISHED".equals(type) && "SUCCESS".equals(status);
-            boolean becomesDown = "CRASHED".equals(type) || "RESTARTED".equals(type) || "STOPPED".equals(type);
-
-            if (becomesRunning) {
-                runningStart = epochMs;
-            } else if (becomesDown && runningStart != null) {
-                uptimeMs += (epochMs - runningStart);
-                runningStart = null;
-            }
+        // State at window start: last relevant event BEFORE the window decides up/down.
+        List<Map<String, Object>> beforeWindow = jdbc.queryForList("""
+                SELECT event_type, status FROM public.deployment_event
+                WHERE app_name = ?
+                  AND created_at < ?
+                  AND event_type IN ('DEPLOY_FINISHED','CRASHED','RESTARTED','STOPPED')
+                ORDER BY created_at DESC
+                LIMIT 1
+                """, appName, since);
+        boolean runningAtStart = false;
+        if (!beforeWindow.isEmpty()) {
+            String t = beforeWindow.get(0).get("event_type").toString();
+            String s = beforeWindow.get(0).get("status") != null ? beforeWindow.get(0).get("status").toString() : "";
+            runningAtStart = ("DEPLOY_FINISHED".equals(t) || "RESTARTED".equals(t)) && "SUCCESS".equals(s);
         }
 
-        // If still running at end of window, count remaining time
-        if (runningStart != null) {
-            long nowMs = now.toInstant(java.time.ZoneOffset.UTC).toEpochMilli();
-            uptimeMs += (nowMs - runningStart);
-        }
-
+        long uptimeMs = computeUptimeMs(runningAtStart, rows, since, now);
         uptimeMs = Math.min(uptimeMs, windowMs);
         long downtimeMs = Math.max(0, windowMs - uptimeMs);
         double percent = windowMs > 0 ? Math.round((uptimeMs * 1000.0 / windowMs)) / 10.0 : 0.0;
@@ -188,6 +178,39 @@ public class TimelineController {
         result.put("avgMs", avgMs);
         result.put("count", count);
         return ResponseEntity.ok(result);
+    }
+
+    /** Walks deployment events and accumulates uptime. RESTARTED SUCCESS = recovery (up);
+     *  RESTARTED FAILURE = failed restart (down); CRASHED/STOPPED = down. */
+    static long computeUptimeMs(boolean runningAtStart,
+                                List<Map<String, Object>> rows,
+                                LocalDateTime since, LocalDateTime now) {
+        long uptimeMs = 0L;
+        Long runningStart = runningAtStart ? since.toInstant(java.time.ZoneOffset.UTC).toEpochMilli() : null;
+
+        for (Map<String, Object> row : rows) {
+            String type = row.get("event_type").toString();
+            String status = row.get("status") != null ? row.get("status").toString() : "";
+            long epochMs = toLocalDt(row.get("created_at")).toInstant(java.time.ZoneOffset.UTC).toEpochMilli();
+
+            boolean success = "SUCCESS".equals(status);
+            boolean becomesRunning = ("DEPLOY_FINISHED".equals(type) && success)
+                    || ("RESTARTED".equals(type) && success);
+            boolean becomesDown = "CRASHED".equals(type) || "STOPPED".equals(type)
+                    || ("RESTARTED".equals(type) && !success);
+
+            if (becomesRunning && runningStart == null) {
+                runningStart = epochMs;
+            } else if (becomesDown && runningStart != null) {
+                uptimeMs += (epochMs - runningStart);
+                runningStart = null;
+            }
+        }
+
+        if (runningStart != null) {
+            uptimeMs += now.toInstant(java.time.ZoneOffset.UTC).toEpochMilli() - runningStart;
+        }
+        return uptimeMs;
     }
 
     private static java.time.LocalDateTime toLocalDt(Object value) {

@@ -113,8 +113,14 @@ public class LogTailService {
     private void tailWithBackoff(String appName, AtomicBoolean cancel) {
         long backoffMs = 1_000;
         while (!shutdown.get() && !cancel.get()) {
+            long startedAt = System.currentTimeMillis();
             try {
-                tail(appName, cancel);
+                boolean appExists = tail(appName, cancel);
+                if (!appExists) {
+                    log.info("Log tail for {} stopped — deployment row gone", appName);
+                    removeOwnHandle(appName, cancel);
+                    return;
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
@@ -122,6 +128,10 @@ public class LogTailService {
                 if (!cancel.get() && !shutdown.get()) {
                     log.debug("Log tail for {} failed (retrying in {}s): {}", appName, backoffMs / 1000, e.getMessage());
                 }
+            }
+            // A run that streamed for over a minute was healthy — start fresh on reconnect.
+            if (System.currentTimeMillis() - startedAt > 60_000) {
+                backoffMs = 1_000;
             }
             if (shutdown.get() || cancel.get()) return;
             try {
@@ -134,12 +144,17 @@ public class LogTailService {
         }
     }
 
-    private void tail(String appName, AtomicBoolean cancel) throws Exception {
+    /** Removes this loop's own handle without clobbering a newer tail started by onDeployFinished. */
+    private void removeOwnHandle(String appName, AtomicBoolean ownCancel) {
+        tails.compute(appName, (k, h) -> (h != null && h.cancel() == ownCancel) ? null : h);
+    }
+
+    private boolean tail(String appName, AtomicBoolean cancel) throws Exception {
         // Look up current deployment ID and commit SHA
         List<Map<String, Object>> deps = jdbc.queryForList(
                 "SELECT id, commit_sha FROM public.deployment WHERE app_name = ? AND deleted_at IS NULL LIMIT 1",
                 appName);
-        if (deps.isEmpty()) return;
+        if (deps.isEmpty()) return false;
 
         long deploymentId = ((Number) deps.get(0).get("id")).longValue();
         String commitSha = (String) deps.get(0).get("commit_sha");
@@ -158,7 +173,7 @@ public class LogTailService {
 
         if (response.statusCode() != 200) {
             log.debug("Log stream for {} returned HTTP {}", appName, response.statusCode());
-            return;
+            return true;
         }
 
         List<String[]> buffer = java.util.Collections.synchronizedList(new ArrayList<>());
@@ -184,6 +199,7 @@ public class LogTailService {
             flushTask.cancel(false);
         }
         flushPending(appName, deploymentId, commitSha, buffer);
+        return true;
     }
 
     private void flushPending(String appName, long deploymentId, String commitSha, List<String[]> buffer) {
@@ -243,7 +259,7 @@ public class LogTailService {
 
     private static LocalDateTime parseTimestamp(String value) {
         try {
-            return OffsetDateTime.parse(value).toLocalDateTime();
+            return OffsetDateTime.parse(value).withOffsetSameInstant(java.time.ZoneOffset.UTC).toLocalDateTime();
         } catch (DateTimeParseException ignored) {
         }
         try {

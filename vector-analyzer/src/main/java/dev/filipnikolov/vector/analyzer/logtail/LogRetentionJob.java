@@ -17,14 +17,14 @@ public class LogRetentionJob {
     private final int retentionDeploys;
 
     public LogRetentionJob(JdbcTemplate jdbc,
-                           @Value("${analyzer.retention.days:30}") int retentionDays,
-                           @Value("${analyzer.retention.deploys:5}") int retentionDeploys) {
+                           @Value("${vector.log.retention-days:30}") int retentionDays,
+                           @Value("${vector.log.retention-deploys:5}") int retentionDeploys) {
         this.jdbc = jdbc;
         this.retentionDays = retentionDays;
         this.retentionDeploys = retentionDeploys;
     }
 
-    @Scheduled(fixedDelayString = "${analyzer.retention.interval-ms:21600000}")
+    @Scheduled(fixedDelayString = "${vector.log.retention-interval-ms:21600000}")
     public void run() {
         try {
             // Delete log entries older than retentionDays AND not from the last retentionDeploys per app.

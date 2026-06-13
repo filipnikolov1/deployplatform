@@ -78,6 +78,18 @@ public class SelfAppBootstrap {
     }
 
     private void reconcileStuckPending() {
+        LocalDateTime pendingCutoff = LocalDateTime.now().minusMinutes(20);
+        pendingRepo.findAll().stream()
+                .filter(p -> !VECTOR_API.equals(p.getAppName()))
+                .filter(p -> p.getTriggeredAt() != null && p.getTriggeredAt().isBefore(pendingCutoff))
+                .forEach(p -> {
+                    eventService.record(DeploymentEventType.UPDATE_FAILED, DeploymentEventStatus.FAILURE,
+                            p.getAppName(), null, null,
+                            "Self-update orphaned by restart (target " + p.getTargetSha() + ")", p.getOperationId());
+                    pendingRepo.delete(p);
+                    log.warn("Purged orphaned pending self-update: {} -> {}", p.getAppName(), p.getTargetSha());
+                });
+
         LocalDateTime cutoff = LocalDateTime.now().minusMinutes(5);
         deploymentRepository.findByStatusAndDeletedAtIsNull(DeploymentStatus.PENDING).stream()
                 .filter(d -> d.getUpdatedAt() != null && d.getUpdatedAt().isBefore(cutoff))

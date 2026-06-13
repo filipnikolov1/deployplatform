@@ -178,7 +178,6 @@ public class DeploymentServiceImpl implements DeploymentService {
     }
 
     @Override
-    @Transactional
     public Deployment rollback(String appName, Long eventId) {
         DeploymentEvent target = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
@@ -215,24 +214,18 @@ public class DeploymentServiceImpl implements DeploymentService {
                     appName, ctx, null, null, operationId);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            eventService.record(DeploymentEventType.FAILED, DeploymentEventStatus.FAILURE,
+                    appName, ctx, null, "Rollback interrupted", operationId);
             throw new RuntimeException("Rollback interrupted", e);
+        } catch (RuntimeException e) {
+            eventService.record(DeploymentEventType.FAILED, DeploymentEventStatus.FAILURE,
+                    appName, ctx, null, e.getMessage(), operationId);
+            throw e;
         } finally {
             progressHub.end(operationId);
         }
 
-        d.setImageName(target.getImageName());
-        d.setPinnedImage(target.getImageName());
-        d.setPinnedAt(LocalDateTime.now());
-        d.setStatus(DeploymentStatus.RUNNING);
-        d.setUpdatedAt(LocalDateTime.now());
-        deploymentRepository.save(d);
-
-        DeploymentEvent rollbackEvent = eventService.record(DeploymentEventType.MANUAL_ROLLBACK,
-                DeploymentEventStatus.SUCCESS, appName, ctx, null, null, operationId);
-        rollbackEvent.setRollbackFromSha(rollbackFromSha);
-        eventRepository.save(rollbackEvent);
-
-        return d;
+        return txHelper.finalizeRollback(appName, target, ctx, rollbackFromSha, operationId);
     }
 
     @Override

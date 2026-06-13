@@ -69,12 +69,15 @@ public class ProgressHub {
         OperationState state = ops.get(operationId);
         if (state == null) return;
 
-        for (SseEmitter emitter : state.emitters) {
-            try {
-                emitter.complete();
-            } catch (Exception ignored) {}
+        synchronized (state) {
+            state.done = true;
+            for (SseEmitter emitter : state.emitters) {
+                try {
+                    emitter.complete();
+                } catch (Exception ignored) {}
+            }
+            state.emitters.clear();
         }
-        state.emitters.clear();
 
         scheduler.schedule(() -> ops.remove(operationId), 30, TimeUnit.SECONDS);
     }
@@ -102,7 +105,13 @@ public class ProgressHub {
             }
         }
 
-        state.emitters.add(emitter);
+        synchronized (state) {
+            if (state.done) {
+                emitter.complete();
+                return emitter;
+            }
+            state.emitters.add(emitter);
+        }
         emitter.onCompletion(() -> state.emitters.remove(emitter));
         emitter.onTimeout(() -> state.emitters.remove(emitter));
         emitter.onError(ignored -> state.emitters.remove(emitter));
@@ -111,6 +120,7 @@ public class ProgressHub {
     }
 
     private static class OperationState {
+        volatile boolean done;
         final List<ProgressFrame> buffer = new ArrayList<>(RING_SIZE);
         final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
     }

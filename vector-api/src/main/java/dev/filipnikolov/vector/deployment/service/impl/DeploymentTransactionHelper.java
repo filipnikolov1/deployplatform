@@ -2,6 +2,7 @@ package dev.filipnikolov.vector.deployment.service.impl;
 
 import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
 import dev.filipnikolov.vector.deployment.model.Deployment;
+import dev.filipnikolov.vector.deployment.model.DeploymentEvent;
 import dev.filipnikolov.vector.events.DeploymentEventStatus;
 import dev.filipnikolov.vector.events.DeploymentEventType;
 import dev.filipnikolov.vector.events.DeploymentStatus;
@@ -38,6 +39,15 @@ class DeploymentTransactionHelper {
                     d.setCreatedAt(LocalDateTime.now());
                     return d;
                 });
+        // A new app's name becomes its default Traefik host — refuse if another
+        // app already routes that host via a custom subdomain.
+        if (deployment.getId() == null) {
+            deploymentRepository.findBySubdomainAndDeletedAtIsNull(req.appName())
+                    .ifPresent(other -> {
+                        throw new IllegalArgumentException("App name '" + req.appName()
+                                + "' collides with the subdomain of app '" + other.getAppName() + "'");
+                    });
+        }
         deployment.setRepoUrl(req.repoUrl());
         deployment.setImageName(req.imageName());
         // The webhook path always sets a port, so this fallback only fires for non-webhook callers.
@@ -110,6 +120,29 @@ class DeploymentTransactionHelper {
                 status == DeploymentStatus.RUNNING ? DeploymentEventStatus.SUCCESS : DeploymentEventStatus.FAILURE,
                 appName, ctx, durationMs, error, operationId);
         return deployment;
+    }
+
+    @Transactional
+    Deployment finalizeRollback(String appName, DeploymentEvent target,
+                                CreateDeploymentRequest ctx, String rollbackFromSha,
+                                String operationId) {
+        Deployment d = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
+                .orElseThrow(() -> new ResourceNotFoundException("Deployment not found: " + appName));
+        d.setImageName(target.getImageName());
+        d.setPinnedImage(target.getImageName());
+        d.setPinnedAt(LocalDateTime.now());
+        d.setCommitSha(target.getCommitSha());
+        d.setCommitMessage(target.getCommitMessage());
+        d.setCommitAuthor(target.getCommitAuthor());
+        if (target.getBranch() != null) d.setBranch(target.getBranch());
+        d.setStatus(DeploymentStatus.RUNNING);
+        d.setUpdatedAt(LocalDateTime.now());
+        deploymentRepository.save(d);
+
+        DeploymentEvent rollbackEvent = eventService.record(DeploymentEventType.MANUAL_ROLLBACK,
+                DeploymentEventStatus.SUCCESS, appName, ctx, null, null, operationId);
+        rollbackEvent.setRollbackFromSha(rollbackFromSha);
+        return d;
     }
 
     record LifecycleStart(Deployment deployment, String operationId) {}
