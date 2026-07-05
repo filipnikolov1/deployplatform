@@ -22,6 +22,9 @@ public class StartupConfigValidator {
     @Value("${vector.ai.provider:}")
     private String aiProvider;
 
+    @Value("${vector.ai.gemini.api-key:}")
+    private String geminiApiKey;
+
     @PostConstruct
     public void validate() {
         List<String> errors = new ArrayList<>();
@@ -36,6 +39,11 @@ public class StartupConfigValidator {
         } else if (!SUPPORTED_AI_PROVIDERS.contains(aiProvider.toLowerCase())) {
             errors.add("  - vector.ai.provider (env: VECTOR_AI_PROVIDER) has unsupported value '" +
                     aiProvider + "'; supported values: " + SUPPORTED_AI_PROVIDERS);
+        }
+
+        if ("gemini".equalsIgnoreCase(aiProvider) && (geminiApiKey == null || geminiApiKey.isBlank())) {
+            errors.add("  - vector.ai.gemini.api-key (env: VECTOR_GEMINI_API_KEY) must not be blank " +
+                    "when vector.ai.provider=gemini (the default)");
         }
 
         if (!errors.isEmpty()) {
