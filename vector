@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# Vector compose wrapper. `./vector up -d` is all a fresh checkout needs:
+#  1. creates .env from .env.example if missing,
+#  2. appends any missing auto-generated internal secret (idempotent — existing
+#     values are NEVER modified),
+#  3. checks the three required human values before `up`,
+#  4. execs `docker compose <args...>`.
+# A complete .env keeps working with plain `docker compose` too.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+ENV_FILE=".env"
+
+GENERATED_HEX_VARS=(
+  VECTOR_API_KEY
+  VECTOR_SESSION_SECRET
+  VECTOR_DB_PASS
+  VECTOR_ANALYZER_DB_PASS
+  VECTOR_DEPLOY_HOOK_SECRET
+  VECTOR_UPDATER_AUTH_TOKEN
+)
+# AES key must Base64-decode to 32 bytes (StartupConfigValidator enforces it).
+GENERATED_B64_VARS=(
+  VECTOR_ENCRYPTION_KEY
+)
+
+REQUIRED_VARS=(
+  VECTOR_DOMAIN
+  VECTOR_DASHBOARD_PASSWORD
+  VECTOR_GEMINI_API_KEY
+)
+
+ensure_env_file() {
+  if [[ ! -f "$ENV_FILE" ]]; then
+    cp .env.example "$ENV_FILE"
+    echo "vector: created $ENV_FILE from .env.example" >&2
+  fi
+}
+
+has_var() {
+  grep -qE "^${1}=" "$ENV_FILE"
+}
+
+env_value() {
+  grep -E "^${1}=" "$ENV_FILE" | head -n1 | cut -d= -f2-
+}
+
+generate_missing() {
+  local var
+  for var in "${GENERATED_HEX_VARS[@]}"; do
+    if ! has_var "$var"; then
+      printf '%s=%s\n' "$var" "$(openssl rand -hex 32)" >> "$ENV_FILE"
+      echo "vector: generated $var" >&2
+    fi
+  done
+  for var in "${GENERATED_B64_VARS[@]}"; do
+    if ! has_var "$var"; then
+      printf '%s=%s\n' "$var" "$(openssl rand -base64 32)" >> "$ENV_FILE"
+      echo "vector: generated $var (back this one up!)" >&2
+    fi
+  done
+}
+
+check_required() {
+  local var val missing=0
+  for var in "${REQUIRED_VARS[@]}"; do
+    val="$(env_value "$var" || true)"
+    if [[ -z "$val" || "$val" == "change_me" ]]; then
+      echo "vector: set $var in $ENV_FILE before starting" >&2
+      missing=1
+    fi
+  done
+  if [[ "$missing" == 1 ]]; then
+    exit 1
+  fi
+}
+
+ensure_env_file
+generate_missing
+if [[ "${1:-}" == "up" ]]; then
+  check_required
+fi
+exec docker compose "$@"
