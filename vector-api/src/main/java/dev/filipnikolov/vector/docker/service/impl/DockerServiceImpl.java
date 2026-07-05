@@ -1,5 +1,6 @@
 package dev.filipnikolov.vector.docker.service.impl;
 
+import dev.filipnikolov.vector.config.DomainConfig;
 import dev.filipnikolov.vector.docker.service.DockerService;
 import dev.filipnikolov.vector.progress.ProgressFrame;
 import com.github.dockerjava.api.DockerClient;
@@ -32,7 +33,7 @@ public class DockerServiceImpl implements DockerService {
 
     private final DockerClient dockerClient;
     private final String traefikNetwork;
-    private final String traefikDomain;
+    private final DomainConfig domainConfig;
     private final AuthConfig authConfig;
 
     public DockerServiceImpl(
@@ -40,11 +41,11 @@ public class DockerServiceImpl implements DockerService {
             @Value("${dockerhub.username}") String dockerhubUsername,
             @Value("${dockerhub.token}") String dockerhubToken,
             @Value("${traefik.network}") String traefikNetwork,
-            @Value("${traefik.domain}") String traefikDomain) {
+            DomainConfig domainConfig) {
 
         this.dockerClient = dockerClient;
         this.traefikNetwork = traefikNetwork;
-        this.traefikDomain = traefikDomain;
+        this.domainConfig = domainConfig;
 
         if (!dockerhubUsername.isEmpty() && !dockerhubToken.isEmpty()) {
             this.authConfig = new AuthConfig()
@@ -127,7 +128,7 @@ public class DockerServiceImpl implements DockerService {
                 .withEnv(env)
                 .withLabels(Map.of(
                         "traefik.enable", "true",
-                        "traefik.http.routers." + appName + ".rule", "Host(`" + effectiveHost + "." + traefikDomain + "`)",
+                        "traefik.http.routers." + appName + ".rule", "Host(`" + domainConfig.appHost(effectiveHost) + "`)",
                         "traefik.http.routers." + appName + ".entrypoints", "web",
                         "traefik.http.services." + appName + ".loadbalancer.server.port", String.valueOf(containerPort)
                 ))
