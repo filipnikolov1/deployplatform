@@ -74,28 +74,29 @@ cp .env.example .env
 
 **2. Fill in `.env`** — see the full reference below. At minimum you need:
 
-- `VECTOR_DEPLOY_HOOK_SECRET` — any random string; your CI will sign deploys with this
-- `VECTOR_ENCRYPTION_KEY` — `openssl rand -base64 32`
-- `VECTOR_API_KEY` — `openssl rand -hex 32`
-- `VECTOR_DB_PASS` — any non-default value
-- `VECTOR_DOCKERHUB_USER` / `VECTOR_DOCKERHUB_TOKEN` — read-only token from https://hub.docker.com/settings/security
-- `VECTOR_DOCKER_SOCKET_PATH` — path to your host's Docker socket (defaults to `/var/run/docker.sock`; OrbStack users: `~/.orbstack/run/docker.sock`)
-- `DASHBOARD_PASSWORD` — password for the Vector dashboard login screen
+- `VECTOR_DOMAIN` — keep `localhost` for local dev
+- `VECTOR_DASHBOARD_PASSWORD` — dashboard login password
+- `VECTOR_GEMINI_API_KEY` — free key from https://aistudio.google.com/apikey
+
+Everything else (API key, session secret, DB passwords, deploy-hook secret,
+encryption key, updater token) is generated on first `./vector up` and appended
+to `.env`. Back up `VECTOR_ENCRYPTION_KEY`. macOS users may also set
+`VECTOR_DOCKER_SOCKET_PATH` (OrbStack: `~/.orbstack/run/docker.sock`).
 
 **3. Bring it up:**
 
 ```bash
-docker compose up -d
+./vector up -d
 ```
 
 **4. Sanity check:**
 
 ```bash
-curl http://vector-api.localhost/api/apps -H "X-API-Key: $VECTOR_API_KEY"
+curl http://api.deploy.localhost/api/apps -H "X-API-Key: $VECTOR_API_KEY"
 # → [] (empty list, 200)
 ```
 
-The dashboard is available at `http://vector.localhost`.
+The dashboard is available at `http://deploy.localhost`.
 
 ---
 
@@ -104,7 +105,7 @@ The dashboard is available at `http://vector.localhost`.
 Vector is driven by the `POST /deploy-hook` endpoint. Your CI (GitHub Actions, GitLab, etc.) needs to:
 
 1. Build and push your app's Docker image to DockerHub
-2. POST a signed JSON payload to `http://vector-api.{your-domain}/deploy-hook`
+2. POST a signed JSON payload to `http://api.deploy.{your-domain}/deploy-hook`
 
 **Request body:**
 
@@ -127,10 +128,10 @@ Vector is driven by the `POST /deploy-hook` endpoint. Your CI (GitHub Actions, G
 
 **Notes:**
 
-- `app_name` must match `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$` and is used as the Traefik subdomain: `{app_name}.{your-domain}`
+- `app_name` must match `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$` and is used as the Traefik subdomain: `{app_name}.{namespace}.{your-domain}`
 - `timestamp` is milliseconds since epoch; requests older than 5 minutes are rejected as replays
 - `repo_url` is displayed in the dashboard, not used for pulling
-- `port` is the container's listen port; omit to default to `VECTOR_APP_DEFAULT_PORT` (3000)
+- `port` is the container's listen port; omit to default to `app.default-port` (3000, override via `APP_DEFAULTPORT`)
 
 **Example GitHub Actions step** (after your image is pushed to DockerHub):
 
@@ -152,87 +153,64 @@ to resolve in users' workflows.
 
 ## Environment variables
 
-Copy `.env.example` to `.env` and fill in. Everything below reflects `.env.example`.
+Humans set **three values** in `.env` (`VECTOR_DOMAIN`, `VECTOR_DASHBOARD_PASSWORD`,
+`VECTOR_GEMINI_API_KEY`). `./vector up` auto-generates the internal secrets
+(`VECTOR_API_KEY`, `VECTOR_SESSION_SECRET`, `VECTOR_DB_PASS`,
+`VECTOR_ANALYZER_DB_PASS`, `VECTOR_DEPLOY_HOOK_SECRET`, `VECTOR_ENCRYPTION_KEY`,
+`VECTOR_UPDATER_AUTH_TOKEN`) on first run and never rewrites existing values.
+**Back up `VECTOR_ENCRYPTION_KEY`** — losing it makes stored encrypted app env
+vars unreadable.
 
-### Database
+### Hostname derivation
 
-| Var              | Default                                      | Purpose                                                                                                                                                        |
-| ---------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VECTOR_DB_URL`  | `jdbc:postgresql://postgres:5432/launchpad`  | JDBC URL. Use the compose default when running in Docker; override to `localhost:5433` (or wherever) if you run the backend directly against a local Postgres.  |
-| `VECTOR_DB_USER` | `launchpad`                                  | Postgres user. Also used as the database name by compose.                                                                                                      |
-| `VECTOR_DB_PASS` | _(required)_                                 | Postgres password. Change from the example.                                                                                                                    |
+From `VECTOR_DOMAIN` (+ optional `VECTOR_APP_NAMESPACE`, default `apps`):
 
-### Deploy hook
+| Surface | Host | `VECTOR_DOMAIN=localhost` |
+|---|---|---|
+| Dashboard | `deploy.<domain>` | `deploy.localhost` |
+| API / deploy-hook | `api.deploy.<domain>` | `api.deploy.localhost` |
+| Deployed apps | `<app>.<namespace>.<domain>` | `myapp.apps.localhost` |
 
-| Var                          | Default      | Purpose                                                                 |
-| ---------------------------- | ------------ | ----------------------------------------------------------------------- |
-| `VECTOR_DEPLOY_HOOK_SECRET`  | _(required)_ | Shared HMAC secret between Vector and your CI. `openssl rand -hex 32`.  |
+Set `VECTOR_APP_NAMESPACE=` (blank) for `<app>.<domain>`. `VECTOR_DOMAIN_WEB` /
+`VECTOR_DOMAIN_API` override individual hosts.
 
-### Docker
+### Optional values
 
-| Var                          | Default                       | Purpose                                                                                                                                                                         |
-| ---------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VECTOR_DOCKER_SOCKET`       | `unix:///var/run/docker.sock` | Where the backend process reaches the Docker daemon (from _inside_ its container). Leave as default.                                                                            |
-| `VECTOR_DOCKER_SOCKET_PATH`  | `/var/run/docker.sock`        | Where the Docker socket lives on the _host_. Compose mounts this into the container. OrbStack on macOS: `~/.orbstack/run/docker.sock`. Colima: `~/.colima/default/docker.sock`. |
+| Var | Enables |
+|---|---|
+| `VECTOR_GITHUB_TOKEN` | Commit metadata + connect-a-repo (degrades silently) |
+| `VECTOR_RESEND_API_KEY`, `VECTOR_RESEND_TO` | Deploy notification emails |
+| `VECTOR_DOCKERHUB_USER`, `VECTOR_DOCKERHUB_TOKEN` | Authenticated image pulls |
+| `VECTOR_TRUSTED_PROXIES` | Trusted X-Forwarded-For sources for rate limiting |
+| `VECTOR_DOCKER_SOCKET_PATH` | Non-default Docker socket host path (macOS) |
+| `VECTOR_ACME_EMAIL` | Let's Encrypt notices (HTTPS overlay only) |
 
-### DockerHub
+### Tuning any Spring property
 
-| Var                      | Default   | Purpose                                                                                       |
-| ------------------------ | --------- | --------------------------------------------------------------------------------------------- |
-| `VECTOR_DOCKERHUB_USER`  | _(empty)_ | Your DockerHub username. Required to pull private images; optional for public.                |
-| `VECTOR_DOCKERHUB_TOKEN` | _(empty)_ | DockerHub access token. Create a read-only token at https://hub.docker.com/settings/security. |
+Tunables no longer have dedicated env vars. Spring's relaxed binding maps any
+property to an env var: uppercase, dots → underscores, dashes removed. Examples:
 
-### Deploy defaults
+| Property (default) | Env override |
+|---|---|
+| `vector.ai.provider` (`gemini`) | `VECTOR_AI_PROVIDER=ollama` |
+| `vector.ai.gemini.model` (`gemini-2.5-flash`) | `VECTOR_AI_GEMINI_MODEL` |
+| `vector.ai.gemini.timeout-seconds` (`30`) | `VECTOR_AI_GEMINI_TIMEOUTSECONDS` |
+| `vector.log.retention-days` (`30`) | `VECTOR_LOG_RETENTIONDAYS` |
+| `vector.log.retention-deploys` (`5`) | `VECTOR_LOG_RETENTIONDEPLOYS` |
+| `analyzer.ai.max-regenerations` (`1`) | `ANALYZER_AI_MAXREGENERATIONS` |
+| `app.default-port` (`3000`) | `APP_DEFAULTPORT` |
+| `resend.from` | `RESEND_FROM` |
+| `vector.ai.base-url` (Ollama) | `VECTOR_AI_BASEURL` |
+| `vector.ai.model` (Ollama) | `VECTOR_AI_MODEL` |
 
-| Var                      | Default | Purpose                                                     |
-| ------------------------ | ------- | ----------------------------------------------------------- |
-| `VECTOR_APP_DEFAULT_PORT`| `3000`  | Fallback container port if the deploy payload omits `port`. |
-
-### Encryption
-
-| Var                    | Default      | Purpose                                                                                                                                                                                                     |
-| ---------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VECTOR_ENCRYPTION_KEY`| _(required)_ | AES key used to encrypt stored env vars before writing to Postgres. `openssl rand -base64 32`. **Rotating this invalidates all previously stored env vars** — don't change it after deploys start using it. |
-
-### Notifications (Resend)
-
-| Var                   | Default                           | Purpose                                                                               |
-| --------------------- | --------------------------------- | ------------------------------------------------------------------------------------- |
-| `VECTOR_RESEND_API_KEY`| _(empty)_                        | API key from https://resend.com. Leave blank to disable email notifications entirely. |
-| `VECTOR_RESEND_FROM`  | `Vector <onboarding@resend.dev>`  | From address. Works as-is for testing; use your own verified domain for real use.     |
-| `VECTOR_RESEND_TO`    | _(empty)_                         | Where alert emails go (deploy success/failure, crash, recovery). Your email.           |
-
-### Vector API key
-
-| Var              | Default      | Purpose                                                                                                                                                                                       |
-| ---------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VECTOR_API_KEY` | _(required)_ | Shared secret required on the `X-API-Key` header for every `/api/**` request (everything but the public `/deploy-hook` endpoint and the public build-log SSE stream). `openssl rand -hex 32`. |
-
-### GitHub integration
-
-| Var                    | Default   | Purpose                                                                                 |
-| ---------------------- | --------- | --------------------------------------------------------------------------------------- |
-| `VECTOR_GITHUB_TOKEN`  | _(empty)_ | Personal access token for fetching commit metadata. Leave blank to disable the feature. |
-
-### Ollama (AI log analysis)
-
-| Var                      | Default                  | Purpose                                                                                                |
-| ------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `VECTOR_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL. When running via compose this is overridden automatically to `http://ollama:11434`. |
-| `VECTOR_OLLAMA_MODEL`    | `llama3.2:3b`            | Model to use for log analysis. Anything Ollama can pull; smaller is faster.                            |
-
-### Dashboard
-
-| Var                    | Default      | Purpose                                                                         |
-| ---------------------- | ------------ | ------------------------------------------------------------------------------- |
-| `DASHBOARD_PASSWORD`   | _(required)_ | Password for the Vector dashboard login screen.                                 |
-| `VECTOR_SESSION_SECRET`| _(required)_ | HMAC secret for signed session cookies. `openssl rand -hex 32`.                 |
+Add the override to `.env` (compose forwards it via `env_file`) or the service's
+`environment:` block.
 
 ---
 
 ## Troubleshooting
 
-**`docker compose up` fails with a Docker socket error** — check `VECTOR_DOCKER_SOCKET_PATH` matches where your host's socket actually lives. On OrbStack it's `~/.orbstack/run/docker.sock`, not `/var/run/docker.sock`.
+**`./vector up` fails with a Docker socket error** — check `VECTOR_DOCKER_SOCKET_PATH` matches where your host's socket actually lives. On OrbStack it's `~/.orbstack/run/docker.sock`, not `/var/run/docker.sock`.
 
 **`POST /deploy-hook` returns 401** — your signature is wrong. Verify: 1) you're signing the _raw_ request body (no whitespace changes), 2) the secret on both sides matches, 3) the header is `X-Signature-256: sha256=<hex>` (not `X-Hub-Signature-256`).
 
@@ -240,4 +218,4 @@ Copy `.env.example` to `.env` and fill in. Everything below reflects `.env.examp
 
 **`/api/**` returns 403** — missing or wrong `X-API-Key` header. Must match `VECTOR_API_KEY` exactly.
 
-**Ollama requests time out** — first run pulls the model (can take minutes on a small VPS). Either pre-pull it (`docker exec ollama ollama pull llama3.2:3b`) or set `VECTOR_OLLAMA_MODEL` to something smaller.
+**Ollama requests time out** — first run pulls the model (can take minutes on a small VPS). Either pre-pull it (`docker exec ollama ollama pull llama3.2:3b`) or set `VECTOR_AI_MODEL` to something smaller.
