@@ -161,6 +161,24 @@ Humans set **three values** in `.env` (`VECTOR_DOMAIN`, `VECTOR_DASHBOARD_PASSWO
 **Back up `VECTOR_ENCRYPTION_KEY`** — losing it makes stored encrypted app env
 vars unreadable.
 
+### Upgrading an existing deployment
+
+`./vector` only generates a secret when its var is absent — it never rewrites
+an existing `.env`. But the Postgres init scripts that create the `launchpad`
+and `vector_analyzer` DB roles only run once, on a fresh volume. If you have
+an existing volume that relied on the old compose defaults (`VECTOR_DB_PASS`
+defaulted to `launchpad`, `VECTOR_ANALYZER_DB_PASS` to `vector_analyzer`),
+either set those two vars in `.env` to the old values before running
+`./vector up` so the wrapper keeps them, or after upgrading run inside the
+postgres container:
+
+```
+ALTER USER launchpad WITH PASSWORD '<generated VECTOR_DB_PASS>';
+ALTER USER vector_analyzer WITH PASSWORD '<generated VECTOR_ANALYZER_DB_PASS>';
+```
+
+to match the values `./vector` generated into `.env`.
+
 ### Hostname derivation
 
 From `VECTOR_DOMAIN` (+ optional `VECTOR_APP_NAMESPACE`, default `apps`):

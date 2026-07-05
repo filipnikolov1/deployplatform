@@ -1,8 +1,10 @@
 #!/bin/sh
 # Creates the vector_analyzer Postgres user with the password from
 # VECTOR_ANALYZER_DB_PASS (compose passes the generated value in). Runs once on
-# fresh container creation. For existing containers run the DO block manually
-# via: docker exec -i <postgres-container> psql -U launchpad launchpad
+# fresh container creation. For existing volumes this script is a no-op (the
+# user already exists), so to change the password run manually:
+#   docker exec -i <postgres-container> psql -U launchpad launchpad
+#   ALTER USER vector_analyzer WITH PASSWORD '<value from .env>';
 set -e
 
 psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<EOSQL

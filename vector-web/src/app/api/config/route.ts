@@ -1,6 +1,8 @@
 // Runtime platform config for client components. Replaces the build-time
 // NEXT_PUBLIC_APP_BASE_DOMAIN inlining so the web image is environment-generic:
 // the same image works on any domain (k8s prerequisite).
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const domain = (process.env.VECTOR_DOMAIN || "localhost").trim();
   const rawNs = process.env.VECTOR_APP_NAMESPACE;
