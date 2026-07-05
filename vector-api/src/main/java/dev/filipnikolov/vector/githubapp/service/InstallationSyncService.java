@@ -8,4 +8,6 @@ public interface InstallationSyncService {
     void handleInstallation(InstallationPayload payload);
 
     void handleInstallationRepositories(InstallationRepositoriesPayload payload);
+
+    void syncRepos(Long installationId);
 }

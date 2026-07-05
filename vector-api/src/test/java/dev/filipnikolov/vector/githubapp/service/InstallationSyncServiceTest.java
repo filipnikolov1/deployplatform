@@ -3,6 +3,8 @@ package dev.filipnikolov.vector.githubapp.service;
 import dev.filipnikolov.vector.deployment.service.DeploymentEventService;
 import dev.filipnikolov.vector.events.DeploymentEventStatus;
 import dev.filipnikolov.vector.events.DeploymentEventType;
+import dev.filipnikolov.vector.github.app.GitHubAppAuthProvider;
+import dev.filipnikolov.vector.github.client.GitHubClient;
 import dev.filipnikolov.vector.githubapp.dto.InstallationPayload;
 import dev.filipnikolov.vector.githubapp.dto.InstallationRepositoriesPayload;
 import dev.filipnikolov.vector.githubapp.model.GitHubInstallation;
@@ -13,9 +15,11 @@ import dev.filipnikolov.vector.githubapp.repository.GitHubRepoRepository;
 import dev.filipnikolov.vector.githubapp.service.impl.InstallationSyncServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -165,5 +169,39 @@ class InstallationSyncServiceTest {
         assertThat(captor.getValue().getDefaultBranch()).isEqualTo("main");
 
         verify(repoRepository).delete(toRemove);
+    }
+
+    @Test
+    void syncRepos_paginatesUntilShortPage_andUpsertsAll() {
+        GitHubAppAuthProvider authProvider = mock(GitHubAppAuthProvider.class);
+        when(authProvider.tokenFor(42L)).thenReturn("installation-token");
+        when(configService.authProvider()).thenReturn(authProvider);
+
+        GitHubClient client = mock(GitHubClient.class);
+        Function<String, GitHubClient> clientFactory = mock(Function.class);
+        when(clientFactory.apply("installation-token")).thenReturn(client);
+        ReflectionTestUtils.setField(service, "clientFactory", clientFactory);
+
+        String fullPage = "{\"repositories\":[" + repoJson("filip/app-one", false, "main") + "]}";
+        String shortPage = "{\"repositories\":[]}";
+        when(client.get(org.mockito.ArgumentMatchers.contains("page=1"), eq(String.class))).thenReturn(fullPage);
+        when(client.get(org.mockito.ArgumentMatchers.contains("page=2"), eq(String.class))).thenReturn(shortPage);
+
+        when(repoRepository.findByFullName("filip/app-one")).thenReturn(Optional.empty());
+        when(repoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.syncRepos(42L);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(GitHubRepo.class);
+        verify(repoRepository).save(captor.capture());
+        assertThat(captor.getValue().getFullName()).isEqualTo("filip/app-one");
+        assertThat(captor.getValue().getInstallationId()).isEqualTo(42L);
+        assertThat(captor.getValue().getDefaultBranch()).isEqualTo("main");
+        assertThat(captor.getValue().isPrivate()).isFalse();
+    }
+
+    private static String repoJson(String fullName, boolean isPrivate, String defaultBranch) {
+        return "{\"full_name\":\"" + fullName + "\",\"private\":" + isPrivate
+                + ",\"default_branch\":\"" + defaultBranch + "\"}";
     }
 }
