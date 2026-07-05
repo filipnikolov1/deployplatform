@@ -35,15 +35,18 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
 
-        // Only rate-limit the public deploy-hook surface. Authenticated /api/* traffic is
-        // gated by ApiKeyAuthFilter and would self-DoS here since the BFF funnels every
-        // dashboard session through a single source IP.
-        if (!request.getRequestURI().startsWith("/deploy-hook")) {
+        // Only rate-limit the public deploy-hook / App webhook surface. Authenticated /api/*
+        // traffic is gated by ApiKeyAuthFilter and would self-DoS here since the BFF funnels
+        // every dashboard session through a single source IP.
+        String uri = request.getRequestURI();
+        boolean isDeployHook = uri.startsWith("/deploy-hook");
+        boolean isAppWebhook = uri.startsWith("/api/github/app-webhook");
+        if (!isDeployHook && !isAppWebhook) {
             chain.doFilter(request, response);
             return;
         }
 
-        String key = resolveClientIp(request) + ":deploy-hook";
+        String key = resolveClientIp(request) + ":" + (isAppWebhook ? "app-webhook" : "deploy-hook");
         long now = System.currentTimeMillis();
         long[] entry = requestCounts.compute(key, (k, v) -> {
             if (v == null || now - v[1] > WINDOW_MS) {

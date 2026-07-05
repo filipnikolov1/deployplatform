@@ -2,9 +2,12 @@ package dev.filipnikolov.vector.deployhook.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.filipnikolov.vector.common.lock.ActionLockService;
+import dev.filipnikolov.vector.connect.deploy.BuildEventService;
 import dev.filipnikolov.vector.deployhook.auth.service.DeployHookAuthService;
 import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
 import dev.filipnikolov.vector.deployment.service.DeploymentService;
+import dev.filipnikolov.vector.githubapp.service.GitHubAppWebhookAuthService;
+import dev.filipnikolov.vector.githubapp.service.InstallationSyncService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -24,12 +27,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class DeployHookControllerTest {
+class GitHubWebhookControllerDeployHookTest {
 
     private DeploymentService deploymentService;
     private DeployHookAuthService deployHookAuthService;
     private ActionLockService actionLockService;
-    private DeployHookController controller;
+    private GitHubWebhookController controller;
     private ObjectMapper mapper;
 
     @BeforeEach
@@ -38,7 +41,9 @@ class DeployHookControllerTest {
         deployHookAuthService = mock(DeployHookAuthService.class);
         actionLockService = new ActionLockService();
         mapper = new ObjectMapper();
-        controller = new DeployHookController(deploymentService, deployHookAuthService, actionLockService, mapper);
+        controller = new GitHubWebhookController(deploymentService, deployHookAuthService, actionLockService,
+                mock(GitHubAppWebhookAuthService.class), mock(InstallationSyncService.class),
+                mock(BuildEventService.class), mapper);
         ReflectionTestUtils.setField(controller, "defaultContainerPort", 3000);
 
         when(deployHookAuthService.isValidSignature(any(), any())).thenReturn(true);
