@@ -11,6 +11,7 @@ import { motion } from "framer-motion";
 import { M } from "@/design/tokens";
 import { Button } from "@/design/primitives/Button";
 import { toast } from "@/lib/toast";
+import { useAppConfig } from "@/hooks/useAppConfig";
 import type { Deployment } from "@/types/deployment";
 import type { UserPreferences } from "@/types/vector";
 
@@ -79,7 +80,7 @@ export function SettingsTab({ app, preferences, onClose }: SettingsTabProps) {
   const { mutate } = useSWRConfig();
 
   // ── Subdomain ──────────────────────────────────────────────────────────────
-  const baseDomain = process.env.NEXT_PUBLIC_APP_BASE_DOMAIN ?? "localhost";
+  const { appBaseDomain: baseDomain } = useAppConfig();
   const [subdomain, setSubdomain] = useState(app.subdomain ?? "");
   const [subdomainSaving, setSubdomainSaving] = useState(false);
   const [subdomainError, setSubdomainError] = useState<string | null>(null);

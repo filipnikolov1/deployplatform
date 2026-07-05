@@ -31,6 +31,7 @@ import { toast } from "@/lib/toast";
 import { useContainerStats } from "@/hooks/useContainerStats";
 import { useCommitsAhead } from "@/hooks/useCommitsAhead";
 import { useSelfAppPending } from "@/hooks/useSelfAppPending";
+import { useAppConfig } from "@/hooks/useAppConfig";
 import { getDisplayImageParts } from "@/lib/image-display";
 import type { Deployment } from "@/types/deployment";
 import type { DeploymentEvent } from "@/types/vector";
@@ -320,9 +321,9 @@ export function OverviewTab({ app, events }: OverviewTabProps) {
     });
   };
 
-  const baseDomain = process.env.NEXT_PUBLIC_APP_BASE_DOMAIN ?? "localhost";
+  const { appBaseDomain, scheme } = useAppConfig();
   const effectiveSubdomain = app.subdomain ?? app.appName;
-  const publicUrl = `http://${effectiveSubdomain}.${baseDomain}`;
+  const publicUrl = `${scheme}://${effectiveSubdomain}.${appBaseDomain}`;
   const repoDisplay = app.repoUrl
     ? app.repoUrl.replace(/\.git$/, "").replace(/^https?:\/\/(github\.com\/)?/, "")
     : null;
@@ -584,7 +585,7 @@ export function OverviewTab({ app, events }: OverviewTabProps) {
                     }}
                     placeholder={app.appName}
                   />
-                  <span style={{ flexShrink: 0, fontSize: 10, color: M.fg3 }}>.{baseDomain}</span>
+                  <span style={{ flexShrink: 0, fontSize: 10, color: M.fg3 }}>.{appBaseDomain}</span>
                   <button
                     type="button"
                     disabled={subdomainSaving}
