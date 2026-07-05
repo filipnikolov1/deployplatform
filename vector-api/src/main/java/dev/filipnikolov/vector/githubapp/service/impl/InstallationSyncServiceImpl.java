@@ -13,6 +13,7 @@ import dev.filipnikolov.vector.githubapp.repository.GitHubRepoRepository;
 import dev.filipnikolov.vector.githubapp.service.GitHubAppConfigService;
 import dev.filipnikolov.vector.githubapp.service.InstallationSyncService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -35,6 +36,7 @@ public class InstallationSyncServiceImpl implements InstallationSyncService {
     }
 
     @Override
+    @Transactional
     public void handleInstallation(InstallationPayload payload) {
         InstallationPayload.Installation installation = payload.installation();
         GitHubInstallation entity = installationRepository.findByInstallationId(installation.id())
@@ -55,7 +57,10 @@ public class InstallationSyncServiceImpl implements InstallationSyncService {
                             null, null, null);
                 }
             }
-            case "deleted" -> entity.setStatus(InstallationStatus.REMOVED);
+            case "deleted" -> {
+                entity.setStatus(InstallationStatus.REMOVED);
+                repoRepository.deleteByInstallationId(installation.id());
+            }
             case "suspend" -> entity.setSuspended(true);
             case "unsuspend" -> entity.setSuspended(false);
             default -> {

@@ -100,6 +100,7 @@ class InstallationSyncServiceTest {
         var captor = org.mockito.ArgumentCaptor.forClass(GitHubInstallation.class);
         verify(installationRepository).save(captor.capture());
         assertThat(captor.getValue().getStatus()).isEqualTo(InstallationStatus.REMOVED);
+        verify(repoRepository).deleteByInstallationId(7L);
     }
 
     @Test

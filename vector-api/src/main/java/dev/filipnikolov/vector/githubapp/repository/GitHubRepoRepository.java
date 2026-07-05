@@ -13,4 +13,6 @@ public interface GitHubRepoRepository extends JpaRepository<GitHubRepo, Long> {
     List<GitHubRepo> findByInstallationId(Long installationId);
 
     Optional<GitHubRepo> findByFullName(String fullName);
+
+    void deleteByInstallationId(Long installationId);
 }
