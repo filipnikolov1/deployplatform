@@ -29,6 +29,9 @@ public class StartupConfigValidator {
     @Value("${vector.ai.provider:}")
     private String aiProvider;
 
+    @Value("${vector.ai.gemini.api-key:}")
+    private String geminiApiKey;
+
     @Value("${vector.self-hosted:false}")
     private boolean selfHosted;
 
@@ -69,8 +72,13 @@ public class StartupConfigValidator {
                     aiProvider + "'; supported values: " + SUPPORTED_AI_PROVIDERS);
         }
 
+        if ("gemini".equalsIgnoreCase(aiProvider) && (geminiApiKey == null || geminiApiKey.isBlank())) {
+            errors.add("  - vector.ai.gemini.api-key (env: VECTOR_GEMINI_API_KEY) must not be blank " +
+                    "when vector.ai.provider=gemini (the default)");
+        }
+
         if (selfHosted && (updaterAuthToken == null || updaterAuthToken.isBlank())) {
-            errors.add("  - updater.auth.token (env: UPDATER_AUTH_TOKEN) must not be blank " +
+            errors.add("  - updater.auth.token (env: VECTOR_UPDATER_AUTH_TOKEN) must not be blank " +
                     "when vector.self-hosted=true (env: VECTOR_SELF_HOSTED=true)");
         }
 

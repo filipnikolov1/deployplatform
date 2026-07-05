@@ -1,12 +1,12 @@
 name: vector-platform
 
-# HTTPS overlay for VPS deployment. Use alongside the base compose:
-#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+# HTTPS overlay for VPS deployment (legacy Docker path). Use alongside the base compose:
+#   ./vector -f docker-compose.yml -f docker-compose.https.yml up -d
 #
 # Required env vars (in .env):
-#   VECTOR_ACME_EMAIL       Contact email Let's Encrypt sends expiry notices to.
-#   VECTOR_DOMAIN_API       Public hostname for the backend API (e.g. api.vector.example.com).
-#   VECTOR_DOMAIN_WEB       Public hostname for the dashboard (e.g. vector.example.com).
+#   VECTOR_DOMAIN       Base domain; hosts derive as deploy.<domain> / api.deploy.<domain>.
+#   VECTOR_ACME_EMAIL   Contact email Let's Encrypt sends expiry notices to.
+# Optional overrides: VECTOR_DOMAIN_WEB / VECTOR_DOMAIN_API replace the derived hosts.
 #
 # The base file's HTTP entrypoint is preserved so deploy-hook traffic from
 # GitHub Actions continues to work. All HTML/dashboard traffic is redirected
@@ -34,10 +34,10 @@ services:
   vector-api:
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.vector-api.rule=Host(`${VECTOR_DOMAIN_API}`)"
+      - "traefik.http.routers.vector-api.rule=Host(`${VECTOR_DOMAIN_API:-api.deploy.${VECTOR_DOMAIN}}`)"
       - "traefik.http.routers.vector-api.entrypoints=websecure"
       - "traefik.http.routers.vector-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.vector-api-deploy-hook.rule=Host(`${VECTOR_DOMAIN_API}`) && PathPrefix(`/deploy-hook`)"
+      - "traefik.http.routers.vector-api-deploy-hook.rule=Host(`${VECTOR_DOMAIN_API:-api.deploy.${VECTOR_DOMAIN}}`) && PathPrefix(`/deploy-hook`)"
       - "traefik.http.routers.vector-api-deploy-hook.entrypoints=websecure"
       - "traefik.http.routers.vector-api-deploy-hook.tls.certresolver=letsencrypt"
       - "traefik.http.services.vector-api.loadbalancer.server.port=8082"
@@ -46,7 +46,7 @@ services:
   vector-web:
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.vector-web.rule=Host(`${VECTOR_DOMAIN_WEB}`)"
+      - "traefik.http.routers.vector-web.rule=Host(`${VECTOR_DOMAIN_WEB:-deploy.${VECTOR_DOMAIN}}`)"
       - "traefik.http.routers.vector-web.entrypoints=websecure"
       - "traefik.http.routers.vector-web.tls.certresolver=letsencrypt"
       - "traefik.http.services.vector-web.loadbalancer.server.port=3000"

@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.setup.controller;
 
 import com.github.dockerjava.api.DockerClient;
+import dev.filipnikolov.vector.config.DomainConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -12,9 +13,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SetupController {
 
-    @Value("${app.public-base-url}")
-    private String publicBaseUrl;
-
     @Value("${deploy.hook.secret:}")
     private String deployHookSecret;
 
@@ -22,10 +20,21 @@ public class SetupController {
     private String githubToken;
 
     private final DockerClient dockerClient;
+    private final DomainConfig domainConfig;
 
     @GetMapping("/deploy-url")
     public Map<String, String> deployUrl() {
-        return Map.of("url", publicBaseUrl + "/deploy-hook");
+        return Map.of("url", domainConfig.publicBaseUrl() + "/deploy-hook");
+    }
+
+    /**
+     * Surfaces the (auto-generated) deploy-hook secret so the dashboard setup page
+     * can show it for manual CI copy. Sits behind the X-API-Key filter like every
+     * other /api/** endpoint; the dashboard session gates the proxy route.
+     */
+    @GetMapping("/deploy-hook-secret")
+    public Map<String, String> hookSecret() {
+        return Map.of("secret", deployHookSecret == null ? "" : deployHookSecret);
     }
 
     @GetMapping("/status")

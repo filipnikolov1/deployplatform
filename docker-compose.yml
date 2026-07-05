@@ -17,16 +17,18 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: ${VECTOR_DB_USER:-launchpad}
-      POSTGRES_USER: ${VECTOR_DB_USER:-launchpad}
-      POSTGRES_PASSWORD: ${VECTOR_DB_PASS:-launchpad}
+      POSTGRES_DB: launchpad
+      POSTGRES_USER: launchpad
+      POSTGRES_PASSWORD: ${VECTOR_DB_PASS:?missing — run ./vector up to generate}
+      # Consumed by postgres/init/02-vector-analyzer-user.sh on fresh volumes.
+      VECTOR_ANALYZER_DB_PASS: ${VECTOR_ANALYZER_DB_PASS:?missing — run ./vector up to generate}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
       - traefik
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${VECTOR_DB_USER:-launchpad}"]
+      test: ["CMD-SHELL", "pg_isready -U launchpad"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -51,6 +53,8 @@ services:
     env_file:
       - .env
     environment:
+      VECTOR_DB_URL: jdbc:postgresql://postgres:5432/launchpad
+      VECTOR_DB_USER: launchpad
       VECTOR_DOCKER_SOCKET: unix:///var/run/docker.sock
       VECTOR_UPDATER_BASE_URL: http://vector-updater:8080
       VECTOR_UPDATER_AUTH_TOKEN: ${VECTOR_UPDATER_AUTH_TOKEN:-}
@@ -66,7 +70,7 @@ services:
       - traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.vector-api.rule=Host(`vector-api.localhost`)"
+      - "traefik.http.routers.vector-api.rule=Host(`api.deploy.${VECTOR_DOMAIN:-localhost}`)"
       - "traefik.http.routers.vector-api.entrypoints=web"
       - "traefik.http.routers.vector-api-deploy-hook.rule=PathPrefix(`/deploy-hook`)"
       - "traefik.http.routers.vector-api-deploy-hook.entrypoints=web"
@@ -85,13 +89,16 @@ services:
       VECTOR_API_KEY: ${VECTOR_API_KEY}
       VECTOR_DASHBOARD_PASSWORD: ${VECTOR_DASHBOARD_PASSWORD}
       VECTOR_SESSION_SECRET: ${VECTOR_SESSION_SECRET}
+      VECTOR_DOMAIN: ${VECTOR_DOMAIN:-localhost}
+      # `-` (not `:-`): an explicitly blank namespace means apps on the root domain.
+      VECTOR_APP_NAMESPACE: ${VECTOR_APP_NAMESPACE-apps}
     depends_on:
       - vector-api
     networks:
       - traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.vector-web.rule=Host(`vector.localhost`)"
+      - "traefik.http.routers.vector-web.rule=Host(`deploy.${VECTOR_DOMAIN:-localhost}`)"
       - "traefik.http.routers.vector-web.entrypoints=web"
       - "traefik.http.services.vector-web.loadbalancer.server.port=3000"
 
@@ -104,8 +111,9 @@ services:
     env_file:
       - .env
     environment:
-      VECTOR_DB_USER: ${VECTOR_ANALYZER_DB_USER:-vector_analyzer}
-      VECTOR_DB_PASS: ${VECTOR_ANALYZER_DB_PASS:-vector_analyzer}
+      VECTOR_DB_URL: jdbc:postgresql://postgres:5432/launchpad
+      VECTOR_DB_USER: vector_analyzer
+      VECTOR_DB_PASS: ${VECTOR_ANALYZER_DB_PASS:?missing — run ./vector up to generate}
       VECTOR_API_INTERNAL_URL: http://vector-api:8082
     ports:
       - "8082:8082"

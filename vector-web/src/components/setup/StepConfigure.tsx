@@ -174,14 +174,12 @@ export function StepConfigure({ lang, appName, branch, onLangChange, onAppNameCh
   const [hmacSecret, setHmacSecret] = useState<string>("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  // Load the HMAC secret from the deploy URL endpoint for display
+  // Load the auto-generated deploy-hook secret for manual CI copy.
   useEffect(() => {
-    fetch("/api/setup/status")
+    fetch("/api/setup/deploy-hook-secret")
       .then((r) => r.json())
       .then((data) => {
-        if (data.secretConfigured) {
-          setHmacSecret("(configured on server — set as VECTOR_HMAC_SECRET in GitHub)");
-        }
+        if (data.secret) setHmacSecret(data.secret);
       })
       .catch(() => {});
   }, []);
@@ -350,6 +348,8 @@ export function StepConfigure({ lang, appName, branch, onLangChange, onAppNameCh
           }}
         >
           Add these as GitHub Actions secrets in your repo under Settings → Secrets → Actions.
+          {" "}Back up VECTOR_ENCRYPTION_KEY from the server&apos;s .env (k8s: the
+          vector-generated Secret) — losing it makes stored app env vars unreadable.
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <SecretRow

@@ -1,7 +1,7 @@
 package dev.filipnikolov.vector.deployhook.controller;
 
+import dev.filipnikolov.vector.config.DomainConfig;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -10,8 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class DeployHookTemplateController {
 
-    @Value("${app.public-base-url}")
-    private String publicBaseUrl;
+    private final DomainConfig domainConfig;
 
     @GetMapping(value = "/api/deploy-hook/curl-template", produces = "text/plain")
     public String template(@RequestParam String app) {
@@ -25,6 +24,6 @@ public class DeployHookTemplateController {
                   -H "X-Vector-Trigger: manual" \\
                   -H "Content-Type: application/json" \\
                   -d "$PAYLOAD"
-                """.formatted(app, app, publicBaseUrl);
+                """.formatted(app, app, domainConfig.publicBaseUrl());
     }
 }
