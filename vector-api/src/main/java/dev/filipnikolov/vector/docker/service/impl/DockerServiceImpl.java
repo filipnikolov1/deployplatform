@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.docker.service.impl;
 
 import dev.filipnikolov.vector.config.DomainConfig;
+import dev.filipnikolov.vector.connect.registry.RegistryAuthProvider;
 import dev.filipnikolov.vector.docker.service.DockerService;
 import dev.filipnikolov.vector.progress.ProgressFrame;
 import com.github.dockerjava.api.DockerClient;
@@ -35,17 +36,20 @@ public class DockerServiceImpl implements DockerService {
     private final String traefikNetwork;
     private final DomainConfig domainConfig;
     private final AuthConfig authConfig;
+    private final RegistryAuthProvider registryAuthProvider;
 
     public DockerServiceImpl(
             DockerClient dockerClient,
             @Value("${dockerhub.username}") String dockerhubUsername,
             @Value("${dockerhub.token}") String dockerhubToken,
             @Value("${traefik.network}") String traefikNetwork,
-            DomainConfig domainConfig) {
+            DomainConfig domainConfig,
+            RegistryAuthProvider registryAuthProvider) {
 
         this.dockerClient = dockerClient;
         this.traefikNetwork = traefikNetwork;
         this.domainConfig = domainConfig;
+        this.registryAuthProvider = registryAuthProvider;
 
         if (!dockerhubUsername.isEmpty() && !dockerhubToken.isEmpty()) {
             this.authConfig = new AuthConfig()
@@ -66,7 +70,10 @@ public class DockerServiceImpl implements DockerService {
     public String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars, Consumer<ProgressFrame> progressCallback) throws InterruptedException {
         Consumer<ProgressFrame> emit = progressCallback != null ? progressCallback : f -> {};
         var pullCmd = dockerClient.pullImageCmd(imageName);
-        if (authConfig != null) {
+        var ghcrAuthConfig = registryAuthProvider.forImage(imageName);
+        if (ghcrAuthConfig.isPresent()) {
+            pullCmd.withAuthConfig(ghcrAuthConfig.get());
+        } else if (authConfig != null) {
             pullCmd.withAuthConfig(authConfig);
         }
 

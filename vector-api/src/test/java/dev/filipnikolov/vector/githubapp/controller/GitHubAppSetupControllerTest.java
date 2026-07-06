@@ -61,6 +61,7 @@ class GitHubAppSetupControllerTest {
                 .andExpect(jsonPath("$.manifest.default_permissions.actions").value("write"))
                 .andExpect(jsonPath("$.manifest.default_permissions.metadata").value("read"))
                 .andExpect(jsonPath("$.manifest.default_permissions.pull_requests").value("read"))
+                .andExpect(jsonPath("$.manifest.default_permissions.packages").value("read"))
                 .andExpect(jsonPath("$.manifest.default_events[0]").value("push"))
                 .andExpect(jsonPath("$.manifest.default_events[1]").value("pull_request"))
                 .andExpect(jsonPath("$.manifest.default_events[2]").value("workflow_run"))

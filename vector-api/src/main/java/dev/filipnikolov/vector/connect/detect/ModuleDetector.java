@@ -38,6 +38,16 @@ public class ModuleDetector {
             candidates.removeIf(c -> c.path().isEmpty() && isWorkspaceWrapper(manifestsByDir.get("")));
         }
 
+        boolean isWorkspaceRepo = isWorkspaceRoot(manifestsByDir.get(""));
+        for (int i = 0; i < candidates.size(); i++) {
+            ModuleCandidate c = candidates.get(i);
+            boolean workspaceBuild = isWorkspaceRepo || hasWorkspaceDepProtocol(manifestsByDir.get(c.path()));
+            if (workspaceBuild != c.workspaceBuild()) {
+                candidates.set(i, new ModuleCandidate(c.path(), c.stack(), c.buildMode(), c.portGuess(),
+                        c.confidence(), c.exposed(), workspaceBuild));
+            }
+        }
+
         return candidates;
     }
 
@@ -98,6 +108,25 @@ public class ModuleDetector {
 
     private boolean isWorkspaceWrapperContent(ManifestFile packageJson) {
         return packageJson.content().contains("\"workspaces\"");
+    }
+
+    private boolean isWorkspaceRoot(List<ManifestFile> rootManifests) {
+        if (rootManifests == null) {
+            return false;
+        }
+        if (isWorkspaceWrapper(rootManifests)) {
+            return true;
+        }
+        return findByFilename(rootManifests, "pnpm-workspace.yaml") != null
+                || findByFilename(rootManifests, "go.work") != null;
+    }
+
+    private boolean hasWorkspaceDepProtocol(List<ManifestFile> dirManifests) {
+        if (dirManifests == null) {
+            return false;
+        }
+        ManifestFile packageJson = findByFilename(dirManifests, "package.json");
+        return packageJson != null && packageJson.content().contains("workspace:*");
     }
 
     private ManifestFile findByFilename(List<ManifestFile> manifests, String filename) {

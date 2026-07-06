@@ -46,6 +46,7 @@ public class GitHubAppSetupController {
         permissions.put("actions", "write");
         permissions.put("metadata", "read");
         permissions.put("pull_requests", "read");
+        permissions.put("packages", "read");
 
         Map<String, Object> hookAttributes = new LinkedHashMap<>();
         hookAttributes.put("url", domainConfig.publicBaseUrl() + "/api/github/app-webhook");

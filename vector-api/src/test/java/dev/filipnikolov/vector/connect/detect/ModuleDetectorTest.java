@@ -224,6 +224,84 @@ class ModuleDetectorTest {
     }
 
     @Test
+    void rootPomXmlWithModulesMarksSurvivingModuleAsWorkspaceBuild() {
+        RepoScan scan = scanOf(
+                List.of("pom.xml", "apps/api/pom.xml"),
+                List.of(new ManifestFile("pom.xml", "<project><modules><module>apps/api</module></modules></project>"),
+                        new ManifestFile("apps/api/pom.xml", "<project></project>")));
+
+        List<ModuleCandidate> candidates = detector.detect(scan);
+
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.get(0).workspaceBuild()).isTrue();
+    }
+
+    @Test
+    void rootPackageJsonWithWorkspacesMarksSurvivingModuleAsWorkspaceBuild() {
+        RepoScan scan = scanOf(
+                List.of("package.json", "apps/web/package.json"),
+                List.of(new ManifestFile("package.json", "{\"workspaces\":[\"apps/*\"]}"),
+                        new ManifestFile("apps/web/package.json", "{\"dependencies\":{}}")));
+
+        List<ModuleCandidate> candidates = detector.detect(scan);
+
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.get(0).workspaceBuild()).isTrue();
+    }
+
+    @Test
+    void rootPnpmWorkspaceYamlMarksSurvivingModuleAsWorkspaceBuild() {
+        RepoScan scan = scanOf(
+                List.of("pnpm-workspace.yaml", "apps/web/package.json"),
+                List.of(new ManifestFile("pnpm-workspace.yaml", "packages:\n  - apps/*"),
+                        new ManifestFile("apps/web/package.json", "{\"dependencies\":{}}")));
+
+        List<ModuleCandidate> candidates = detector.detect(scan);
+
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.get(0).workspaceBuild()).isTrue();
+    }
+
+    @Test
+    void rootGoWorkMarksSurvivingModuleAsWorkspaceBuild() {
+        RepoScan scan = scanOf(
+                List.of("go.work", "apps/api/go.mod"),
+                List.of(new ManifestFile("go.work", "go 1.22"),
+                        new ManifestFile("apps/api/go.mod", "module example.com/api")));
+
+        List<ModuleCandidate> candidates = detector.detect(scan);
+
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.get(0).workspaceBuild()).isTrue();
+    }
+
+    @Test
+    void moduleWithWorkspaceDepProtocolMarkedAsWorkspaceBuild() {
+        RepoScan scan = scanOf(
+                List.of("apps/web/package.json"),
+                List.of(new ManifestFile("apps/web/package.json",
+                        "{\"dependencies\":{\"shared\":\"workspace:*\"}}")));
+
+        List<ModuleCandidate> candidates = detector.detect(scan);
+
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.get(0).workspaceBuild()).isTrue();
+    }
+
+    @Test
+    void nonWorkspaceRepoModulesDefaultToWorkspaceBuildFalse() {
+        RepoScan scan = scanOf(
+                List.of("apps/web/package.json", "apps/api/go.mod"),
+                List.of(new ManifestFile("apps/web/package.json", "{\"dependencies\":{}}"),
+                        new ManifestFile("apps/api/go.mod", "module example.com/api")));
+
+        List<ModuleCandidate> candidates = detector.detect(scan);
+
+        assertThat(candidates).hasSize(2);
+        assertThat(candidates).extracting(ModuleCandidate::workspaceBuild).containsExactly(false, false);
+    }
+
+    @Test
     void workerDirectoryDefaultsToNotExposed() {
         RepoScan scan = scanOf(
                 List.of("apps/worker/package.json"),

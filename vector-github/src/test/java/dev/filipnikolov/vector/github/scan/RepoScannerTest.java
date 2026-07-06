@@ -122,6 +122,37 @@ class RepoScannerTest {
     }
 
     @Test
+    void scanFetchesRootPnpmWorkspaceYamlAndGoWorkAsManifests() {
+        server.expect(requestTo("https://api.github.com/repos/o/r/git/trees/main?recursive=1"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                          "tree": [
+                            {"path": "pnpm-workspace.yaml", "type": "blob"},
+                            {"path": "go.work", "type": "blob"},
+                            {"path": "apps/web/pnpm-workspace.yaml", "type": "blob"}
+                          ],
+                          "truncated": false
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        server.expect(requestTo("https://api.github.com/repos/o/r/contents/pnpm-workspace.yaml?ref=main"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(contentResponse("packages:\n  - apps/*"), MediaType.APPLICATION_JSON));
+
+        server.expect(requestTo("https://api.github.com/repos/o/r/contents/go.work?ref=main"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(contentResponse("go 1.22"), MediaType.APPLICATION_JSON));
+
+        RepoScan scan = scanner.scan("o", "r", "main");
+
+        assertThat(scan.manifests()).extracting(ManifestFile::path)
+                .containsExactlyInAnyOrder("pnpm-workspace.yaml", "go.work");
+
+        server.verify();
+    }
+
+    @Test
     void scanCapSkipsDeepestManifestsFirst() {
         String treeJson = "{\"tree\": [" +
                 "{\"path\": \"a/b/c/d/deep/package.json\", \"type\": \"blob\"}," +

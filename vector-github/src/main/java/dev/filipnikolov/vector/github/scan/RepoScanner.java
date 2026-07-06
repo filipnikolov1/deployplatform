@@ -26,6 +26,7 @@ public class RepoScanner {
     private static final Set<String> MANIFEST_FILENAMES = Set.of(
             "package.json", "go.mod", "pom.xml", "build.gradle", "build.gradle.kts",
             "requirements.txt", "pyproject.toml", "Dockerfile");
+    private static final Set<String> ROOT_ONLY_MANIFEST_FILENAMES = Set.of("pnpm-workspace.yaml", "go.work");
     private static final Set<String> IGNORED_SEGMENTS = Set.of(
             "node_modules", ".git", ".github", "vendor", "dist", "build", "target", "__pycache__");
     private static final Set<String> COMPOSE_FILENAMES = Set.of("docker-compose.yml", "compose.yaml");
@@ -77,6 +78,9 @@ public class RepoScanner {
                 composePath = path;
             }
             if (MANIFEST_FILENAMES.contains(filename)) {
+                manifestPaths.add(path);
+            }
+            if (!path.contains("/") && ROOT_ONLY_MANIFEST_FILENAMES.contains(filename)) {
                 manifestPaths.add(path);
             }
         }
