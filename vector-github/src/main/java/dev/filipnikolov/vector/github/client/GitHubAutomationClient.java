@@ -88,11 +88,18 @@ public class GitHubAutomationClient {
         String json = restClient.get()
                 .uri(url)
                 .header("Authorization", "Bearer " + tokenSupplier.get())
-                .retrieve()
-                .body(String.class);
+                .exchange((request, response) -> {
+                    HttpStatusCode status = response.getStatusCode();
+                    if (!status.is2xxSuccessful()) {
+                        throw new GitHubException("GitHub API returned HTTP " + status.value() + " for: " + url);
+                    }
+                    return new String(response.getBody().readAllBytes());
+                });
         try {
             JsonNode node = MAPPER.readTree(json);
             return new RepoPublicKey(node.get("key_id").asText(), node.get("key").asText());
+        } catch (GitHubException e) {
+            throw e;
         } catch (Exception e) {
             throw new GitHubException("Failed to parse repo public key response for: " + url, e);
         }
@@ -130,8 +137,13 @@ public class GitHubAutomationClient {
         String json = restClient.get()
                 .uri(url)
                 .header("Authorization", "Bearer " + tokenSupplier.get())
-                .retrieve()
-                .body(String.class);
+                .exchange((request, response) -> {
+                    HttpStatusCode status = response.getStatusCode();
+                    if (!status.is2xxSuccessful()) {
+                        throw new GitHubException("GitHub API returned HTTP " + status.value() + " for: " + url);
+                    }
+                    return new String(response.getBody().readAllBytes());
+                });
         try {
             JsonNode node = MAPPER.readTree(json);
             List<WorkflowRun> runs = new ArrayList<>();
@@ -143,6 +155,8 @@ public class GitHubAutomationClient {
                         run.get("html_url").asText()));
             }
             return runs;
+        } catch (GitHubException e) {
+            throw e;
         } catch (Exception e) {
             throw new GitHubException("Failed to parse workflow runs response for: " + url, e);
         }

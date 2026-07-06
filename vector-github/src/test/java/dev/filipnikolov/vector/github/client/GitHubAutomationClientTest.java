@@ -1,5 +1,7 @@
 package dev.filipnikolov.vector.github.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.filipnikolov.vector.github.client.dto.StackKind;
 import org.bouncycastle.crypto.generators.X25519KeyPairGenerator;
 import org.bouncycastle.crypto.params.X25519KeyGenerationParameters;
@@ -17,6 +19,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -25,6 +28,8 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class GitHubAutomationClientTest {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private RestClient.Builder builder;
     private MockRestServiceServer server;
@@ -73,9 +78,29 @@ class GitHubAutomationClientTest {
                 .andExpect(method(HttpMethod.PUT))
                 .andExpect(header("Authorization", "Bearer test-token"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("\"key_id\":\"key-1\"")))
+                .andExpect(request -> {
+                    String body = ((org.springframework.mock.http.client.MockClientHttpRequest) request).getBodyAsString();
+                    JsonNode node = MAPPER.readTree(body);
+                    String encryptedValue = node.get("encrypted_value").asText();
+                    assertThat(encryptedValue).isNotEmpty();
+                    assertThat(Base64.getDecoder().decode(encryptedValue)).isNotEmpty();
+                })
                 .andRespond(withStatus(HttpStatus.CREATED));
 
         client.putActionsSecret("o", "r", "VECTOR_HMAC_SECRET", "hunter2");
+
+        server.verify();
+    }
+
+    @Test
+    void getRepoPublicKeyThrowsGitHubExceptionOnNon2xx() {
+        server.expect(requestTo("https://api.github.com/repos/o/r/actions/secrets/public-key"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("Authorization", "Bearer test-token"))
+                .andRespond(withStatus(HttpStatus.FORBIDDEN).body("nope"));
+
+        assertThatThrownBy(() -> client.getRepoPublicKey("o", "r"))
+                .isInstanceOf(GitHubException.class);
 
         server.verify();
     }
@@ -107,6 +132,19 @@ class GitHubAutomationClientTest {
         assertThat(runs.get(0).status()).isEqualTo("completed");
         assertThat(runs.get(0).conclusion()).isEqualTo("success");
         assertThat(runs.get(0).htmlUrl()).isEqualTo("https://github.com/o/r/actions/runs/1");
+
+        server.verify();
+    }
+
+    @Test
+    void recentRunsThrowsGitHubExceptionOnNon2xx() {
+        server.expect(requestTo("https://api.github.com/repos/o/r/actions/workflows/vector-deploy.yml/runs"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("Authorization", "Bearer test-token"))
+                .andRespond(withStatus(HttpStatus.FORBIDDEN).body("nope"));
+
+        assertThatThrownBy(() -> client.recentRuns("o", "r", "vector-deploy.yml"))
+                .isInstanceOf(GitHubException.class);
 
         server.verify();
     }
