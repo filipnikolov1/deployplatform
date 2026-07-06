@@ -8,6 +8,7 @@ import org.springframework.web.client.RestClient;
 
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -65,21 +66,35 @@ public class RepoScanner {
             throw new GitHubException("Failed to parse tree response for: " + treeUrl, e);
         }
 
-        List<ManifestFile> manifests = new ArrayList<>();
-        Optional<String> composeYaml = Optional.empty();
+        List<String> manifestPaths = new ArrayList<>();
+        String composePath = null;
         for (String path : treePaths) {
             if (containsIgnoredSegment(path)) {
                 continue;
             }
             String filename = filenameOf(path);
             if (isRootCompose(path, filename)) {
-                composeYaml = readContent(owner, repo, path, ref);
+                composePath = path;
             }
-            if (MANIFEST_FILENAMES.contains(filename) && manifests.size() < MAX_MANIFEST_FETCHES) {
-                readContent(owner, repo, path, ref)
-                        .ifPresent(content -> manifests.add(new ManifestFile(path, content)));
+            if (MANIFEST_FILENAMES.contains(filename)) {
+                manifestPaths.add(path);
             }
         }
+
+        manifestPaths.sort(Comparator.comparingInt(this::depth));
+
+        List<ManifestFile> manifests = new ArrayList<>();
+        for (String path : manifestPaths) {
+            if (manifests.size() >= MAX_MANIFEST_FETCHES) {
+                break;
+            }
+            readContent(owner, repo, path, ref)
+                    .ifPresent(content -> manifests.add(new ManifestFile(path, content)));
+        }
+
+        Optional<String> composeYaml = composePath != null
+                ? readContent(owner, repo, composePath, ref)
+                : Optional.empty();
 
         return new RepoScan(treePaths, truncated, manifests, composeYaml);
     }
@@ -91,6 +106,10 @@ public class RepoScanner {
             }
         }
         return false;
+    }
+
+    private int depth(String path) {
+        return (int) path.chars().filter(c -> c == '/').count();
     }
 
     private boolean isRootCompose(String path, String filename) {

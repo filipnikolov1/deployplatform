@@ -7,6 +7,7 @@ import dev.filipnikolov.vector.github.scan.RepoScan;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public class DbDetector {
@@ -14,22 +15,22 @@ public class DbDetector {
     private static final YAMLMapper YAML_MAPPER = new YAMLMapper();
     private static final List<String> DB_DRIVER_DEPS = List.of("psycopg2", "postgresql", "pg");
     private static final List<String> COMPOSE_DB_IMAGES = List.of("postgres", "mysql");
+    private static final Set<String> IGNORED_SEGMENTS = Set.of(
+            "node_modules", ".git", ".github", "vendor", "dist", "build", "target", "__pycache__");
 
     public DbSuggestion suggest(RepoScan scan) {
         List<String> signals = new ArrayList<>();
 
-        if (scan.treePaths().stream().anyMatch(p -> p.contains("prisma/"))) {
+        if (hasSegmentPath(scan, "prisma")) {
             signals.add("prisma directory");
         }
 
         for (ManifestFile manifest : scan.manifests()) {
             if (manifest.content().contains("@prisma/client")) {
                 signals.add("@prisma/client dependency in " + manifest.path());
-                continue;
             }
             if (manifest.content().contains("DATABASE_URL") || manifest.content().contains("SPRING_DATASOURCE_URL")) {
                 signals.add("database URL in " + manifest.path());
-                continue;
             }
             for (String driver : DB_DRIVER_DEPS) {
                 if (Pattern.compile("\\b" + Pattern.quote(driver) + "\\b").matcher(manifest.content()).find()) {
@@ -39,10 +40,10 @@ public class DbDetector {
             }
         }
 
-        if (scan.treePaths().stream().anyMatch(p -> p.contains("migrations/"))) {
+        if (hasSegmentPath(scan, "migrations")) {
             signals.add("migrations directory");
         }
-        if (scan.treePaths().stream().anyMatch(p -> p.contains("db/migrate/"))) {
+        if (hasSegmentPair(scan, "db", "migrate")) {
             signals.add("db/migrate directory");
         }
 
@@ -68,6 +69,44 @@ public class DbDetector {
         }
 
         return new DbSuggestion(likelihood, signals);
+    }
+
+    private boolean hasSegmentPath(RepoScan scan, String segment) {
+        return scan.treePaths().stream().anyMatch(p -> containsSegment(p, segment));
+    }
+
+    private boolean hasSegmentPair(RepoScan scan, String first, String second) {
+        return scan.treePaths().stream().anyMatch(p -> containsSegmentPair(p, first, second));
+    }
+
+    private boolean containsSegment(String path, String segment) {
+        String[] segments = path.split("/");
+        for (String s : segments) {
+            if (IGNORED_SEGMENTS.contains(s)) {
+                return false;
+            }
+        }
+        for (String s : segments) {
+            if (s.equals(segment)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsSegmentPair(String path, String first, String second) {
+        String[] segments = path.split("/");
+        for (String s : segments) {
+            if (IGNORED_SEGMENTS.contains(s)) {
+                return false;
+            }
+        }
+        for (int i = 0; i < segments.length - 1; i++) {
+            if (segments[i].equals(first) && segments[i + 1].equals(second)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String extractComposeImage(String yaml) {

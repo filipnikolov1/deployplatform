@@ -135,4 +135,44 @@ class DbDetectorTest {
         assertThat(suggestion.likelihood()).isEqualTo(Likelihood.CERTAIN);
         assertThat(suggestion.signals()).hasSize(2);
     }
+
+    @Test
+    void twoSignalsInSameManifestYieldCertain() {
+        RepoScan scan = scanOf(List.of("package.json"),
+                List.of(new ManifestFile("package.json",
+                        "{\"dependencies\":{\"@prisma/client\":\"5.0.0\"}}\nDATABASE_URL=postgres://localhost/db")),
+                null);
+
+        DbSuggestion suggestion = detector.suggest(scan);
+
+        assertThat(suggestion.likelihood()).isEqualTo(Likelihood.CERTAIN);
+        assertThat(suggestion.signals()).hasSize(2);
+    }
+
+    @Test
+    void prismaSegmentInsideNodeModulesDoesNotSignal() {
+        RepoScan scan = scanOf(List.of("node_modules/.prisma/client/schema.prisma"), List.of(), null);
+
+        DbSuggestion suggestion = detector.suggest(scan);
+
+        assertThat(suggestion.likelihood()).isEqualTo(Likelihood.NONE);
+    }
+
+    @Test
+    void prismaAsSubstringOfSegmentDoesNotSignal() {
+        RepoScan scan = scanOf(List.of("myprisma/schema.txt"), List.of(), null);
+
+        DbSuggestion suggestion = detector.suggest(scan);
+
+        assertThat(suggestion.likelihood()).isEqualTo(Likelihood.NONE);
+    }
+
+    @Test
+    void prismaSegmentAtRootSignals() {
+        RepoScan scan = scanOf(List.of("prisma/schema.prisma"), List.of(), null);
+
+        DbSuggestion suggestion = detector.suggest(scan);
+
+        assertThat(suggestion.likelihood()).isEqualTo(Likelihood.LIKELY);
+    }
 }

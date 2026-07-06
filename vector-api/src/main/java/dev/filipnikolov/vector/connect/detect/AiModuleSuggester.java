@@ -81,32 +81,35 @@ public class AiModuleSuggester {
             }
         }
 
-        Map<String, ModuleCandidate> deterministicByPath = new LinkedHashMap<>();
+        Map<String, ModuleCandidate> result = new LinkedHashMap<>();
         for (ModuleCandidate c : deterministic) {
-            deterministicByPath.put(c.path(), c);
+            result.put(c.path(), c);
         }
 
-        List<ModuleCandidate> result = new ArrayList<>();
         try {
             for (JsonNode entry : root) {
                 String path = entry.get("path").asText();
                 boolean include = !entry.has("include") || entry.get("include").asBoolean();
-                if (!include) {
-                    continue;
-                }
 
-                ModuleCandidate existing = deterministicByPath.get(path);
+                ModuleCandidate existing = result.get(path);
                 if (existing != null) {
+                    if (!include) {
+                        result.remove(path);
+                        continue;
+                    }
                     Integer port = entry.has("port") ? entry.get("port").asInt() : existing.portGuess();
-                    result.add(new ModuleCandidate(existing.path(), existing.stack(), existing.buildMode(),
+                    result.put(path, new ModuleCandidate(existing.path(), existing.stack(), existing.buildMode(),
                             port, existing.confidence(), existing.exposed()));
                 } else {
+                    if (!include) {
+                        continue;
+                    }
                     if (!treePaths.contains(path) && !treeDirs.contains(path) && !path.isEmpty()) {
                         continue;
                     }
                     StackKind stack = StackKind.valueOf(entry.get("stack").asText());
                     Integer port = entry.has("port") ? entry.get("port").asInt() : null;
-                    result.add(new ModuleCandidate(path, stack, BuildMode.BUILDPACK, port, 0.5));
+                    result.put(path, new ModuleCandidate(path, stack, BuildMode.BUILDPACK, port, 0.5));
                 }
             }
         } catch (Exception e) {
@@ -114,6 +117,6 @@ public class AiModuleSuggester {
             return deterministic;
         }
 
-        return result;
+        return new ArrayList<>(result.values());
     }
 }

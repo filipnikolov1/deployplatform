@@ -139,6 +139,22 @@ class AiModuleSuggesterTest {
     }
 
     @Test
+    void aiOmittingDeterministicCandidateLeavesItUnchanged() {
+        RepoScan scan = scanOf(List.of("apps/web/package.json", "apps/api/go.mod"));
+        List<ModuleCandidate> deterministic = List.of(
+                new ModuleCandidate("apps/web", StackKind.node, BuildMode.BUILDPACK, 3000, 1.0),
+                new ModuleCandidate("apps/api", StackKind.go, BuildMode.BUILDPACK, 8080, 1.0));
+        when(aiProvider.analyze(any())).thenReturn(new AiResponse(
+                "[{\"path\":\"apps/web\",\"stack\":\"node\",\"port\":4000,\"include\":true}]", "test"));
+
+        List<ModuleCandidate> result = suggester.refine(scan, deterministic);
+
+        assertThat(result).hasSize(2);
+        ModuleCandidate api = result.stream().filter(c -> c.path().equals("apps/api")).findFirst().orElseThrow();
+        assertThat(api).isEqualTo(deterministic.get(1));
+    }
+
+    @Test
     void malformedAiResponseReturnsDeterministicUnchanged() {
         RepoScan scan = scanOf(List.of("weird.txt"));
         when(aiProvider.analyze(any())).thenReturn(new AiResponse("not json", "test"));

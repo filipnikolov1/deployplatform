@@ -120,4 +120,31 @@ class RepoScannerTest {
 
         server.verify();
     }
+
+    @Test
+    void scanCapSkipsDeepestManifestsFirst() {
+        String treeJson = "{\"tree\": [" +
+                "{\"path\": \"a/b/c/d/deep/package.json\", \"type\": \"blob\"}," +
+                IntStream.rangeClosed(1, 30)
+                        .mapToObj(i -> "{\"path\": \"dir" + i + "/package.json\", \"type\": \"blob\"}")
+                        .collect(Collectors.joining(",")) +
+                "], \"truncated\": false}";
+
+        server.expect(requestTo("https://api.github.com/repos/o/r/git/trees/main?recursive=1"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(treeJson, MediaType.APPLICATION_JSON));
+
+        IntStream.rangeClosed(1, 30).forEach(i ->
+                server.expect(requestTo("https://api.github.com/repos/o/r/contents/dir" + i + "/package.json?ref=main"))
+                        .andExpect(method(HttpMethod.GET))
+                        .andRespond(withSuccess(contentResponse("{\"dependencies\":{}}"), MediaType.APPLICATION_JSON)));
+
+        RepoScan scan = scanner.scan("o", "r", "main");
+
+        assertThat(scan.manifests()).hasSize(30);
+        assertThat(scan.manifests()).extracting(ManifestFile::path)
+                .doesNotContain("a/b/c/d/deep/package.json");
+
+        server.verify();
+    }
 }
