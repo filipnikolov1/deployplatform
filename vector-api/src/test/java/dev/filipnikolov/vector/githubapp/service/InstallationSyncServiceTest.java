@@ -53,7 +53,7 @@ class InstallationSyncServiceTest {
     @Test
     void installationCreated_ownAccount_autoApproves() {
         when(configService.resolve()).thenReturn(Optional.of(
-                new GitHubAppConfigService.AppCredentials("1", null, "secret", "filip")));
+                new GitHubAppConfigService.AppCredentials("1", null, "secret", "filip", "vector-bot")));
         when(installationRepository.findByInstallationId(42L)).thenReturn(Optional.empty());
 
         InstallationPayload payload = new InstallationPayload("created",
@@ -70,7 +70,7 @@ class InstallationSyncServiceTest {
     @Test
     void installationCreated_otherAccount_pendingAndEventRecorded() {
         when(configService.resolve()).thenReturn(Optional.of(
-                new GitHubAppConfigService.AppCredentials("1", null, "secret", "filip")));
+                new GitHubAppConfigService.AppCredentials("1", null, "secret", "filip", "vector-bot")));
         when(installationRepository.findByInstallationId(99L)).thenReturn(Optional.empty());
 
         InstallationPayload payload = new InstallationPayload("created",

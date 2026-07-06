@@ -50,7 +50,7 @@ public class GitHubAppConfigServiceImpl implements GitHubAppConfigService {
     public Optional<AppCredentials> resolve() {
         if (!envAppId.isBlank() && !envPrivateKey.isBlank() && !envWebhookSecret.isBlank()) {
             PrivateKey key = GitHubAppJwt.parsePrivateKey(readPem(envPrivateKey));
-            return Optional.of(new AppCredentials(envAppId, key, envWebhookSecret, null));
+            return Optional.of(new AppCredentials(envAppId, key, envWebhookSecret, null, null));
         }
 
         List<GitHubAppConfig> rows = repository.findAll();
@@ -62,7 +62,7 @@ public class GitHubAppConfigServiceImpl implements GitHubAppConfigService {
         String pem = encryptionService.decrypt(row.getPrivateKeyPemEnc());
         String webhookSecret = encryptionService.decrypt(row.getWebhookSecretEnc());
         PrivateKey key = GitHubAppJwt.parsePrivateKey(pem);
-        return Optional.of(new AppCredentials(row.getAppId(), key, webhookSecret, row.getOwnerLogin()));
+        return Optional.of(new AppCredentials(row.getAppId(), key, webhookSecret, row.getOwnerLogin(), row.getAppSlug()));
     }
 
     @Override

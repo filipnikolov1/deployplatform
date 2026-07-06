@@ -95,7 +95,7 @@ class GitHubAppSetupControllerTest {
     @Test
     void exchange_envAlreadyConfigured_returns409() throws Exception {
         when(configService.resolve()).thenReturn(Optional.of(
-                new GitHubAppConfigService.AppCredentials("1", null, "secret", "filip")));
+                new GitHubAppConfigService.AppCredentials("1", null, "secret", "filip", "vector-bot")));
 
         mockMvc.perform(post("/api/github/app-manifest/exchange")
                         .contentType(MediaType.APPLICATION_JSON)

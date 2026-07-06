@@ -19,17 +19,23 @@ import dev.filipnikolov.vector.events.DeploySource;
 import dev.filipnikolov.vector.events.DeploymentEventStatus;
 import dev.filipnikolov.vector.events.DeploymentEventType;
 import dev.filipnikolov.vector.events.DeploymentStatus;
+import dev.filipnikolov.vector.github.client.GitHubAutomationClient;
 import dev.filipnikolov.vector.github.client.GitHubException;
+import dev.filipnikolov.vector.github.client.dto.WorkflowRun;
 import dev.filipnikolov.vector.github.scan.RepoScan;
 import dev.filipnikolov.vector.github.scan.RepoScanner;
+import dev.filipnikolov.vector.githubapp.RepoUrlNormalizer;
 import dev.filipnikolov.vector.githubapp.model.GitHubInstallation;
 import dev.filipnikolov.vector.githubapp.model.GitHubRepo;
 import dev.filipnikolov.vector.githubapp.model.InstallationStatus;
+import dev.filipnikolov.vector.githubapp.model.WorkflowMode;
 import dev.filipnikolov.vector.githubapp.repository.GitHubInstallationRepository;
 import dev.filipnikolov.vector.githubapp.repository.GitHubRepoRepository;
 import dev.filipnikolov.vector.githubapp.service.GitHubAppConfigService;
+import dev.filipnikolov.vector.githubapp.service.GitHubAutomationService;
 import dev.filipnikolov.vector.project.model.Project;
 import dev.filipnikolov.vector.project.model.ProjectEnvVar;
+import dev.filipnikolov.vector.project.model.ProjectService;
 import dev.filipnikolov.vector.project.repository.ProjectEnvVarRepository;
 import dev.filipnikolov.vector.project.repository.ProjectRepository;
 import dev.filipnikolov.vector.project.repository.ProjectServiceRepository;
@@ -42,6 +48,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 @Service
@@ -61,6 +68,7 @@ public class ConnectService {
     private final WorkflowWiringService workflowWiringService;
     private final AiProvider aiProvider;
     private final RestClient.Builder restClientBuilder;
+    private final GitHubAutomationService automationService;
 
     public ConnectService(GitHubRepoRepository repoRepository,
                            GitHubInstallationRepository installationRepository,
@@ -73,7 +81,8 @@ public class ConnectService {
                            DeploymentEventService deploymentEventService,
                            WorkflowWiringService workflowWiringService,
                            AiProvider aiProvider,
-                           RestClient.Builder restClientBuilder) {
+                           RestClient.Builder restClientBuilder,
+                           GitHubAutomationService automationService) {
         this.repoRepository = repoRepository;
         this.installationRepository = installationRepository;
         this.configService = configService;
@@ -86,6 +95,7 @@ public class ConnectService {
         this.workflowWiringService = workflowWiringService;
         this.aiProvider = aiProvider;
         this.restClientBuilder = restClientBuilder;
+        this.automationService = automationService;
     }
 
     public ScanResponse scan(String repoFullName) {
@@ -175,6 +185,87 @@ public class ConnectService {
         WiringResult wiring = workflowWiringService.wire(repo, req, jobs);
 
         return new ConnectResponse(projectId, appNames, wiring);
+    }
+
+    public List<WorkflowRun> ciStatus(String appName) {
+        GitHubRepo repo = resolveRepoForApp(appName);
+        String[] parts = repo.getFullName().split("/", 2);
+        GitHubAutomationClient client = automationService.forInstallation(repo.getInstallationId());
+        return client.recentRuns(parts[0], parts[1], "vector-deploy.yml");
+    }
+
+    @Transactional
+    public WiringResult switchWorkflowMode(String appName, WorkflowMode mode) {
+        GitHubRepo repo = resolveRepoForApp(appName);
+        Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName).orElse(null);
+        String branch = deployment != null ? deployment.getBranch() : repo.getDefaultBranch();
+
+        ConnectRequest req = new ConnectRequest(repo.getFullName(), branch, List.of(), mode, false);
+        List<ModuleJob> jobs = List.of(new ModuleJob(appName, modulePathForApp(appName), buildModeForApp(appName),
+                imageTargetForApp(repo, appName)));
+
+        return workflowWiringService.wire(repo, req, jobs);
+    }
+
+    @Transactional
+    public void disconnect(String appName) {
+        Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName)
+                .orElseThrow(() -> new AppNotFoundException("App not found: " + appName));
+
+        deployment.setRepoUrl(null);
+        deploymentRepository.save(deployment);
+
+        deploymentEventService.record(DeploymentEventType.REPO_CONNECTED, DeploymentEventStatus.SUCCESS,
+                appName, null, null, "disconnected");
+    }
+
+    public void redeploy(String appName) {
+        GitHubRepo repo = resolveRepoForApp(appName);
+        if (repo.getWorkflowMode() != WorkflowMode.MANAGED) {
+            throw new CustomWorkflowRedeployException("Redeploy is only available for managed workflows: " + appName);
+        }
+        Deployment deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName).orElse(null);
+        String branch = deployment != null ? deployment.getBranch() : repo.getDefaultBranch();
+
+        String[] parts = repo.getFullName().split("/", 2);
+        GitHubAutomationClient client = automationService.forInstallation(repo.getInstallationId());
+        client.dispatchWorkflow(parts[0], parts[1], "vector-deploy.yml", branch);
+
+        deploymentEventService.record(DeploymentEventType.REPO_CONNECTED, DeploymentEventStatus.SUCCESS,
+                appName, null, null, "dispatched");
+    }
+
+    private GitHubRepo resolveRepoForApp(String appName) {
+        Optional<Deployment> deployment = deploymentRepository.findByAppNameAndDeletedAtIsNull(appName);
+        if (deployment.isPresent()) {
+            String fullName = RepoUrlNormalizer.normalize(deployment.get().getRepoUrl());
+            return repoRepository.findByFullName(fullName)
+                    .orElseThrow(() -> new AppNotFoundException("Repo not found for app: " + appName));
+        }
+
+        ProjectService service = projectServiceRepository.findByAppName(appName)
+                .orElseThrow(() -> new AppNotFoundException("App not found: " + appName));
+        Project project = projectRepository.findById(service.getProjectId())
+                .orElseThrow(() -> new AppNotFoundException("Project not found for app: " + appName));
+        return repoRepository.findByFullName(project.getRepoFullName())
+                .orElseThrow(() -> new AppNotFoundException("Repo not found for app: " + appName));
+    }
+
+    private String modulePathForApp(String appName) {
+        return projectServiceRepository.findByAppName(appName)
+                .map(ProjectService::getModulePath)
+                .orElse("");
+    }
+
+    private dev.filipnikolov.vector.connect.detect.BuildMode buildModeForApp(String appName) {
+        return projectServiceRepository.findByAppName(appName)
+                .map(service -> dev.filipnikolov.vector.connect.detect.BuildMode.valueOf(service.getBuildMode()))
+                .orElse(dev.filipnikolov.vector.connect.detect.BuildMode.BUILDPACK);
+    }
+
+    private String imageTargetForApp(GitHubRepo repo, String appName) {
+        String owner = repo.getFullName().split("/", 2)[0];
+        return "ghcr.io/" + owner.toLowerCase(Locale.ROOT) + "/" + appName.toLowerCase(Locale.ROOT);
     }
 
     private void registerApp(ConnectRequest.ModuleSelection module, ConnectRequest req, String owner, Long projectId) {

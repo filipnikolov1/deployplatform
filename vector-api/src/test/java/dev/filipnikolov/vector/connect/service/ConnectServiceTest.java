@@ -58,6 +58,7 @@ class ConnectServiceTest {
     private DeploymentEventService deploymentEventService;
     private WorkflowWiringService workflowWiringService;
     private AiProvider aiProvider;
+    private dev.filipnikolov.vector.githubapp.service.GitHubAutomationService automationService;
     private ConnectService service;
 
     @BeforeEach
@@ -74,11 +75,12 @@ class ConnectServiceTest {
         workflowWiringService = mock(WorkflowWiringService.class);
         aiProvider = mock(AiProvider.class);
         RestClient.Builder restClientBuilder = RestClient.builder();
+        automationService = mock(dev.filipnikolov.vector.githubapp.service.GitHubAutomationService.class);
 
         service = new ConnectService(repoRepository, installationRepository, configService,
                 projectRepository, projectServiceRepository, projectEnvVarRepository,
                 deploymentRepository, envVarService, deploymentEventService, workflowWiringService,
-                aiProvider, restClientBuilder);
+                aiProvider, restClientBuilder, automationService);
 
         when(workflowWiringService.wire(any(), any(), any()))
                 .thenReturn(new WiringResult(WorkflowMode.MANAGED, ".github/workflows/vector-deploy.yml", null));
@@ -212,5 +214,83 @@ class ConnectServiceTest {
         assertThat(jobs).extracting(ModuleJob::appName).containsExactlyInAnyOrder("shop-web", "shop-worker");
         assertThat(jobs).extracting(ModuleJob::imageTarget)
                 .containsExactlyInAnyOrder("ghcr.io/alice/shop-web", "ghcr.io/alice/shop-worker");
+    }
+
+    @Test
+    void disconnect_clearsRepoUrlAndRecordsAudit() {
+        Deployment deployment = new Deployment();
+        deployment.setAppName("shop-web");
+        deployment.setRepoUrl("https://github.com/alice/shop");
+        when(deploymentRepository.findByAppNameAndDeletedAtIsNull("shop-web")).thenReturn(Optional.of(deployment));
+
+        service.disconnect("shop-web");
+
+        assertThat(deployment.getRepoUrl()).isNull();
+        verify(deploymentRepository).save(deployment);
+        verify(deploymentEventService).record(eq(DeploymentEventType.REPO_CONNECTED), eq(DeploymentEventStatus.SUCCESS),
+                eq("shop-web"), any(), any(), any());
+    }
+
+    @Test
+    void disconnect_appNotFound_throwsAppNotFoundException() {
+        when(deploymentRepository.findByAppNameAndDeletedAtIsNull("missing")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.disconnect("missing")).isInstanceOf(AppNotFoundException.class);
+    }
+
+    @Test
+    void redeploy_managedLane_dispatchesWorkflow() {
+        Deployment deployment = new Deployment();
+        deployment.setAppName("shop-web");
+        deployment.setRepoUrl("https://github.com/alice/shop");
+        deployment.setBranch("main");
+        when(deploymentRepository.findByAppNameAndDeletedAtIsNull("shop-web")).thenReturn(Optional.of(deployment));
+
+        GitHubRepo repo = repo("alice/shop", 1L);
+        repo.setWorkflowMode(WorkflowMode.MANAGED);
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo));
+
+        dev.filipnikolov.vector.github.client.GitHubAutomationClient client =
+                mock(dev.filipnikolov.vector.github.client.GitHubAutomationClient.class);
+        when(automationService.forInstallation(1L)).thenReturn(client);
+
+        service.redeploy("shop-web");
+
+        verify(client).dispatchWorkflow("alice", "shop", "vector-deploy.yml", "main");
+    }
+
+    @Test
+    void redeploy_customLane_throwsCustomWorkflowRedeployException() {
+        Deployment deployment = new Deployment();
+        deployment.setAppName("shop-web");
+        deployment.setRepoUrl("https://github.com/alice/shop");
+        deployment.setBranch("main");
+        when(deploymentRepository.findByAppNameAndDeletedAtIsNull("shop-web")).thenReturn(Optional.of(deployment));
+
+        GitHubRepo repo = repo("alice/shop", 1L);
+        repo.setWorkflowMode(WorkflowMode.CUSTOM);
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo));
+
+        assertThatThrownBy(() -> service.redeploy("shop-web")).isInstanceOf(CustomWorkflowRedeployException.class);
+    }
+
+    @Test
+    void ciStatus_returnsRecentRunsFromAutomationClient() {
+        Deployment deployment = new Deployment();
+        deployment.setAppName("shop-web");
+        deployment.setRepoUrl("https://github.com/alice/shop");
+        when(deploymentRepository.findByAppNameAndDeletedAtIsNull("shop-web")).thenReturn(Optional.of(deployment));
+
+        GitHubRepo repo = repo("alice/shop", 1L);
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo));
+
+        dev.filipnikolov.vector.github.client.GitHubAutomationClient client =
+                mock(dev.filipnikolov.vector.github.client.GitHubAutomationClient.class);
+        when(automationService.forInstallation(1L)).thenReturn(client);
+        List<dev.filipnikolov.vector.github.client.dto.WorkflowRun> runs = List.of(
+                new dev.filipnikolov.vector.github.client.dto.WorkflowRun(1L, "completed", "success", "https://x"));
+        when(client.recentRuns("alice", "shop", "vector-deploy.yml")).thenReturn(runs);
+
+        assertThat(service.ciStatus("shop-web")).isEqualTo(runs);
     }
 }

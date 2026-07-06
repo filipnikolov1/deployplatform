@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface GitHubAppConfigService {
 
-    record AppCredentials(String appId, PrivateKey key, String webhookSecret, String ownerLogin) {
+    record AppCredentials(String appId, PrivateKey key, String webhookSecret, String ownerLogin, String appSlug) {
     }
 
     Optional<AppCredentials> resolve();

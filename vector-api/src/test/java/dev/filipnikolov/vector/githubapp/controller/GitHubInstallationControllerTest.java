@@ -50,7 +50,7 @@ class GitHubInstallationControllerTest {
         deploymentRepository = mock(DeploymentRepository.class);
 
         when(configService.resolve()).thenReturn(Optional.of(
-                new GitHubAppConfigService.AppCredentials("1", null, "secret", "filip")));
+                new GitHubAppConfigService.AppCredentials("1", null, "secret", "filip", "vector-bot")));
 
         GitHubInstallationController controller = new GitHubInstallationController(
                 installationRepository, repoRepository, configService,
