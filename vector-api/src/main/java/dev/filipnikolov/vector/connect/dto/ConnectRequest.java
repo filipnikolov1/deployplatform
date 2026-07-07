@@ -21,7 +21,15 @@ public record ConnectRequest(
             BuildMode buildMode,
             Integer port,
             String subdomain,
-            boolean exposed,
+            Boolean exposed,
+            Boolean workspaceBuild,
             Map<String, String> env
-    ) {}
+    ) {
+        // Jackson 3 rejects null-into-primitive, so omitted booleans must be normalized
+        // here: exposed defaults true (plan semantics), workspaceBuild defaults false.
+        public ModuleSelection {
+            exposed = exposed == null || exposed;
+            workspaceBuild = workspaceBuild != null && workspaceBuild;
+        }
+    }
 }

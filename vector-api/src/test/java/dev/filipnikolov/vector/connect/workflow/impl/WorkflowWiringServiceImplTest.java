@@ -91,7 +91,7 @@ class WorkflowWiringServiceImplTest {
     private ConnectRequest req(String repoFullName, String branch, WorkflowMode mode) {
         return new ConnectRequest(repoFullName, branch,
                 List.of(new ConnectRequest.ModuleSelection("shop-web", "apps/web", "nextjs", BuildMode.BUILDPACK,
-                        3000, null, true, null)),
+                        3000, null, true, false, null)),
                 mode, false);
     }
 

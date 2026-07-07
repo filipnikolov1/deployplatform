@@ -20,6 +20,7 @@ import dev.filipnikolov.vector.events.DeploymentEventStatus;
 import dev.filipnikolov.vector.events.DeploymentEventType;
 import dev.filipnikolov.vector.events.DeploymentStatus;
 import dev.filipnikolov.vector.github.client.GitHubAutomationClient;
+import dev.filipnikolov.vector.github.client.dto.StackKind;
 import dev.filipnikolov.vector.github.client.GitHubException;
 import dev.filipnikolov.vector.github.client.dto.WorkflowRun;
 import dev.filipnikolov.vector.github.scan.RepoScan;
@@ -201,8 +202,19 @@ public class ConnectService {
         String branch = deployment != null ? deployment.getBranch() : repo.getDefaultBranch();
 
         ConnectRequest req = new ConnectRequest(repo.getFullName(), branch, List.of(), mode, false);
-        List<ModuleJob> jobs = List.of(new ModuleJob(appName, modulePathForApp(appName), buildModeForApp(appName),
-                imageTargetForApp(repo, appName)));
+        // Re-render must carry ALL of the repo's jobs — a single-job list would clobber a
+        // monorepo's managed workflow down to one module.
+        List<ModuleJob> jobs = projectServiceRepository.findByAppName(appName)
+                .map(svc -> projectServiceRepository.findByProjectId(svc.getProjectId()).stream()
+                        .map(s -> new ModuleJob(s.getAppName(), s.getModulePath(),
+                                dev.filipnikolov.vector.connect.detect.BuildMode.valueOf(s.getBuildMode()),
+                                imageTargetForApp(repo, s.getAppName()),
+                                stackKindOrCustom(s.getStack()),
+                                // TODO(T19/plan): workspace_build not yet persisted — see progress ledger
+                                false))
+                        .toList())
+                .orElseGet(() -> List.of(new ModuleJob(appName, modulePathForApp(appName), buildModeForApp(appName),
+                        imageTargetForApp(repo, appName))));
 
         return workflowWiringService.wire(repo, req, jobs);
     }
@@ -308,7 +320,24 @@ public class ConnectService {
 
     private ModuleJob toModuleJob(ConnectRequest.ModuleSelection module, String owner) {
         String imageTarget = "ghcr.io/" + owner.toLowerCase(Locale.ROOT) + "/" + module.name().toLowerCase(Locale.ROOT);
-        return new ModuleJob(module.name(), module.path(), module.buildMode(), imageTarget);
+        return new ModuleJob(module.name(), module.path(), module.buildMode(), imageTarget,
+                stackKindOf(module.stack()), module.workspaceBuild());
+    }
+
+    private StackKind stackKindOf(String stack) {
+        try {
+            return StackKind.valueOf(stack);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IllegalArgumentException("Unknown stack: " + stack);
+        }
+    }
+
+    private StackKind stackKindOrCustom(String stack) {
+        try {
+            return StackKind.valueOf(stack);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return StackKind.custom;
+        }
     }
 
     private void assertAppNameFree(String appName) {

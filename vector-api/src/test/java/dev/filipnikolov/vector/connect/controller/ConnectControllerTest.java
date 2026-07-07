@@ -51,6 +51,24 @@ class ConnectControllerTest {
     }
 
     @Test
+    void connect_omittedBooleansDefaultInsteadOf400() throws Exception {
+        when(connectService.connect(any())).thenReturn(new ConnectResponse(null, java.util.List.of("shop-web"), null));
+
+        String bodyWithoutBooleans = """
+                { "repoFullName": "alice/shop", "branch": "main",
+                  "modules": [ { "name": "shop-web", "path": "apps/web", "stack": "nextjs",
+                                 "buildMode": "BUILDPACK", "port": 3000 } ],
+                  "workflowMode": "MANAGED",
+                  "provisionDb": false }
+                """;
+
+        mockMvc.perform(post("/api/connect")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyWithoutBooleans))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void connect_success_returns200() throws Exception {
         when(connectService.connect(any())).thenReturn(new ConnectResponse(null, java.util.List.of("shop-web"), null));
 

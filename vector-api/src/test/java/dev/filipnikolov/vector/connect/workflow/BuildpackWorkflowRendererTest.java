@@ -124,6 +124,31 @@ class BuildpackWorkflowRendererTest {
     }
 
     @Test
+    void render_workspaceBuild_pythonStack_fallsBackToPathBuildWithoutSelector() {
+        ModuleJob pythonJob = new ModuleJob("shop-ml", "apps/ml", BuildMode.BUILDPACK,
+                "ghcr.io/alice/shop-ml", StackKind.python, true);
+        BuildpackWorkflowRenderer.RenderSpec spec = new BuildpackWorkflowRenderer.RenderSpec(
+                "alice/shop", "main", 1, "vector-bot", List.of(pythonJob));
+
+        String yaml = renderer.render(spec);
+
+        assertThat(yaml).contains("--path apps/ml");
+        assertThat(yaml).doesNotContain("BP_MAVEN_BUILT_MODULE");
+        assertThat(yaml).doesNotContain("BP_NODE_PROJECT_PATH");
+        assertThat(yaml).doesNotContain("BP_GO_TARGETS");
+    }
+
+    @Test
+    void render_checkoutStepHasExplicitNameMatchingExpectedJobs() {
+        BuildpackWorkflowRenderer.RenderSpec spec = new BuildpackWorkflowRenderer.RenderSpec(
+                "alice/shop", "main", 1, "vector-bot", List.of(buildpackJob("shop-web", "apps/web")));
+
+        String yaml = renderer.render(spec);
+
+        assertThat(yaml).contains("- name: Checkout\n        uses: actions/checkout@v4");
+    }
+
+    @Test
     void render_workspaceDockerfile_usesRootContext() {
         ModuleJob job = new ModuleJob("shop-api", "vector-api", BuildMode.DOCKERFILE,
                 "ghcr.io/alice/shop-api", StackKind.custom, true);

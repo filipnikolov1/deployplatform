@@ -15,6 +15,7 @@ import dev.filipnikolov.vector.events.DeploySource;
 import dev.filipnikolov.vector.events.DeploymentEventStatus;
 import dev.filipnikolov.vector.events.DeploymentEventType;
 import dev.filipnikolov.vector.events.DeploymentStatus;
+import dev.filipnikolov.vector.github.client.dto.StackKind;
 import dev.filipnikolov.vector.githubapp.model.GitHubInstallation;
 import dev.filipnikolov.vector.githubapp.model.GitHubRepo;
 import dev.filipnikolov.vector.githubapp.model.InstallationStatus;
@@ -111,7 +112,12 @@ class ConnectServiceTest {
 
     private ConnectRequest.ModuleSelection module(String name, String path, boolean exposed) {
         return new ConnectRequest.ModuleSelection(name, path, "nextjs", BuildMode.BUILDPACK, 3000, null, exposed,
-                Map.of("KEY", "val"));
+                false, Map.of("KEY", "val"));
+    }
+
+    private ConnectRequest.ModuleSelection workspaceModule(String name, String path) {
+        return new ConnectRequest.ModuleSelection(name, path, "nextjs", BuildMode.BUILDPACK, 3000, null, true,
+                true, Map.of());
     }
 
     @Test
@@ -214,6 +220,69 @@ class ConnectServiceTest {
         assertThat(jobs).extracting(ModuleJob::appName).containsExactlyInAnyOrder("shop-web", "shop-worker");
         assertThat(jobs).extracting(ModuleJob::imageTarget)
                 .containsExactlyInAnyOrder("ghcr.io/alice/shop-web", "ghcr.io/alice/shop-worker");
+    }
+
+    @Test
+    void connect_carriesStackAndWorkspaceBuildIntoModuleJobs() {
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo("alice/shop", 1L)));
+        when(installationRepository.findByInstallationId(1L)).thenReturn(Optional.of(installation(1L, InstallationStatus.APPROVED)));
+
+        ConnectRequest req = new ConnectRequest("alice/shop", "main",
+                List.of(workspaceModule("shop-web", "apps/web")), WorkflowMode.MANAGED, false);
+
+        service.connect(req);
+
+        ArgumentCaptor<List<ModuleJob>> jobsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(workflowWiringService).wire(any(), eq(req), jobsCaptor.capture());
+        ModuleJob job = jobsCaptor.getValue().get(0);
+        assertThat(job.stack()).isEqualTo(StackKind.nextjs);
+        assertThat(job.workspaceBuild()).isTrue();
+    }
+
+    @Test
+    void connect_unknownStackRejectedWith400StyleException() {
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo("alice/shop", 1L)));
+        when(installationRepository.findByInstallationId(1L)).thenReturn(Optional.of(installation(1L, InstallationStatus.APPROVED)));
+
+        ConnectRequest req = new ConnectRequest("alice/shop", "main",
+                List.of(new ConnectRequest.ModuleSelection("shop-web", "apps/web", "rust", BuildMode.BUILDPACK,
+                        3000, null, true, false, Map.of())),
+                WorkflowMode.MANAGED, false);
+
+        assertThatThrownBy(() -> service.connect(req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("rust");
+    }
+
+    @Test
+    void switchWorkflowMode_projectApp_reRendersAllSiblingJobs() {
+        GitHubRepo repo = repo("alice/shop", 1L);
+        when(deploymentRepository.findByAppNameAndDeletedAtIsNull("shop-web")).thenReturn(Optional.empty());
+        dev.filipnikolov.vector.project.model.ProjectService web = projectService(7L, "shop-web", "apps/web");
+        dev.filipnikolov.vector.project.model.ProjectService api = projectService(7L, "shop-api", "apps/api");
+        when(projectServiceRepository.findByAppName("shop-web")).thenReturn(Optional.of(web));
+        when(projectServiceRepository.findByProjectId(7L)).thenReturn(List.of(web, api));
+        Project project = new Project();
+        project.setRepoFullName("alice/shop");
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo));
+
+        service.switchWorkflowMode("shop-web", WorkflowMode.MANAGED);
+
+        ArgumentCaptor<List<ModuleJob>> jobsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(workflowWiringService).wire(eq(repo), any(), jobsCaptor.capture());
+        assertThat(jobsCaptor.getValue()).extracting(ModuleJob::appName)
+                .containsExactlyInAnyOrder("shop-web", "shop-api");
+    }
+
+    private dev.filipnikolov.vector.project.model.ProjectService projectService(long projectId, String appName, String path) {
+        dev.filipnikolov.vector.project.model.ProjectService svc = new dev.filipnikolov.vector.project.model.ProjectService();
+        svc.setProjectId(projectId);
+        svc.setAppName(appName);
+        svc.setModulePath(path);
+        svc.setStack("nextjs");
+        svc.setBuildMode("BUILDPACK");
+        return svc;
     }
 
     @Test

@@ -22,6 +22,8 @@ public class BuildpackWorkflowRenderer {
             List.of("Checkout", "Set up pack", "Log in to GHCR", "Build (buildpacks)", "Push");
     private static final List<String> DOCKERFILE_STEP_NAMES =
             List.of("Checkout", "Log in to GHCR", "Build (docker)", "Push");
+    private static final java.util.Set<StackKind> SELECTOR_STACKS =
+            java.util.Set.of(StackKind.springboot, StackKind.nextjs, StackKind.node, StackKind.go);
 
     public String render(RenderSpec spec) {
         return String.join("", renderBlocks(spec));
@@ -81,7 +83,8 @@ public class BuildpackWorkflowRenderer {
             sb.append("      shared: ${{ steps.filter.outputs.shared }}\n");
         }
         sb.append("    steps:\n");
-        sb.append("      - uses: actions/checkout@v4\n");
+        sb.append("      - name: Checkout\n");
+        sb.append("        uses: actions/checkout@v4\n");
         sb.append("      - uses: dorny/paths-filter@v3\n");
         sb.append("        id: filter\n");
         sb.append("        with:\n");
@@ -115,7 +118,8 @@ public class BuildpackWorkflowRenderer {
         sb.append(" || github.event_name == 'workflow_dispatch'\n");
         sb.append("    runs-on: ubuntu-latest\n");
         sb.append("    steps:\n");
-        sb.append("      - uses: actions/checkout@v4\n");
+        sb.append("      - name: Checkout\n");
+        sb.append("        uses: actions/checkout@v4\n");
         if (job.mode() == dev.filipnikolov.vector.connect.detect.BuildMode.DOCKERFILE) {
             appendDockerfileSteps(sb, job);
         } else {
@@ -144,7 +148,12 @@ public class BuildpackWorkflowRenderer {
         sb.append("      - name: Build (buildpacks)\n");
         sb.append("        run: |\n");
         sb.append("          pack build ").append(job.imageTarget()).append(":${{ github.sha }} \\\n");
-        if (!job.workspaceBuild()) {
+        // Workspace (root-context) builds only apply to stacks with a real BP_* module
+        // selector; python/custom fall back to the module-scoped --path build.
+        boolean selectorApplies = job.workspaceBuild() && SELECTOR_STACKS.contains(job.stack());
+        boolean rootContext = selectorApplies
+                || (job.workspaceBuild() && job.stack() == StackKind.static_site);
+        if (!rootContext) {
             sb.append("            --path ").append(job.modulePath()).append(" \\\n");
         }
         sb.append("            --builder paketobuildpacks/builder-jammy-base \\\n");
@@ -152,7 +161,7 @@ public class BuildpackWorkflowRenderer {
             sb.append("            --buildpack paketo-buildpacks/web-servers \\\n");
             sb.append("            --env BP_WEB_SERVER=nginx \\\n");
             sb.append("            --env BP_WEB_SERVER_ROOT=").append(job.modulePath()).append(" \\\n");
-        } else if (job.workspaceBuild()) {
+        } else if (selectorApplies) {
             sb.append("            --env ").append(moduleSelector(job)).append(" \\\n");
         }
         sb.append("            --tag ").append(job.imageTarget()).append(":latest\n");
@@ -165,7 +174,7 @@ public class BuildpackWorkflowRenderer {
             case springboot -> "BP_MAVEN_BUILT_MODULE=" + job.modulePath();
             case nextjs, node -> "BP_NODE_PROJECT_PATH=" + job.modulePath();
             case go -> "BP_GO_TARGETS=./" + job.modulePath();
-            case python, custom, static_site -> "BP_MAVEN_BUILT_MODULE=" + job.modulePath();
+            default -> throw new IllegalStateException("No workspace selector for stack: " + job.stack());
         };
     }
 }
