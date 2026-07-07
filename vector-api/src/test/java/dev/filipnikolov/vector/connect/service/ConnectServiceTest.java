@@ -2,6 +2,7 @@ package dev.filipnikolov.vector.connect.service;
 
 import dev.filipnikolov.vector.ai.AiProvider;
 import dev.filipnikolov.vector.connect.detect.BuildMode;
+import dev.filipnikolov.vector.connect.detect.BuildTool;
 import dev.filipnikolov.vector.connect.dto.ConnectRequest;
 import dev.filipnikolov.vector.connect.dto.ConnectResponse;
 import dev.filipnikolov.vector.connect.workflow.ModuleJob;
@@ -112,12 +113,12 @@ class ConnectServiceTest {
 
     private ConnectRequest.ModuleSelection module(String name, String path, boolean exposed) {
         return new ConnectRequest.ModuleSelection(name, path, "nextjs", BuildMode.BUILDPACK, 3000, null, exposed,
-                false, Map.of("KEY", "val"));
+                false, Map.of("KEY", "val"), null);
     }
 
     private ConnectRequest.ModuleSelection workspaceModule(String name, String path) {
         return new ConnectRequest.ModuleSelection(name, path, "nextjs", BuildMode.BUILDPACK, 3000, null, true,
-                true, Map.of());
+                true, Map.of(), null);
     }
 
     @Test
@@ -240,13 +241,32 @@ class ConnectServiceTest {
     }
 
     @Test
+    void connect_carriesBuildToolIntoModuleJobs() {
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo("alice/shop", 1L)));
+        when(installationRepository.findByInstallationId(1L)).thenReturn(Optional.of(installation(1L, InstallationStatus.APPROVED)));
+
+        ConnectRequest.ModuleSelection gradleModule = new ConnectRequest.ModuleSelection("shop-api", "apps/api",
+                "springboot", BuildMode.BUILDPACK, 8080, null, true, false, Map.of(),
+                dev.filipnikolov.vector.connect.detect.BuildTool.GRADLE);
+        ConnectRequest req = new ConnectRequest("alice/shop", "main",
+                List.of(gradleModule), WorkflowMode.MANAGED, false);
+
+        service.connect(req);
+
+        ArgumentCaptor<List<ModuleJob>> jobsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(workflowWiringService).wire(any(), eq(req), jobsCaptor.capture());
+        ModuleJob job = jobsCaptor.getValue().get(0);
+        assertThat(job.buildTool()).isEqualTo(dev.filipnikolov.vector.connect.detect.BuildTool.GRADLE);
+    }
+
+    @Test
     void connect_unknownStackRejectedWith400StyleException() {
         when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo("alice/shop", 1L)));
         when(installationRepository.findByInstallationId(1L)).thenReturn(Optional.of(installation(1L, InstallationStatus.APPROVED)));
 
         ConnectRequest req = new ConnectRequest("alice/shop", "main",
                 List.of(new ConnectRequest.ModuleSelection("shop-web", "apps/web", "rust", BuildMode.BUILDPACK,
-                        3000, null, true, false, Map.of())),
+                        3000, null, true, false, Map.of(), null)),
                 WorkflowMode.MANAGED, false);
 
         assertThatThrownBy(() -> service.connect(req))
@@ -255,7 +275,7 @@ class ConnectServiceTest {
     }
 
     @Test
-    void switchWorkflowMode_projectApp_reRendersAllSiblingJobs() {
+    void switchWorkflowMode_legacyRowWithNoSnapshot_fallsBackToProjectServiceReconstruction() {
         GitHubRepo repo = repo("alice/shop", 1L);
         when(deploymentRepository.findByAppNameAndDeletedAtIsNull("shop-web")).thenReturn(Optional.empty());
         dev.filipnikolov.vector.project.model.ProjectService web = projectService(7L, "shop-web", "apps/web");
@@ -273,6 +293,34 @@ class ConnectServiceTest {
         verify(workflowWiringService).wire(eq(repo), any(), jobsCaptor.capture());
         assertThat(jobsCaptor.getValue()).extracting(ModuleJob::appName)
                 .containsExactlyInAnyOrder("shop-web", "shop-api");
+    }
+
+    @Test
+    void switchWorkflowMode_snapshotPresent_reRendersFromModuleJobsSnapshot() {
+        GitHubRepo repo = repo("alice/shop", 1L);
+        repo.setModuleJobs("""
+                [{"appName":"shop-web","modulePath":"apps/web","mode":"BUILDPACK",\
+                "imageTarget":"ghcr.io/alice/shop-web","stack":"nextjs","workspaceBuild":false,"buildTool":"MAVEN"},\
+                {"appName":"shop-api","modulePath":"apps/api","mode":"BUILDPACK",\
+                "imageTarget":"ghcr.io/alice/shop-api","stack":"springboot","workspaceBuild":true,"buildTool":"GRADLE"}]""");
+        when(deploymentRepository.findByAppNameAndDeletedAtIsNull("shop-web")).thenReturn(Optional.empty());
+        dev.filipnikolov.vector.project.model.ProjectService web = projectService(7L, "shop-web", "apps/web");
+        when(projectServiceRepository.findByAppName("shop-web")).thenReturn(Optional.of(web));
+        Project project = new Project();
+        project.setRepoFullName("alice/shop");
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo));
+
+        service.switchWorkflowMode("shop-web", WorkflowMode.MANAGED);
+
+        ArgumentCaptor<List<ModuleJob>> jobsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(workflowWiringService).wire(eq(repo), any(), jobsCaptor.capture());
+        assertThat(jobsCaptor.getValue()).extracting(ModuleJob::appName)
+                .containsExactlyInAnyOrder("shop-web", "shop-api");
+        ModuleJob apiJob = jobsCaptor.getValue().stream().filter(j -> j.appName().equals("shop-api")).findFirst().orElseThrow();
+        assertThat(apiJob.workspaceBuild()).isTrue();
+        assertThat(apiJob.buildTool()).isEqualTo(dev.filipnikolov.vector.connect.detect.BuildTool.GRADLE);
+        verify(projectServiceRepository, never()).findByProjectId(any());
     }
 
     private dev.filipnikolov.vector.project.model.ProjectService projectService(long projectId, String appName, String path) {

@@ -40,6 +40,8 @@ import dev.filipnikolov.vector.project.model.ProjectService;
 import dev.filipnikolov.vector.project.repository.ProjectEnvVarRepository;
 import dev.filipnikolov.vector.project.repository.ProjectRepository;
 import dev.filipnikolov.vector.project.repository.ProjectServiceRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
@@ -55,7 +57,10 @@ import java.util.regex.Pattern;
 @Service
 public class ConnectService {
 
+    private static final Logger log = LoggerFactory.getLogger(ConnectService.class);
     private static final Pattern VALID_APP_NAME = Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$");
+    private static final com.fasterxml.jackson.databind.ObjectMapper MODULE_JOBS_MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper();
 
     private final GitHubRepoRepository repoRepository;
     private final GitHubInstallationRepository installationRepository;
@@ -204,7 +209,27 @@ public class ConnectService {
         ConnectRequest req = new ConnectRequest(repo.getFullName(), branch, List.of(), mode, false);
         // Re-render must carry ALL of the repo's jobs — a single-job list would clobber a
         // monorepo's managed workflow down to one module.
-        List<ModuleJob> jobs = projectServiceRepository.findByAppName(appName)
+        List<ModuleJob> jobs = readModuleJobsSnapshot(repo)
+                .orElseGet(() -> reconstructJobsFromProjectService(repo, appName));
+
+        return workflowWiringService.wire(repo, req, jobs);
+    }
+
+    private Optional<List<ModuleJob>> readModuleJobsSnapshot(GitHubRepo repo) {
+        if (repo.getModuleJobs() == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(List.of(MODULE_JOBS_MAPPER.readValue(repo.getModuleJobs(), ModuleJob[].class)));
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to parse module_jobs snapshot for repo: " + repo.getFullName(), e);
+        }
+    }
+
+    private List<ModuleJob> reconstructJobsFromProjectService(GitHubRepo repo, String appName) {
+        log.warn("No module_jobs snapshot for repo {}, falling back to project_service reconstruction",
+                repo.getFullName());
+        return projectServiceRepository.findByAppName(appName)
                 .map(svc -> projectServiceRepository.findByProjectId(svc.getProjectId()).stream()
                         .map(s -> new ModuleJob(s.getAppName(), s.getModulePath(),
                                 dev.filipnikolov.vector.connect.detect.BuildMode.valueOf(s.getBuildMode()),
@@ -215,8 +240,6 @@ public class ConnectService {
                         .toList())
                 .orElseGet(() -> List.of(new ModuleJob(appName, modulePathForApp(appName), buildModeForApp(appName),
                         imageTargetForApp(repo, appName))));
-
-        return workflowWiringService.wire(repo, req, jobs);
     }
 
     @Transactional
@@ -321,7 +344,7 @@ public class ConnectService {
     private ModuleJob toModuleJob(ConnectRequest.ModuleSelection module, String owner) {
         String imageTarget = "ghcr.io/" + owner.toLowerCase(Locale.ROOT) + "/" + module.name().toLowerCase(Locale.ROOT);
         return new ModuleJob(module.name(), module.path(), module.buildMode(), imageTarget,
-                stackKindOf(module.stack()), module.workspaceBuild());
+                stackKindOf(module.stack()), module.workspaceBuild(), module.buildTool());
     }
 
     private StackKind stackKindOf(String stack) {

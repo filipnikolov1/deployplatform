@@ -91,7 +91,7 @@ class WorkflowWiringServiceImplTest {
     private ConnectRequest req(String repoFullName, String branch, WorkflowMode mode) {
         return new ConnectRequest(repoFullName, branch,
                 List.of(new ConnectRequest.ModuleSelection("shop-web", "apps/web", "nextjs", BuildMode.BUILDPACK,
-                        3000, null, true, false, null)),
+                        3000, null, true, false, null, null)),
                 mode, false);
     }
 
@@ -205,6 +205,17 @@ class WorkflowWiringServiceImplTest {
         assertThat(repoEntity.getWorkflowTemplateVersion()).isNotNull();
         assertThat(repoEntity.getExpectedJobs()).contains("build-shop-web").contains("shop-web");
         verify(repoRepository).save(repoEntity);
+        server.verify();
+    }
+
+    @Test
+    void wire_managed_persistsModuleJobsSnapshot() {
+        expectContentsGet("alice", "shop", "main", null, HttpStatus.NOT_FOUND);
+        GitHubRepo repoEntity = repo("alice/shop", "main");
+
+        service.wire(repoEntity, req("alice/shop", "main", WorkflowMode.MANAGED), jobs());
+
+        assertThat(repoEntity.getModuleJobs()).contains("shop-web").contains("apps/web");
         server.verify();
     }
 

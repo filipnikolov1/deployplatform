@@ -36,6 +36,9 @@ public class GitHubRepo {
     @Column(name = "expected_jobs", columnDefinition = "jsonb")
     private String expectedJobs;
 
+    @Column(name = "module_jobs", columnDefinition = "jsonb")
+    private String moduleJobs;
+
     @Column(name = "last_seen_at", nullable = false)
     private LocalDateTime lastSeenAt;
 }

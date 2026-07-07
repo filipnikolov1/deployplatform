@@ -71,7 +71,8 @@ public class ModuleDetector {
         ManifestFile buildGradleKts = findByFilename(manifests, "build.gradle.kts");
         if (pomXml != null || buildGradle != null || buildGradleKts != null) {
             boolean isWorkspaceRoot = dir.isEmpty() && pomXml != null && pomXml.content().contains("<modules>");
-            return candidateFor(dir, StackKind.springboot, 8080, dockerfile, isWorkspaceRoot);
+            BuildTool buildTool = (buildGradle != null || buildGradleKts != null) ? BuildTool.GRADLE : BuildTool.MAVEN;
+            return candidateFor(dir, StackKind.springboot, 8080, dockerfile, isWorkspaceRoot, buildTool);
         }
 
         ManifestFile requirementsTxt = findByFilename(manifests, "requirements.txt");
@@ -92,6 +93,14 @@ public class ModuleDetector {
         BuildMode buildMode = dockerfile != null ? BuildMode.DOCKERFILE : BuildMode.BUILDPACK;
         double confidence = isWorkspaceRoot ? 0.5 : 1.0;
         return new ModuleCandidate(dir, stack, buildMode, port, confidence);
+    }
+
+    private ModuleCandidate candidateFor(String dir, StackKind stack, int port, ManifestFile dockerfile,
+                                          boolean isWorkspaceRoot, BuildTool buildTool) {
+        BuildMode buildMode = dockerfile != null ? BuildMode.DOCKERFILE : BuildMode.BUILDPACK;
+        double confidence = isWorkspaceRoot ? 0.5 : 1.0;
+        ModuleCandidate base = new ModuleCandidate(dir, stack, buildMode, port, confidence);
+        return new ModuleCandidate(dir, stack, buildMode, port, confidence, base.exposed(), false, buildTool);
     }
 
     private boolean isWorkspaceWrapper(List<ManifestFile> rootManifests) {

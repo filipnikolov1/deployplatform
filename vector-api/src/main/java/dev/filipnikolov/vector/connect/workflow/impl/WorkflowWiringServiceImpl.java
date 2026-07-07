@@ -88,7 +88,7 @@ public class WorkflowWiringServiceImpl implements WorkflowWiringService {
         }
 
         if (effectiveMode == WorkflowMode.CUSTOM) {
-            persist(repo, WorkflowMode.CUSTOM, null, null);
+            persist(repo, WorkflowMode.CUSTOM, null, null, null);
             return new WiringResult(WorkflowMode.CUSTOM, WORKFLOW_PATH, CUSTOM_SNIPPET);
         }
 
@@ -97,6 +97,7 @@ public class WorkflowWiringServiceImpl implements WorkflowWiringService {
         String yaml = renderer.render(spec);
         List<BuildpackWorkflowRenderer.ExpectedJob> expectedJobs = renderer.expectedJobs(spec);
         String expectedJobsJson = writeExpectedJobsJson(expectedJobs);
+        String moduleJobsJson = writeModuleJobsJson(jobs);
 
         GitHubAutomationClient client = automationService.forInstallation(repo.getInstallationId());
         client.putFile(owner, name, WORKFLOW_PATH, yaml.getBytes(StandardCharsets.UTF_8),
@@ -108,15 +109,17 @@ public class WorkflowWiringServiceImpl implements WorkflowWiringService {
         deploymentEventService.record(DeploymentEventType.REPO_CONNECTED, DeploymentEventStatus.SUCCESS,
                 repo.getFullName(), null, null, "dispatched");
 
-        persist(repo, WorkflowMode.MANAGED, TEMPLATE_VERSION, expectedJobsJson);
+        persist(repo, WorkflowMode.MANAGED, TEMPLATE_VERSION, expectedJobsJson, moduleJobsJson);
 
         return new WiringResult(WorkflowMode.MANAGED, WORKFLOW_PATH, null);
     }
 
-    private void persist(GitHubRepo repo, WorkflowMode mode, Integer templateVersion, String expectedJobsJson) {
+    private void persist(GitHubRepo repo, WorkflowMode mode, Integer templateVersion, String expectedJobsJson,
+                          String moduleJobsJson) {
         repo.setWorkflowMode(mode);
         repo.setWorkflowTemplateVersion(templateVersion);
         repo.setExpectedJobs(expectedJobsJson);
+        repo.setModuleJobs(moduleJobsJson);
         repoRepository.save(repo);
     }
 
@@ -135,6 +138,14 @@ public class WorkflowWiringServiceImpl implements WorkflowWiringService {
             return MAPPER.writeValueAsString(expectedJobs);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to serialize expected jobs", e);
+        }
+    }
+
+    private String writeModuleJobsJson(List<ModuleJob> jobs) {
+        try {
+            return MAPPER.writeValueAsString(jobs);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize module jobs", e);
         }
     }
 

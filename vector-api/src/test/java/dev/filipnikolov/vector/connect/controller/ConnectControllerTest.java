@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
@@ -66,6 +67,30 @@ class ConnectControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bodyWithoutBooleans))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void connect_omittedBuildToolDefaultsToMaven() throws Exception {
+        org.mockito.ArgumentCaptor<dev.filipnikolov.vector.connect.dto.ConnectRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(dev.filipnikolov.vector.connect.dto.ConnectRequest.class);
+        when(connectService.connect(captor.capture()))
+                .thenReturn(new ConnectResponse(null, java.util.List.of("shop-web"), null));
+
+        String bodyWithoutBuildTool = """
+                { "repoFullName": "alice/shop", "branch": "main",
+                  "modules": [ { "name": "shop-web", "path": "apps/web", "stack": "springboot",
+                                 "buildMode": "BUILDPACK", "port": 8080 } ],
+                  "workflowMode": "MANAGED",
+                  "provisionDb": false }
+                """;
+
+        mockMvc.perform(post("/api/connect")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyWithoutBuildTool))
+                .andExpect(status().isOk());
+
+        assertThat(captor.getValue().modules().get(0).buildTool())
+                .isEqualTo(dev.filipnikolov.vector.connect.detect.BuildTool.MAVEN);
     }
 
     @Test

@@ -75,6 +75,7 @@ class ModuleDetectorTest {
         ModuleCandidate c = candidates.get(0);
         assertThat(c.stack()).isEqualTo(StackKind.springboot);
         assertThat(c.portGuess()).isEqualTo(8080);
+        assertThat(c.buildTool()).isEqualTo(BuildTool.MAVEN);
     }
 
     @Test
@@ -87,6 +88,20 @@ class ModuleDetectorTest {
 
         assertThat(candidates).hasSize(1);
         assertThat(candidates.get(0).stack()).isEqualTo(StackKind.springboot);
+        assertThat(candidates.get(0).buildTool()).isEqualTo(BuildTool.GRADLE);
+    }
+
+    @Test
+    void rule3BuildGradleKtsDetectsGradleBuildTool() {
+        RepoScan scan = scanOf(
+                List.of("build.gradle.kts"),
+                List.of(new ManifestFile("build.gradle.kts", "plugins {}")));
+
+        List<ModuleCandidate> candidates = detector.detect(scan);
+
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.get(0).stack()).isEqualTo(StackKind.springboot);
+        assertThat(candidates.get(0).buildTool()).isEqualTo(BuildTool.GRADLE);
     }
 
     @Test

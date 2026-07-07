@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.connect.workflow;
 
 import dev.filipnikolov.vector.connect.detect.BuildMode;
+import dev.filipnikolov.vector.connect.detect.BuildTool;
 import dev.filipnikolov.vector.github.client.dto.StackKind;
 import org.junit.jupiter.api.Test;
 
@@ -83,6 +84,18 @@ class BuildpackWorkflowRendererTest {
 
         assertThat(yaml).contains("--buildpack paketo-buildpacks/web-servers");
         assertThat(yaml).contains("--env BP_WEB_SERVER=nginx");
+        assertThat(yaml).contains("--env BP_WEB_SERVER_ROOT=.");
+    }
+
+    @Test
+    void render_staticSiteStack_workspaceBuild_keepsModulePathAsWebServerRoot() {
+        ModuleJob job = new ModuleJob("shop-site", "site", BuildMode.BUILDPACK,
+                "ghcr.io/alice/shop-site", StackKind.static_site, true);
+        BuildpackWorkflowRenderer.RenderSpec spec = new BuildpackWorkflowRenderer.RenderSpec(
+                "alice/shop", "main", 1, "vector-bot", List.of(job));
+
+        String yaml = renderer.render(spec);
+
         assertThat(yaml).contains("--env BP_WEB_SERVER_ROOT=site");
     }
 
@@ -100,6 +113,19 @@ class BuildpackWorkflowRendererTest {
         assertThat(yaml).contains("--env BP_MAVEN_BUILT_MODULE=vector-api");
         assertThat(yaml).contains("shared:");
         assertThat(yaml).contains("if: needs.changes.outputs.shop-api == 'true' || needs.changes.outputs.shared == 'true' || github.event_name == 'workflow_dispatch'");
+    }
+
+    @Test
+    void render_workspaceBuild_gradleBuildTool_usesGradleBuiltModuleSelector() {
+        ModuleJob gradleJob = new ModuleJob("shop-api", "vector-api", BuildMode.BUILDPACK,
+                "ghcr.io/alice/shop-api", StackKind.springboot, true, BuildTool.GRADLE);
+        BuildpackWorkflowRenderer.RenderSpec spec = new BuildpackWorkflowRenderer.RenderSpec(
+                "alice/shop", "main", 1, "vector-bot", List.of(gradleJob));
+
+        String yaml = renderer.render(spec);
+
+        assertThat(yaml).contains("--env BP_GRADLE_BUILT_MODULE=vector-api");
+        assertThat(yaml).doesNotContain("BP_MAVEN_BUILT_MODULE");
     }
 
     @Test

@@ -162,9 +162,10 @@ public class BuildpackWorkflowRenderer {
         }
         sb.append("            --builder paketobuildpacks/builder-jammy-base \\\n");
         if (job.stack() == StackKind.static_site) {
+            String webServerRoot = job.workspaceBuild() ? job.modulePath() : ".";
             sb.append("            --buildpack paketo-buildpacks/web-servers \\\n");
             sb.append("            --env BP_WEB_SERVER=nginx \\\n");
-            sb.append("            --env BP_WEB_SERVER_ROOT=").append(job.modulePath()).append(" \\\n");
+            sb.append("            --env BP_WEB_SERVER_ROOT=").append(webServerRoot).append(" \\\n");
         } else if (selectorApplies) {
             sb.append("            --env ").append(moduleSelector(job)).append(" \\\n");
         }
@@ -177,7 +178,9 @@ public class BuildpackWorkflowRenderer {
 
     private String moduleSelector(ModuleJob job) {
         return switch (job.stack()) {
-            case springboot -> "BP_MAVEN_BUILT_MODULE=" + job.modulePath();
+            case springboot -> job.buildTool() == dev.filipnikolov.vector.connect.detect.BuildTool.GRADLE
+                    ? "BP_GRADLE_BUILT_MODULE=" + job.modulePath()
+                    : "BP_MAVEN_BUILT_MODULE=" + job.modulePath();
             case nextjs, node -> "BP_NODE_PROJECT_PATH=" + job.modulePath();
             case go -> "BP_GO_TARGETS=./" + job.modulePath();
             default -> throw new IllegalStateException("No workspace selector for stack: " + job.stack());
