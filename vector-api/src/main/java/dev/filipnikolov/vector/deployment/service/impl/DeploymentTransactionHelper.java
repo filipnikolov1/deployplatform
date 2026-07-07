@@ -64,7 +64,7 @@ class DeploymentTransactionHelper {
         deployment.setUpdatedAt(LocalDateTime.now());
         deploymentRepository.save(deployment);
 
-        String operationId = UUID.randomUUID().toString();
+        String operationId = req.operationId() != null ? req.operationId() : UUID.randomUUID().toString();
         eventService.record(DeploymentEventType.DEPLOY_TRIGGERED, DeploymentEventStatus.IN_PROGRESS,
                 req.appName(), req, null, null, operationId);
         eventService.record(DeploymentEventType.DEPLOY_STARTED, DeploymentEventStatus.IN_PROGRESS,

@@ -64,4 +64,16 @@ class RegistryAuthProviderTest {
 
         assertThat(result).isEmpty();
     }
+
+    @Test
+    void malformedSingleSegmentGhcrRefReturnsEmpty() {
+        GitHubRepoRepository repoRepository = mock(GitHubRepoRepository.class);
+        GitHubAppConfigService configService = mock(GitHubAppConfigService.class);
+
+        RegistryAuthProvider provider = new RegistryAuthProvider(repoRepository, configService);
+
+        Optional<AuthConfig> result = provider.forImage("ghcr.io/foo:latest");
+
+        assertThat(result).isEmpty();
+    }
 }

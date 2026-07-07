@@ -102,52 +102,99 @@ The dashboard is available at `http://deploy.localhost`.
 
 ## Deploying your first app
 
-Vector is driven by the `POST /deploy-hook` endpoint. Your CI (GitHub Actions, GitLab, etc.) needs to:
+The supported path is the dashboard's **Connect a repository** flow (below) — install the GitHub
+App, pick a repo, confirm modules, and Vector wires CI and deploys automatically. No secrets to
+generate or sign yourself.
 
-1. Build and push your app's Docker image to DockerHub
-2. POST a signed JSON payload to `http://api.deploy.{your-domain}/deploy-hook`
+---
 
-**Request body:**
+## Connect a repository
 
-```json
-{
-  "app_name": "my-app",
-  "image": "your-dockerhub-user/my-app:latest",
-  "repo_url": "https://github.com/you/my-app",
-  "port": 3000,
-  "timestamp": 1712872800000
-}
-```
+The dashboard's "Connect a repository" flow installs a GitHub App once and takes care of CI
+wiring, module detection, and deploys for you.
 
-**Required headers:**
+**Install flow:**
 
-| Header            | Value                                                                      |
-| ----------------- | -------------------------------------------------------------------------- |
-| `Content-Type`    | `application/json`                                                         |
-| `X-Signature-256` | `sha256=<hex HMAC-SHA256 of body, keyed with VECTOR_DEPLOY_HOOK_SECRET>`   |
+1. From the dashboard, follow the manifest-based GitHub App install link. GitHub creates the App
+   and hands Vector its credentials automatically — no manual PEM/ID entry.
+2. Pick which repos to grant the App access to (you can add more later from GitHub's own
+   installation settings page).
+3. Pick a repo and Connect. Vector scans it (file tree + manifests, AI-assisted for ambiguous
+   monorepos) and proposes one or more modules — confirm names, ports, env vars, and which modules
+   are exposed to the web.
+
+**Friend-approval flow:** anyone can install the App on their own repos and point it at your
+instance. Installations made by an account other than your own land as **pending approval** —
+their repos are visible but not connectable until you approve them from the dashboard. Rejected
+installations stay listed (re-approvable) but stay silent.
+
+**Managed vs custom workflow lanes:** connecting a repo picks one of two lanes per app:
+
+- **Managed** — Vector writes and owns `.github/workflows/vector-deploy.yml` (marked with a
+  `# vector:managed` header; Vector may upgrade the template later, always audited). One build job
+  per module, buildpacks by default (Dockerfile fallback), pushes to `ghcr.io` using the
+  workflow's own `GITHUB_TOKEN` — no registry credentials are ever written to your repo.
+- **Custom** — used automatically when the repo already has its own workflow, or you opt out.
+  Vector never writes or overwrites a workflow it didn't create. Add this to your existing
+  workflow to stay event-driven:
+
+  ```yaml
+  permissions:
+    contents: read
+    packages: write
+  steps:
+    - name: Log in to GHCR
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+    - name: Build and push
+      run: |
+        docker build -t image:${{ github.sha }} .
+        docker push image:${{ github.sha }}
+  ```
+
+  Name the job `build-<app-name>` so Vector's webhook listener can match it to the right app.
+
+Either lane is fully event-driven: your CI just builds and pushes; Vector's GitHub App webhook
+(`workflow_run`/`workflow_job` events) picks up the push, streams live build progress, and swaps
+the running container once the image is ready. There's no deploy-hook call to make or secret to
+manage.
+
+**DB provisioning:** if the scan detects likely Postgres usage (a `prisma/` dir, `DATABASE_URL` in
+`.env.example`, a `postgres:` compose service, etc.) the confirm step offers one-click
+provisioning — a database + user in a shared `apps-postgres` container, with `DATABASE_URL`
+injected into the app's env vars automatically. **Orphan policy:** deleting an app never drops its
+database; it's flagged orphaned in the Databases panel with size/owner shown, and dropping it is
+always an explicit, separate action.
+
+**Quick Deploy:** already have a pre-built image? `POST /api/deploy/quick` (dashboard session
+auth, no HMAC) takes `{ image, appName, port, env{}, subdomain? }` and deploys it through the same
+pipeline as a connected repo, tagged `deploy_source=QUICK`. Docker runtime only for now.
+
+**Inter-service configuration:** apps that come from a multi-module repo are grouped into a
+project. Each service automatically receives `SERVICE_<NAME>_URL` env vars pointing at its
+siblings' public URLs (e.g. a `shop-api` service gets `SERVICE_SHOP_WEB_URL`), sanitized
+upper-case with non-alphanumerics replaced by `_`, recomputed on every deploy. A project also has
+its own shared env vars, editable from the dashboard. Precedence, lowest to highest: injected
+`SERVICE_*`/`PORT` vars → project shared vars → the app's own env vars (manual values always win).
+For CI **build-time** vars (e.g. Next.js `NEXT_PUBLIC_API_URL` baked in at build, not runtime) —
+add the value as a repo Actions **variable** and reference it in your build step manually; Vector
+does not inject build-time vars into managed workflows.
 
 **Notes:**
 
-- `app_name` must match `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$` and is used as the Traefik subdomain: `{app_name}.{namespace}.{your-domain}`
-- `timestamp` is milliseconds since epoch; requests older than 5 minutes are rejected as replays
-- `repo_url` is displayed in the dashboard, not used for pulling
-- `port` is the container's listen port; omit to default to `app.default-port` (3000, override via `APP_DEFAULTPORT`)
-
-**Example GitHub Actions step** (after your image is pushed to DockerHub):
-
-```yaml
-- uses: filipnikolov1/vector-deploy-action@v1
-  with:
-    app: my-app
-    image: ${{ env.IMAGE }}
-    url: ${{ secrets.VECTOR_DEPLOY_URL }}
-    secret: ${{ secrets.VECTOR_HMAC_SECRET }}
-```
-
-The composite action signs and POSTs the payload. Action source lives at
-`tooling/vector-deploy-action/action.yml`; mirror it to a public
-`filipnikolov1/vector-deploy-action` repo tagged `v1` for the `uses:` reference
-to resolve in users' workflows.
+- `VECTOR_GITHUB_TOKEN` remains only for legacy single-file reads (commit metadata) and is unused
+  once the GitHub App is configured.
+- **Uninstalling the GitHub App on GitHub does not stop deploys** — the workflow and any state it
+  needs stay in the repo. Deleting the connected app from the dashboard is what stops them;
+  subsequent webhook deliveries for a removed app are rejected as unknown (visible in the webhook
+  inspector once that UX ships).
+- **Quick Deploy of private images:** private `ghcr.io` images from repos you've connected
+  authenticate automatically using the GitHub App's installation token — nothing to configure.
+  Private DockerHub images still need `VECTOR_DOCKERHUB_USER` / `VECTOR_DOCKERHUB_TOKEN` set (see
+  Environment variables below).
+- **Existing installations must re-approve permissions:** the GitHub App manifest now requests
+  `packages: read` (for private GHCR pulls). If you installed the App before this change, GitHub
+  will prompt you to accept the new permission on the App's installation settings page — deploys
+  of private GHCR images silently pull without auth until you do.
 
 ---
 
@@ -196,9 +243,10 @@ Set `VECTOR_APP_NAMESPACE=` (blank) for `<app>.<domain>`. `VECTOR_DOMAIN_WEB` /
 
 | Var | Enables |
 |---|---|
-| `VECTOR_GITHUB_TOKEN` | Commit metadata + connect-a-repo (degrades silently) |
+| `VECTOR_GITHUB_TOKEN` | Legacy single-file reads only; unused once the GitHub App is configured |
+| `VECTOR_GITHUB_APP_ID`, `VECTOR_GITHUB_APP_PRIVATE_KEY`, `VECTOR_GITHUB_APP_WEBHOOK_SECRET` | Override the wizard-stored GitHub App credentials (GitOps/k8s path) |
 | `VECTOR_RESEND_API_KEY`, `VECTOR_RESEND_TO` | Deploy notification emails |
-| `VECTOR_DOCKERHUB_USER`, `VECTOR_DOCKERHUB_TOKEN` | Authenticated image pulls |
+| `VECTOR_DOCKERHUB_USER`, `VECTOR_DOCKERHUB_TOKEN` | Authenticated pulls of private DockerHub images |
 | `VECTOR_TRUSTED_PROXIES` | Trusted X-Forwarded-For sources for rate limiting |
 | `VECTOR_DOCKER_SOCKET_PATH` | Non-default Docker socket host path (macOS) |
 | `VECTOR_ACME_EMAIL` | Let's Encrypt notices (HTTPS overlay only) |

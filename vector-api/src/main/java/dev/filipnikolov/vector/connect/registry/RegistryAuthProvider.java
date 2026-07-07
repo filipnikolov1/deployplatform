@@ -29,10 +29,14 @@ public class RegistryAuthProvider {
             return Optional.empty();
         }
 
-        String fullName = repoFullName(imageName);
-        Optional<GitHubRepo> repo = repoRepository.findByFullName(fullName);
+        Optional<String> fullName = repoFullName(imageName);
+        if (fullName.isEmpty()) {
+            log.warn("Malformed GHCR image ref {}; pulling without auth", imageName);
+            return Optional.empty();
+        }
+        Optional<GitHubRepo> repo = repoRepository.findByFullName(fullName.get());
         if (repo.isEmpty()) {
-            log.warn("No github_repo found for GHCR image {} (owner/repo {}); pulling without auth", imageName, fullName);
+            log.warn("No github_repo found for GHCR image {} (owner/repo {}); pulling without auth", imageName, fullName.get());
             return Optional.empty();
         }
 
@@ -43,10 +47,13 @@ public class RegistryAuthProvider {
                 .withRegistryAddress("ghcr.io"));
     }
 
-    private String repoFullName(String imageName) {
+    private Optional<String> repoFullName(String imageName) {
         String rest = imageName.substring(GHCR_PREFIX.length());
         String withoutTag = rest.split("[:@]")[0];
         String[] segments = withoutTag.split("/");
-        return segments[0] + "/" + segments[1];
+        if (segments.length < 2) {
+            return Optional.empty();
+        }
+        return Optional.of(segments[0] + "/" + segments[1]);
     }
 }
