@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.connect.service;
 
 import dev.filipnikolov.vector.ai.AiProvider;
+import dev.filipnikolov.vector.connect.db.AppsPostgresProvisioner;
 import dev.filipnikolov.vector.connect.detect.AiModuleSuggester;
 import dev.filipnikolov.vector.connect.detect.DbDetector;
 import dev.filipnikolov.vector.connect.detect.ModuleCandidate;
@@ -75,6 +76,7 @@ public class ConnectService {
     private final AiProvider aiProvider;
     private final RestClient.Builder restClientBuilder;
     private final GitHubAutomationService automationService;
+    private final AppsPostgresProvisioner appsPostgresProvisioner;
 
     public ConnectService(GitHubRepoRepository repoRepository,
                            GitHubInstallationRepository installationRepository,
@@ -88,7 +90,8 @@ public class ConnectService {
                            WorkflowWiringService workflowWiringService,
                            AiProvider aiProvider,
                            RestClient.Builder restClientBuilder,
-                           GitHubAutomationService automationService) {
+                           GitHubAutomationService automationService,
+                           AppsPostgresProvisioner appsPostgresProvisioner) {
         this.repoRepository = repoRepository;
         this.installationRepository = installationRepository;
         this.configService = configService;
@@ -102,6 +105,7 @@ public class ConnectService {
         this.aiProvider = aiProvider;
         this.restClientBuilder = restClientBuilder;
         this.automationService = automationService;
+        this.appsPostgresProvisioner = appsPostgresProvisioner;
     }
 
     public ScanResponse scan(String repoFullName) {
@@ -185,12 +189,37 @@ public class ConnectService {
             }
         }
 
+        if (req.provisionDb()) {
+            for (String appName : appNames) {
+                appsPostgresProvisioner.provision(appName);
+            }
+        }
+
         deploymentEventService.record(DeploymentEventType.REPO_CONNECTED, DeploymentEventStatus.SUCCESS,
                 req.repoFullName(), null, null, null);
 
         WiringResult wiring = workflowWiringService.wire(repo, req, jobs);
 
-        return new ConnectResponse(projectId, appNames, wiring);
+        return new ConnectResponse(projectId, appNames, wiring, injectedEnvFor(req.modules()));
+    }
+
+    private Map<String, List<String>> injectedEnvFor(List<ConnectRequest.ModuleSelection> modules) {
+        if (modules.size() < 2) {
+            return Map.of();
+        }
+        Map<String, List<String>> result = new java.util.LinkedHashMap<>();
+        for (ConnectRequest.ModuleSelection module : modules) {
+            List<String> keys = modules.stream()
+                    .filter(other -> !other.name().equals(module.name()) && Boolean.TRUE.equals(other.exposed()))
+                    .map(other -> "SERVICE_" + sanitizeServiceName(other.name()) + "_URL")
+                    .toList();
+            result.put(module.name(), keys);
+        }
+        return result;
+    }
+
+    private String sanitizeServiceName(String name) {
+        return name.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "_");
     }
 
     public List<WorkflowRun> ciStatus(String appName) {

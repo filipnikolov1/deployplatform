@@ -53,7 +53,7 @@ class ConnectControllerTest {
 
     @Test
     void connect_omittedBooleansDefaultInsteadOf400() throws Exception {
-        when(connectService.connect(any())).thenReturn(new ConnectResponse(null, java.util.List.of("shop-web"), null));
+        when(connectService.connect(any())).thenReturn(new ConnectResponse(null, java.util.List.of("shop-web"), null, java.util.Map.of()));
 
         String bodyWithoutBooleans = """
                 { "repoFullName": "alice/shop", "branch": "main",
@@ -74,7 +74,7 @@ class ConnectControllerTest {
         org.mockito.ArgumentCaptor<dev.filipnikolov.vector.connect.dto.ConnectRequest> captor =
                 org.mockito.ArgumentCaptor.forClass(dev.filipnikolov.vector.connect.dto.ConnectRequest.class);
         when(connectService.connect(captor.capture()))
-                .thenReturn(new ConnectResponse(null, java.util.List.of("shop-web"), null));
+                .thenReturn(new ConnectResponse(null, java.util.List.of("shop-web"), null, java.util.Map.of()));
 
         String bodyWithoutBuildTool = """
                 { "repoFullName": "alice/shop", "branch": "main",
@@ -95,7 +95,7 @@ class ConnectControllerTest {
 
     @Test
     void connect_success_returns200() throws Exception {
-        when(connectService.connect(any())).thenReturn(new ConnectResponse(null, java.util.List.of("shop-web"), null));
+        when(connectService.connect(any())).thenReturn(new ConnectResponse(null, java.util.List.of("shop-web"), null, java.util.Map.of()));
 
         mockMvc.perform(post("/api/connect")
                         .contentType(MediaType.APPLICATION_JSON)

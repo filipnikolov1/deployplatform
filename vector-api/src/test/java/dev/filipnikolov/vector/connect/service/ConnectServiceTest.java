@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.connect.service;
 
 import dev.filipnikolov.vector.ai.AiProvider;
+import dev.filipnikolov.vector.connect.db.AppsPostgresProvisioner;
 import dev.filipnikolov.vector.connect.detect.BuildMode;
 import dev.filipnikolov.vector.connect.detect.BuildTool;
 import dev.filipnikolov.vector.connect.dto.ConnectRequest;
@@ -61,6 +62,7 @@ class ConnectServiceTest {
     private WorkflowWiringService workflowWiringService;
     private AiProvider aiProvider;
     private dev.filipnikolov.vector.githubapp.service.GitHubAutomationService automationService;
+    private AppsPostgresProvisioner appsPostgresProvisioner;
     private ConnectService service;
 
     @BeforeEach
@@ -78,11 +80,12 @@ class ConnectServiceTest {
         aiProvider = mock(AiProvider.class);
         RestClient.Builder restClientBuilder = RestClient.builder();
         automationService = mock(dev.filipnikolov.vector.githubapp.service.GitHubAutomationService.class);
+        appsPostgresProvisioner = mock(AppsPostgresProvisioner.class);
 
         service = new ConnectService(repoRepository, installationRepository, configService,
                 projectRepository, projectServiceRepository, projectEnvVarRepository,
                 deploymentRepository, envVarService, deploymentEventService, workflowWiringService,
-                aiProvider, restClientBuilder, automationService);
+                aiProvider, restClientBuilder, automationService, appsPostgresProvisioner);
 
         when(workflowWiringService.wire(any(), any(), any()))
                 .thenReturn(new WiringResult(WorkflowMode.MANAGED, ".github/workflows/vector-deploy.yml", null));
@@ -119,6 +122,48 @@ class ConnectServiceTest {
     private ConnectRequest.ModuleSelection workspaceModule(String name, String path) {
         return new ConnectRequest.ModuleSelection(name, path, "nextjs", BuildMode.BUILDPACK, 3000, null, true,
                 true, Map.of(), null);
+    }
+
+    @Test
+    void connect_provisionDbTrueProvisionsBeforeWiring() {
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo("alice/shop", 1L)));
+        when(installationRepository.findByInstallationId(1L)).thenReturn(Optional.of(installation(1L, InstallationStatus.APPROVED)));
+
+        ConnectRequest req = new ConnectRequest("alice/shop", "main", List.of(module("shop-web", "apps/web", true)),
+                WorkflowMode.MANAGED, true);
+
+        service.connect(req);
+
+        verify(appsPostgresProvisioner).provision("shop-web");
+    }
+
+    @Test
+    void connect_provisionDbFalseSkipsProvisioning() {
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo("alice/shop", 1L)));
+        when(installationRepository.findByInstallationId(1L)).thenReturn(Optional.of(installation(1L, InstallationStatus.APPROVED)));
+
+        ConnectRequest req = new ConnectRequest("alice/shop", "main", List.of(module("shop-web", "apps/web", true)),
+                WorkflowMode.MANAGED, false);
+
+        service.connect(req);
+
+        verify(appsPostgresProvisioner, never()).provision(any());
+    }
+
+    @Test
+    void connect_responseIncludesInjectedEnvForExposedSiblings() {
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo("alice/shop", 1L)));
+        when(installationRepository.findByInstallationId(1L)).thenReturn(Optional.of(installation(1L, InstallationStatus.APPROVED)));
+
+        ConnectRequest req = new ConnectRequest("alice/shop", "main",
+                List.of(module("shop-web", "apps/web", true), module("shop-api", "apps/api", true)),
+                WorkflowMode.MANAGED, false);
+
+        ConnectResponse response = service.connect(req);
+
+        assertThat(response.injectedEnv()).containsKey("shop-web");
+        assertThat(response.injectedEnv().get("shop-web")).contains("SERVICE_SHOP_API_URL");
+        assertThat(response.injectedEnv().get("shop-api")).contains("SERVICE_SHOP_WEB_URL");
     }
 
     @Test
