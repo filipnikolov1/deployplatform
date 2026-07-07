@@ -31,7 +31,8 @@ public class WorkflowWiringServiceImpl implements WorkflowWiringService {
     private static final String BASE_URL = "https://api.github.com";
     private static final String WORKFLOW_PATH = ".github/workflows/vector-deploy.yml";
     private static final String WORKFLOW_FILE = "vector-deploy.yml";
-    private static final int TEMPLATE_VERSION = 1;
+    // v2 (2026-07-07): registry build caching — pack --cache-image/--publish, buildx registry cache
+    private static final int TEMPLATE_VERSION = 2;
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final String CUSTOM_SNIPPET = """

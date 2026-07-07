@@ -19,9 +19,9 @@ public class BuildpackWorkflowRenderer {
     public record ExpectedJob(String jobName, String appName, List<String> stepNames) {}
 
     private static final List<String> BUILDPACK_STEP_NAMES =
-            List.of("Checkout", "Set up pack", "Log in to GHCR", "Build (buildpacks)", "Push");
+            List.of("Checkout", "Set up pack", "Log in to GHCR", "Build (buildpacks)");
     private static final List<String> DOCKERFILE_STEP_NAMES =
-            List.of("Checkout", "Log in to GHCR", "Build (docker)", "Push");
+            List.of("Checkout", "Log in to GHCR", "Build (docker)");
     private static final java.util.Set<StackKind> SELECTOR_STACKS =
             java.util.Set.of(StackKind.springboot, StackKind.nextjs, StackKind.node, StackKind.go);
 
@@ -133,11 +133,15 @@ public class BuildpackWorkflowRenderer {
         sb.append("        run: echo \"${{ secrets.GITHUB_TOKEN }}\" | docker login ghcr.io -u \"${{ github.actor }}\" --password-stdin\n");
         sb.append("      - name: Build (docker)\n");
         String context = job.workspaceBuild() ? "." : job.modulePath();
-        sb.append("        run: docker build -t ").append(job.imageTarget()).append(":${{ github.sha }} -t ")
-                .append(job.imageTarget()).append(":latest -f ").append(job.modulePath())
-                .append("/Dockerfile ").append(context).append("\n");
-        sb.append("      - name: Push\n");
-        sb.append("        run: docker push --all-tags ").append(job.imageTarget()).append("\n");
+        // buildx + registry cache: layers survive ephemeral runners; --push replaces a
+        // separate push step (template v2).
+        sb.append("        run: |\n");
+        sb.append("          docker buildx build --push \\\n");
+        sb.append("            -t ").append(job.imageTarget()).append(":${{ github.sha }} \\\n");
+        sb.append("            -t ").append(job.imageTarget()).append(":latest \\\n");
+        sb.append("            --cache-from type=registry,ref=").append(job.imageTarget()).append(":buildcache \\\n");
+        sb.append("            --cache-to type=registry,ref=").append(job.imageTarget()).append(":buildcache,mode=max \\\n");
+        sb.append("            -f ").append(job.modulePath()).append("/Dockerfile ").append(context).append("\n");
     }
 
     private void appendBuildpackSteps(StringBuilder sb, ModuleJob job) {
@@ -164,9 +168,11 @@ public class BuildpackWorkflowRenderer {
         } else if (selectorApplies) {
             sb.append("            --env ").append(moduleSelector(job)).append(" \\\n");
         }
+        // Registry build-layer cache + direct publish (template v2): --cache-image requires
+        // --publish, which also pushes the app image — no separate Push step.
+        sb.append("            --cache-image ").append(job.imageTarget()).append("-cache:latest \\\n");
+        sb.append("            --publish \\\n");
         sb.append("            --tag ").append(job.imageTarget()).append(":latest\n");
-        sb.append("      - name: Push\n");
-        sb.append("        run: docker push --all-tags ").append(job.imageTarget()).append("\n");
     }
 
     private String moduleSelector(ModuleJob job) {

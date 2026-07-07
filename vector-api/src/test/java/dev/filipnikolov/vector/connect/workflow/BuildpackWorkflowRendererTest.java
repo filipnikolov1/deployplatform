@@ -64,7 +64,10 @@ class BuildpackWorkflowRendererTest {
 
         String yaml = renderer.render(spec);
 
-        assertThat(yaml).contains("docker build -t ghcr.io/alice/shop-web:${{ github.sha }}");
+        assertThat(yaml).contains("docker buildx build --push");
+        assertThat(yaml).contains("-t ghcr.io/alice/shop-web:${{ github.sha }}");
+        assertThat(yaml).contains("--cache-from type=registry,ref=ghcr.io/alice/shop-web:buildcache");
+        assertThat(yaml).contains("--cache-to type=registry,ref=ghcr.io/alice/shop-web:buildcache,mode=max");
         assertThat(yaml).contains("-f apps/web/Dockerfile apps/web");
         assertThat(yaml).doesNotContain("pack build");
     }
@@ -139,6 +142,18 @@ class BuildpackWorkflowRendererTest {
     }
 
     @Test
+    void render_buildpackJob_publishesWithRegistryCacheImage() {
+        BuildpackWorkflowRenderer.RenderSpec spec = new BuildpackWorkflowRenderer.RenderSpec(
+                "alice/shop", "main", 2, "vector-bot", List.of(buildpackJob("shop-web", "apps/web")));
+
+        String yaml = renderer.render(spec);
+
+        assertThat(yaml).contains("--cache-image ghcr.io/alice/shop-web-cache:latest");
+        assertThat(yaml).contains("--publish");
+        assertThat(yaml).doesNotContain("docker push");
+    }
+
+    @Test
     void render_checkoutStepHasExplicitNameMatchingExpectedJobs() {
         BuildpackWorkflowRenderer.RenderSpec spec = new BuildpackWorkflowRenderer.RenderSpec(
                 "alice/shop", "main", 1, "vector-bot", List.of(buildpackJob("shop-web", "apps/web")));
@@ -183,7 +198,7 @@ class BuildpackWorkflowRendererTest {
         assertThat(expectedJobs).extracting(BuildpackWorkflowRenderer.ExpectedJob::appName)
                 .containsExactly("shop-web", "shop-worker");
         assertThat(expectedJobs.get(0).stepNames()).containsExactly(
-                "Checkout", "Set up pack", "Log in to GHCR", "Build (buildpacks)", "Push");
+                "Checkout", "Set up pack", "Log in to GHCR", "Build (buildpacks)");
     }
 
     @Test
