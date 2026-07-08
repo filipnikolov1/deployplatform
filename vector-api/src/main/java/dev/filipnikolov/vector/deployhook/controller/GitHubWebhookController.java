@@ -1,11 +1,16 @@
 package dev.filipnikolov.vector.deployhook.controller;
 
 import dev.filipnikolov.vector.common.lock.ActionLockService;
+import dev.filipnikolov.vector.connect.deploy.BuildEventService;
 import dev.filipnikolov.vector.deployhook.dto.WebhookDeployPayload;
 import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
 import dev.filipnikolov.vector.events.TriggerSource;
 import dev.filipnikolov.vector.deployment.service.DeploymentService;
 import dev.filipnikolov.vector.deployhook.auth.service.DeployHookAuthService;
+import dev.filipnikolov.vector.githubapp.dto.InstallationPayload;
+import dev.filipnikolov.vector.githubapp.dto.InstallationRepositoriesPayload;
+import dev.filipnikolov.vector.githubapp.service.GitHubAppWebhookAuthService;
+import dev.filipnikolov.vector.githubapp.service.InstallationSyncService;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -25,34 +30,42 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 @RestController
-@RequestMapping("/deploy-hook")
-public class DeployHookController {
+public class GitHubWebhookController {
 
-    private static final Logger log = LoggerFactory.getLogger(DeployHookController.class);
+    private static final Logger log = LoggerFactory.getLogger(GitHubWebhookController.class);
     private static final Pattern VALID_APP_NAME = Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$");
     private static final long REPLAY_WINDOW_MS = 5 * 60 * 1000;
 
     private final DeploymentService deploymentService;
     private final DeployHookAuthService deployHookAuthService;
     private final ActionLockService actionLockService;
+    private final GitHubAppWebhookAuthService gitHubAppWebhookAuthService;
+    private final InstallationSyncService installationSyncService;
+    private final BuildEventService buildEventService;
     private final ObjectMapper objectMapper;
 
     @Value("${app.default-port:3000}")
     private int defaultContainerPort;
 
-    public DeployHookController(DeploymentService deploymentService,
-                                DeployHookAuthService deployHookAuthService,
-                                ActionLockService actionLockService,
-                                ObjectMapper springObjectMapper) {
+    public GitHubWebhookController(DeploymentService deploymentService,
+                                    DeployHookAuthService deployHookAuthService,
+                                    ActionLockService actionLockService,
+                                    GitHubAppWebhookAuthService gitHubAppWebhookAuthService,
+                                    InstallationSyncService installationSyncService,
+                                    BuildEventService buildEventService,
+                                    ObjectMapper springObjectMapper) {
         this.deploymentService = deploymentService;
         this.deployHookAuthService = deployHookAuthService;
         this.actionLockService = actionLockService;
+        this.gitHubAppWebhookAuthService = gitHubAppWebhookAuthService;
+        this.installationSyncService = installationSyncService;
+        this.buildEventService = buildEventService;
         // Strict copy: reject string-to-number coercion so mistyped numerics ("timestamp":"1",
         // "port":"abc") become Jackson binding errors → 400, not ClassCastException → 500.
         this.objectMapper = springObjectMapper.copy().disable(MapperFeature.ALLOW_COERCION_OF_SCALARS);
     }
 
-    @PostMapping
+    @PostMapping("/deploy-hook")
     public ResponseEntity<?> handleDeploy(
             @RequestHeader("X-Signature-256") String signature,
             @RequestHeader(value = "X-Vector-Trigger", required = false) String triggerHeader,
@@ -116,6 +129,43 @@ public class DeployHookController {
             return ResponseEntity.status(503).body(Map.of("error", "deploy queue saturated, retry later"));
         }
         return ResponseEntity.status(202).body(Map.of("status", "accepted", "appName", payload.appName()));
+    }
+
+    @PostMapping("/api/github/app-webhook")
+    public ResponseEntity<?> handleAppWebhook(
+            @RequestHeader("X-Hub-Signature-256") String signature,
+            @RequestHeader("X-GitHub-Event") String eventType,
+            @RequestHeader(value = "X-GitHub-Delivery", required = false) String deliveryGuid,
+            @RequestBody String rawBody) {
+
+        // HMAC must hash the exact received bytes — keep rawBody as String and parse below.
+        if (!gitHubAppWebhookAuthService.isValidSignature(rawBody, signature)) {
+            return ResponseEntity.status(401).build();
+        }
+
+        if (!gitHubAppWebhookAuthService.registerDeliveryOnce(deliveryGuid)) {
+            log.warn("Duplicate GitHub App webhook delivery rejected (replay protection)");
+            return ResponseEntity.ok(Map.of("status", "duplicate"));
+        }
+
+        try {
+            switch (eventType) {
+                case "installation" -> installationSyncService.handleInstallation(
+                        objectMapper.readValue(rawBody, InstallationPayload.class));
+                case "installation_repositories" -> installationSyncService.handleInstallationRepositories(
+                        objectMapper.readValue(rawBody, InstallationRepositoriesPayload.class));
+                case "push" -> buildEventService.handlePush(objectMapper.readTree(rawBody));
+                case "workflow_run" -> buildEventService.handleWorkflowRun(objectMapper.readTree(rawBody));
+                case "workflow_job" -> buildEventService.handleWorkflowJob(objectMapper.readTree(rawBody));
+                default -> log.debug("Ignoring unhandled GitHub App event type: {}", eventType);
+            }
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid JSON payload", e);
+        }
+
+        return ResponseEntity.ok(Map.of("status", "accepted"));
     }
 
     private CreateDeploymentRequest toCreateRequest(WebhookDeployPayload payload, String triggerHeader) {

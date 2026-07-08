@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.docker.service.impl;
 
 import dev.filipnikolov.vector.config.DomainConfig;
+import dev.filipnikolov.vector.connect.registry.RegistryAuthProvider;
 import dev.filipnikolov.vector.docker.service.DockerService;
 import dev.filipnikolov.vector.progress.ProgressFrame;
 import com.github.dockerjava.api.DockerClient;
@@ -35,17 +36,20 @@ public class DockerServiceImpl implements DockerService {
     private final String traefikNetwork;
     private final DomainConfig domainConfig;
     private final AuthConfig authConfig;
+    private final RegistryAuthProvider registryAuthProvider;
 
     public DockerServiceImpl(
             DockerClient dockerClient,
             @Value("${dockerhub.username}") String dockerhubUsername,
             @Value("${dockerhub.token}") String dockerhubToken,
             @Value("${traefik.network}") String traefikNetwork,
-            DomainConfig domainConfig) {
+            DomainConfig domainConfig,
+            RegistryAuthProvider registryAuthProvider) {
 
         this.dockerClient = dockerClient;
         this.traefikNetwork = traefikNetwork;
         this.domainConfig = domainConfig;
+        this.registryAuthProvider = registryAuthProvider;
 
         if (!dockerhubUsername.isEmpty() && !dockerhubToken.isEmpty()) {
             this.authConfig = new AuthConfig()
@@ -59,14 +63,69 @@ public class DockerServiceImpl implements DockerService {
 
     @Override
     public String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars) throws InterruptedException {
-        return pullAndRun(imageName, appName, subdomain, containerPort, envVars, null);
+        return pullAndRun(imageName, appName, subdomain, containerPort, envVars, true, null);
     }
 
     @Override
     public String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars, Consumer<ProgressFrame> progressCallback) throws InterruptedException {
+        return pullAndRun(imageName, appName, subdomain, containerPort, envVars, true, progressCallback);
+    }
+
+    @Override
+    public String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars, boolean exposed) throws InterruptedException {
+        return pullAndRun(imageName, appName, subdomain, containerPort, envVars, exposed, null);
+    }
+
+    @Override
+    public String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars, boolean exposed, Consumer<ProgressFrame> progressCallback) throws InterruptedException {
         Consumer<ProgressFrame> emit = progressCallback != null ? progressCallback : f -> {};
+        pullImageInternal(imageName, emit);
+
+        stopAndRemoveContainer(appName);
+
+        String effectiveHost = (subdomain == null || subdomain.isBlank()) ? appName : subdomain;
+
+        List<String> env = envVars.entrySet().stream()
+                .map(e -> e.getKey() + "=" + e.getValue())
+                .toList();
+
+        emit.accept(new ProgressFrame("CONTAINER_CREATE", "Creating container " + appName, null, null, null, Instant.now()));
+
+        Map<String, String> labels = exposed
+                ? Map.of(
+                        "traefik.enable", "true",
+                        "traefik.http.routers." + appName + ".rule", "Host(`" + domainConfig.appHost(effectiveHost) + "`)",
+                        "traefik.http.routers." + appName + ".entrypoints", "web",
+                        "traefik.http.services." + appName + ".loadbalancer.server.port", String.valueOf(containerPort)
+                )
+                : Map.of();
+
+        String containerId = dockerClient.createContainerCmd(imageName)
+                .withName(appName)
+                .withEnv(env)
+                .withLabels(labels)
+                .withHostConfig(HostConfig.newHostConfig()
+                        .withNetworkMode(traefikNetwork))
+                .exec()
+                .getId();
+
+        emit.accept(new ProgressFrame("CONTAINER_START", "Starting container " + appName, null, null, null, Instant.now()));
+
+        dockerClient.startContainerCmd(containerId).exec();
+        return containerId;
+    }
+
+    @Override
+    public void pullImage(String imageRef) throws InterruptedException {
+        pullImageInternal(imageRef, f -> {});
+    }
+
+    private void pullImageInternal(String imageName, Consumer<ProgressFrame> emit) throws InterruptedException {
         var pullCmd = dockerClient.pullImageCmd(imageName);
-        if (authConfig != null) {
+        var ghcrAuthConfig = registryAuthProvider.forImage(imageName);
+        if (ghcrAuthConfig.isPresent()) {
+            pullCmd.withAuthConfig(ghcrAuthConfig.get());
+        } else if (authConfig != null) {
             pullCmd.withAuthConfig(authConfig);
         }
 
@@ -112,35 +171,6 @@ public class DockerServiceImpl implements DockerService {
         if (err != null) {
             throw new RuntimeException("Docker pull failed for " + imageName + ": " + err.getMessage(), err);
         }
-
-        stopAndRemoveContainer(appName);
-
-        String effectiveHost = (subdomain == null || subdomain.isBlank()) ? appName : subdomain;
-
-        List<String> env = envVars.entrySet().stream()
-                .map(e -> e.getKey() + "=" + e.getValue())
-                .toList();
-
-        emit.accept(new ProgressFrame("CONTAINER_CREATE", "Creating container " + appName, null, null, null, Instant.now()));
-
-        String containerId = dockerClient.createContainerCmd(imageName)
-                .withName(appName)
-                .withEnv(env)
-                .withLabels(Map.of(
-                        "traefik.enable", "true",
-                        "traefik.http.routers." + appName + ".rule", "Host(`" + domainConfig.appHost(effectiveHost) + "`)",
-                        "traefik.http.routers." + appName + ".entrypoints", "web",
-                        "traefik.http.services." + appName + ".loadbalancer.server.port", String.valueOf(containerPort)
-                ))
-                .withHostConfig(HostConfig.newHostConfig()
-                        .withNetworkMode(traefikNetwork))
-                .exec()
-                .getId();
-
-        emit.accept(new ProgressFrame("CONTAINER_START", "Starting container " + appName, null, null, null, Instant.now()));
-
-        dockerClient.startContainerCmd(containerId).exec();
-        return containerId;
     }
 
     @Override

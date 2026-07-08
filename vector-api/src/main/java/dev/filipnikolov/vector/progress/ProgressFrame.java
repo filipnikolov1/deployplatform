@@ -8,5 +8,11 @@ public record ProgressFrame(
         Long current,
         Long total,
         String unit,
-        Instant emittedAt
-) {}
+        Instant emittedAt,
+        Instant startedAt,
+        Instant completedAt
+) {
+    public ProgressFrame(String stage, String message, Long current, Long total, String unit, Instant emittedAt) {
+        this(stage, message, current, total, unit, emittedAt, null, null);
+    }
+}

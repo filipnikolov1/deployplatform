@@ -18,6 +18,7 @@ class DomainConfigTest {
         assertThat(c.appDomain()).isEqualTo("apps.localhost");
         assertThat(c.appHost("myapp")).isEqualTo("myapp.apps.localhost");
         assertThat(c.publicBaseUrl()).isEqualTo("http://localhost:8082");
+        assertThat(c.dashboardBaseUrl()).isEqualTo("http://localhost:3000");
     }
 
     @Test
@@ -27,6 +28,7 @@ class DomainConfigTest {
         assertThat(c.apiHost()).isEqualTo("api.deploy.filipnikolov.dev");
         assertThat(c.appHost("myapp")).isEqualTo("myapp.apps.filipnikolov.dev");
         assertThat(c.publicBaseUrl()).isEqualTo("https://api.deploy.filipnikolov.dev");
+        assertThat(c.dashboardBaseUrl()).isEqualTo("https://deploy.filipnikolov.dev");
     }
 
     @Test

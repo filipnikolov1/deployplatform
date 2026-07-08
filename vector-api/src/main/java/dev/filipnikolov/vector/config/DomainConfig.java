@@ -62,4 +62,9 @@ public class DomainConfig {
     public String publicBaseUrl() {
         return isLocal() ? "http://localhost:8082" : "https://" + apiHost();
     }
+
+    /** Public base URL of the dashboard (GitHub App manifest flow, redirect URLs). */
+    public String dashboardBaseUrl() {
+        return isLocal() ? "http://localhost:3000" : "https://" + dashboardHost();
+    }
 }

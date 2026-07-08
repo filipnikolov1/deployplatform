@@ -74,6 +74,8 @@ services:
       - "traefik.http.routers.vector-api.entrypoints=web"
       - "traefik.http.routers.vector-api-deploy-hook.rule=PathPrefix(`/deploy-hook`)"
       - "traefik.http.routers.vector-api-deploy-hook.entrypoints=web"
+      - "traefik.http.routers.vector-api-github-app-webhook.rule=PathPrefix(`/api/github/app-webhook`)"
+      - "traefik.http.routers.vector-api-github-app-webhook.entrypoints=web"
       - "traefik.http.services.vector-api.loadbalancer.server.port=8082"
       - "traefik.http.services.vector-api.loadbalancer.responseforwarding.flushinterval=100ms"
 

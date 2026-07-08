@@ -44,4 +44,10 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
     Optional<Deployment> findBySubdomainAndDeletedAtIsNull(String subdomain);
 
     List<Deployment> findByDeletedAtIsNotNullAndDeletedAtBefore(LocalDateTime cutoff);
+
+    /**
+     * Looks up a live single-module connected app by its exact repoUrl (as stored by
+     * {@code ConnectService.registerApp}: {@code "https://github.com/" + repoFullName}).
+     */
+    Optional<Deployment> findByRepoUrlAndDeletedAtIsNull(String repoUrl);
 }

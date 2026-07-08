@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.deployment.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import dev.filipnikolov.vector.events.DeploySource;
 import dev.filipnikolov.vector.events.DeploymentStatus;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -75,5 +76,12 @@ public class Deployment {
     private LocalDateTime lastDeployedAt;
 
     private Long buildDurationMs;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "deploy_source", nullable = false, length = 20)
+    private DeploySource deploySource = DeploySource.WEBHOOK;
+
+    @Column(name = "exposed", nullable = false)
+    private boolean exposed = true;
 
 }

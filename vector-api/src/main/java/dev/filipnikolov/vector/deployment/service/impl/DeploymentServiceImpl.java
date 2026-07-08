@@ -1,6 +1,7 @@
 package dev.filipnikolov.vector.deployment.service.impl;
 
 import dev.filipnikolov.vector.common.lock.ActionLockService;
+import dev.filipnikolov.vector.connect.db.AppsPostgresProvisioner;
 import dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest;
 import dev.filipnikolov.vector.deployment.model.Deployment;
 import dev.filipnikolov.vector.events.DeploymentEventStatus;
@@ -16,6 +17,8 @@ import dev.filipnikolov.vector.docker.service.DockerService;
 import dev.filipnikolov.vector.envvar.service.EnvVarService;
 import dev.filipnikolov.vector.exception.ResourceNotFoundException;
 import dev.filipnikolov.vector.progress.ProgressHub;
+import dev.filipnikolov.vector.project.service.ProjectCollapseService;
+import dev.filipnikolov.vector.project.service.ProjectEnvService;
 import dev.filipnikolov.vector.selfapp.service.SelfAppUpdateService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -46,6 +49,9 @@ public class DeploymentServiceImpl implements DeploymentService {
     private final DeploymentTransactionHelper txHelper;
     private final ProgressHub progressHub;
     private final SelfAppUpdateService selfAppUpdateService;
+    private final AppsPostgresProvisioner appsPostgresProvisioner;
+    private final ProjectCollapseService projectCollapseService;
+    private final ProjectEnvService projectEnvService;
 
     @Override
     public Deployment createDeployment(CreateDeploymentRequest req) {
@@ -55,12 +61,12 @@ public class DeploymentServiceImpl implements DeploymentService {
         String operationId = start.operationId();
         progressHub.start(operationId);
         try {
-            Map<String, String> envVars = envVarService.getEnvVars(req.appName());
+            Map<String, String> envVars = projectEnvService.effectiveEnv(req.appName(), envVarService.getEnvVars(req.appName()));
             eventService.record(DeploymentEventType.PULL_STARTED, DeploymentEventStatus.IN_PROGRESS,
                     req.appName(), req, null, null, operationId);
             dockerService.pullAndRun(req.imageName(), req.appName(),
                     deployment.getSubdomain(), deployment.getContainerPort(), envVars,
-                    frame -> progressHub.emit(operationId, frame));
+                    deployment.isExposed(), frame -> progressHub.emit(operationId, frame));
             eventService.record(DeploymentEventType.PULL_FINISHED, DeploymentEventStatus.SUCCESS,
                     req.appName(), req, null, null, operationId);
             eventService.record(DeploymentEventType.CONTAINER_CREATING, DeploymentEventStatus.IN_PROGRESS,
@@ -102,6 +108,8 @@ public class DeploymentServiceImpl implements DeploymentService {
                     } catch (Exception e) {
                         log.warn("Failed to stop container during hard-delete of {}: {}", d.getAppName(), e.getMessage());
                     }
+                    appsPostgresProvisioner.orphan(d.getAppName());
+                    projectCollapseService.collapse(d.getAppName());
                     deploymentRepository.delete(d);
                     log.info("Hard-deleted expired deployment: {}", d.getAppName());
                 });
@@ -116,12 +124,12 @@ public class DeploymentServiceImpl implements DeploymentService {
         progressHub.start(operationId);
         CreateDeploymentRequest ctx = contextFor(deployment, TriggerSource.RESTART);
         try {
-            Map<String, String> envVars = envVarService.getEnvVars(appName);
+            Map<String, String> envVars = projectEnvService.effectiveEnv(appName, envVarService.getEnvVars(appName));
             eventService.record(DeploymentEventType.PULL_STARTED, DeploymentEventStatus.IN_PROGRESS,
                     appName, ctx, null, null, operationId);
             dockerService.pullAndRun(deployment.getImageName(), appName,
                     deployment.getSubdomain(), deployment.getContainerPort(), envVars,
-                    frame -> progressHub.emit(operationId, frame));
+                    deployment.isExposed(), frame -> progressHub.emit(operationId, frame));
             eventService.record(DeploymentEventType.PULL_FINISHED, DeploymentEventStatus.SUCCESS,
                     appName, ctx, null, null, operationId);
             eventService.record(DeploymentEventType.CONTAINER_CREATING, DeploymentEventStatus.IN_PROGRESS,
@@ -204,8 +212,9 @@ public class DeploymentServiceImpl implements DeploymentService {
             eventService.record(DeploymentEventType.PULL_STARTED, DeploymentEventStatus.IN_PROGRESS,
                     appName, ctx, null, null, operationId);
             dockerService.pullAndRun(target.getImageName(), appName,
-                    d.getSubdomain(), d.getContainerPort(), envVarService.getEnvVars(appName),
-                    frame -> progressHub.emit(operationId, frame));
+                    d.getSubdomain(), d.getContainerPort(),
+                    projectEnvService.effectiveEnv(appName, envVarService.getEnvVars(appName)),
+                    d.isExposed(), frame -> progressHub.emit(operationId, frame));
             eventService.record(DeploymentEventType.PULL_FINISHED, DeploymentEventStatus.SUCCESS,
                     appName, ctx, null, null, operationId);
             eventService.record(DeploymentEventType.CONTAINER_CREATING, DeploymentEventStatus.IN_PROGRESS,
