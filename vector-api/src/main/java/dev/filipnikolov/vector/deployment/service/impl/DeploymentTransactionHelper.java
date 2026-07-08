@@ -48,10 +48,19 @@ class DeploymentTransactionHelper {
                                 + "' collides with the subdomain of app '" + other.getAppName() + "'");
                     });
         }
-        deployment.setRepoUrl(req.repoUrl());
+        boolean isNewDeployment = deployment.getId() == null;
+        // Swap-shaped requests (e.g. BuildEventServiceImpl.swapApp) pass null repoUrl/containerPort
+        // to mean "unchanged" — only overwrite on first creation or when the caller supplies a value.
+        if (req.repoUrl() != null || isNewDeployment) {
+            deployment.setRepoUrl(req.repoUrl());
+        }
         deployment.setImageName(req.imageName());
         // The webhook path always sets a port, so this fallback only fires for non-webhook callers.
-        deployment.setContainerPort(req.containerPort() != null ? req.containerPort() : defaultContainerPort);
+        if (req.containerPort() != null) {
+            deployment.setContainerPort(req.containerPort());
+        } else if (isNewDeployment) {
+            deployment.setContainerPort(defaultContainerPort);
+        }
         deployment.setBranch(req.branch());
         deployment.setCommitSha(req.commitSha());
         deployment.setCommitMessage(req.commitMessage());
