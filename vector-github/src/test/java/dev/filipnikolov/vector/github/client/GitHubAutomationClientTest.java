@@ -137,6 +137,38 @@ class GitHubAutomationClientTest {
     }
 
     @Test
+    void listRunJobsMapsJobs() {
+        server.expect(requestTo("https://api.github.com/repos/o/r/actions/runs/42/jobs"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("Authorization", "Bearer test-token"))
+                .andRespond(withSuccess("{\"jobs\":[{\"id\":7,\"name\":\"build-shop\",\"status\":\"completed\",\"conclusion\":\"success\",\"html_url\":\"https://github.com/o/r/actions/runs/42/job/7\"}]}", MediaType.APPLICATION_JSON));
+
+        var jobs = client.listRunJobs("o", "r", 42L);
+
+        assertThat(jobs).hasSize(1);
+        assertThat(jobs.get(0).id()).isEqualTo(7L);
+        assertThat(jobs.get(0).name()).isEqualTo("build-shop");
+        assertThat(jobs.get(0).status()).isEqualTo("completed");
+        assertThat(jobs.get(0).conclusion()).isEqualTo("success");
+        assertThat(jobs.get(0).htmlUrl()).isEqualTo("https://github.com/o/r/actions/runs/42/job/7");
+
+        server.verify();
+    }
+
+    @Test
+    void listRunJobsThrowsGitHubExceptionOnNon2xx() {
+        server.expect(requestTo("https://api.github.com/repos/o/r/actions/runs/42/jobs"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("Authorization", "Bearer test-token"))
+                .andRespond(withStatus(HttpStatus.FORBIDDEN).body("nope"));
+
+        assertThatThrownBy(() -> client.listRunJobs("o", "r", 42L))
+                .isInstanceOf(GitHubException.class);
+
+        server.verify();
+    }
+
+    @Test
     void recentRunsThrowsGitHubExceptionOnNon2xx() {
         server.expect(requestTo("https://api.github.com/repos/o/r/actions/workflows/vector-deploy.yml/runs"))
                 .andExpect(method(HttpMethod.GET))
@@ -146,6 +178,32 @@ class GitHubAutomationClientTest {
         assertThatThrownBy(() -> client.recentRuns("o", "r", "vector-deploy.yml"))
                 .isInstanceOf(GitHubException.class);
 
+        server.verify();
+    }
+
+    @Test
+    void readFileReturnsDecodedContent() {
+        server.expect(requestTo("https://api.github.com/repos/o/r/contents/.github/workflows/vector-deploy.yml?ref=main"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(
+                        "{\"content\":\"" + Base64.getEncoder().encodeToString("vector:managed".getBytes()) + "\"}",
+                        MediaType.APPLICATION_JSON));
+
+        String content = client.readFile("o", "r", ".github/workflows/vector-deploy.yml", "main");
+
+        assertThat(content).isEqualTo("vector:managed");
+        server.verify();
+    }
+
+    @Test
+    void readFileReturnsNullOn404() {
+        server.expect(requestTo("https://api.github.com/repos/o/r/contents/missing.txt?ref=main"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        String content = client.readFile("o", "r", "missing.txt", "main");
+
+        assertThat(content).isNull();
         server.verify();
     }
 

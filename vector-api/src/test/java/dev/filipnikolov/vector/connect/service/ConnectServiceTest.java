@@ -188,6 +188,24 @@ class ConnectServiceTest {
         assertThat(saved.getDeploySource()).isEqualTo(DeploySource.CONNECTED_REPO);
         assertThat(saved.getRepoUrl()).contains("alice/shop");
         assertThat(saved.getBranch()).isEqualTo("main");
+        assertThat(saved.isExposed()).isTrue();
+    }
+
+    @Test
+    void connect_singleModule_exposedFalse_persistsExposedFalseAndNoSubdomain() {
+        when(repoRepository.findByFullName("alice/shop")).thenReturn(Optional.of(repo("alice/shop", 1L)));
+        when(installationRepository.findByInstallationId(1L)).thenReturn(Optional.of(installation(1L, InstallationStatus.APPROVED)));
+
+        ConnectRequest req = new ConnectRequest("alice/shop", "main", List.of(module("worker", "apps/worker", false)),
+                WorkflowMode.MANAGED, false);
+
+        service.connect(req);
+
+        ArgumentCaptor<Deployment> deploymentCaptor = ArgumentCaptor.forClass(Deployment.class);
+        verify(deploymentRepository).save(deploymentCaptor.capture());
+        Deployment saved = deploymentCaptor.getValue();
+        assertThat(saved.isExposed()).isFalse();
+        assertThat(saved.getSubdomain()).isNull();
     }
 
     @Test

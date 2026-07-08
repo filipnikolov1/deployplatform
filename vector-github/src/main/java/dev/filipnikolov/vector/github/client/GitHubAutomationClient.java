@@ -162,11 +162,42 @@ public class GitHubAutomationClient {
         }
     }
 
+    public List<dev.filipnikolov.vector.github.client.dto.RunJob> listRunJobs(String owner, String repo, long runId) {
+        String url = BASE_URL + "/repos/" + owner + "/" + repo + "/actions/runs/" + runId + "/jobs";
+        String json = restClient.get()
+                .uri(url)
+                .header("Authorization", "Bearer " + tokenSupplier.get())
+                .exchange((request, response) -> {
+                    HttpStatusCode status = response.getStatusCode();
+                    if (!status.is2xxSuccessful()) {
+                        throw new GitHubException("GitHub API returned HTTP " + status.value() + " for: " + url);
+                    }
+                    return new String(response.getBody().readAllBytes());
+                });
+        try {
+            JsonNode node = MAPPER.readTree(json);
+            List<dev.filipnikolov.vector.github.client.dto.RunJob> jobs = new ArrayList<>();
+            for (JsonNode job : node.get("jobs")) {
+                jobs.add(new dev.filipnikolov.vector.github.client.dto.RunJob(
+                        job.get("id").asLong(),
+                        job.get("name").asText(),
+                        job.get("status").asText(),
+                        job.hasNonNull("conclusion") ? job.get("conclusion").asText() : null,
+                        job.get("html_url").asText()));
+            }
+            return jobs;
+        } catch (GitHubException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new GitHubException("Failed to parse run jobs response for: " + url, e);
+        }
+    }
+
     public StackKind detectStack(String owner, String repo, String ref) {
         if (contentExists(owner, repo, "go.mod", ref)) {
             return StackKind.go;
         }
-        String packageJson = readContent(owner, repo, "package.json", ref);
+        String packageJson = readFile(owner, repo, "package.json", ref);
         if (packageJson != null) {
             return packageJson.contains("\"next\"") ? StackKind.nextjs : StackKind.node;
         }
@@ -186,7 +217,11 @@ public class GitHubAutomationClient {
         return readRawContent(owner, repo, path, ref) != null;
     }
 
-    private String readContent(String owner, String repo, String path, String ref) {
+    /**
+     * Reads and decodes a repo file's content via the contents API, or {@code null} if it
+     * doesn't exist at {@code ref}.
+     */
+    public String readFile(String owner, String repo, String path, String ref) {
         String json = readRawContent(owner, repo, path, ref);
         if (json == null) {
             return null;

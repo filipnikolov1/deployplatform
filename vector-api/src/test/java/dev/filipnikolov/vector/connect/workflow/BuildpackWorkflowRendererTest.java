@@ -241,6 +241,60 @@ class BuildpackWorkflowRendererTest {
         assertThat(yaml).contains("extra-job:");
     }
 
+    @Test
+    void render_rootPathBuildpackJob_pathsFilterUsesDoubleStarGlobAndPackHasNoPathFlag() {
+        ModuleJob job = new ModuleJob("shop", "", BuildMode.BUILDPACK,
+                "ghcr.io/alice/shop", StackKind.nextjs, false);
+        BuildpackWorkflowRenderer.RenderSpec spec = new BuildpackWorkflowRenderer.RenderSpec(
+                "alice/shop", "main", 1, "vector-bot", List.of(job));
+
+        String yaml = renderer.render(spec);
+
+        assertThat(yaml).contains("              - '**'\n");
+        assertThat(yaml).doesNotContain("'/**'");
+        assertThat(yaml).doesNotContain("--path  \\");
+        assertThat(yaml).contains("pack build ghcr.io/alice/shop:${{ github.sha }} \\\n            --builder");
+    }
+
+    @Test
+    void render_rootPathDockerfileJob_usesDockerfileAtRootAndDotContext() {
+        ModuleJob job = new ModuleJob("shop", "", BuildMode.DOCKERFILE,
+                "ghcr.io/alice/shop", StackKind.custom, false);
+        BuildpackWorkflowRenderer.RenderSpec spec = new BuildpackWorkflowRenderer.RenderSpec(
+                "alice/shop", "main", 1, "vector-bot", List.of(job));
+
+        String yaml = renderer.render(spec);
+
+        assertThat(yaml).contains("-f Dockerfile .");
+    }
+
+    @Test
+    void render_rootPathStaticSiteJob_usesDotWebServerRoot() {
+        ModuleJob job = new ModuleJob("shop", "", BuildMode.BUILDPACK,
+                "ghcr.io/alice/shop", StackKind.static_site, false);
+        BuildpackWorkflowRenderer.RenderSpec spec = new BuildpackWorkflowRenderer.RenderSpec(
+                "alice/shop", "main", 1, "vector-bot", List.of(job));
+
+        String yaml = renderer.render(spec);
+
+        assertThat(yaml).contains("--env BP_WEB_SERVER_ROOT=.");
+    }
+
+    @Test
+    void render_rootPathJob_expectedJobsUnaffected() {
+        ModuleJob job = new ModuleJob("shop", "", BuildMode.BUILDPACK,
+                "ghcr.io/alice/shop", StackKind.nextjs, false);
+        BuildpackWorkflowRenderer.RenderSpec spec = new BuildpackWorkflowRenderer.RenderSpec(
+                "alice/shop", "main", 1, "vector-bot", List.of(job));
+
+        List<BuildpackWorkflowRenderer.ExpectedJob> expectedJobs = renderer.expectedJobs(spec);
+
+        assertThat(expectedJobs).extracting(BuildpackWorkflowRenderer.ExpectedJob::jobName)
+                .containsExactly("build-shop");
+        assertThat(expectedJobs.get(0).stepNames()).containsExactly(
+                "Checkout", "Set up pack", "Log in to GHCR", "Build (buildpacks)");
+    }
+
     private static int countOccurrences(String haystack, String needle) {
         int count = 0;
         int idx = 0;

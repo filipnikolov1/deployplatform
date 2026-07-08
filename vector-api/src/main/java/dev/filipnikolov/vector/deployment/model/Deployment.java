@@ -81,4 +81,7 @@ public class Deployment {
     @Column(name = "deploy_source", nullable = false, length = 20)
     private DeploySource deploySource = DeploySource.WEBHOOK;
 
+    @Column(name = "exposed", nullable = false)
+    private boolean exposed = true;
+
 }

@@ -342,6 +342,7 @@ public class ConnectService {
         deployment.setDeploySource(DeploySource.CONNECTED_REPO);
         deployment.setCreatedAt(LocalDateTime.now());
         deployment.setUpdatedAt(LocalDateTime.now());
+        deployment.setExposed(module.exposed());
         if (module.exposed()) {
             deployment.setSubdomain(module.subdomain());
         }

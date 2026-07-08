@@ -30,6 +30,24 @@ public interface DockerService {
     String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars, Consumer<ProgressFrame> progressCallback) throws InterruptedException;
 
     /**
+     * Same as the 5-arg overload, with {@code exposed} explicitly controlling whether Traefik
+     * router labels + port binding are attached (false = background worker: no subdomain/route).
+     */
+    String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars, boolean exposed) throws InterruptedException;
+
+    String pullAndRun(String imageName, String appName, String subdomain, int containerPort, Map<String, String> envVars, boolean exposed, Consumer<ProgressFrame> progressCallback) throws InterruptedException;
+
+    /**
+     * Pulls a Docker image (with GHCR/DockerHub auth if configured) without creating or starting
+     * a container. Used for the C14 build-event pipeline's background prefetch, so the image is
+     * already local by the time the run-completed swap runs.
+     *
+     * @param imageRef the Docker image to pull (e.g. "ghcr.io/alice/shop:abc123")
+     * @throws InterruptedException if the pull operation is interrupted
+     */
+    void pullImage(String imageRef) throws InterruptedException;
+
+    /**
      * Stops and removes a container by name. Silently ignores if the container
      * doesn't exist or is already stopped.
      *

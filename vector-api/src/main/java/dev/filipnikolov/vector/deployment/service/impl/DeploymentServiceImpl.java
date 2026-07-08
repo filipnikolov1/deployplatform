@@ -66,7 +66,7 @@ public class DeploymentServiceImpl implements DeploymentService {
                     req.appName(), req, null, null, operationId);
             dockerService.pullAndRun(req.imageName(), req.appName(),
                     deployment.getSubdomain(), deployment.getContainerPort(), envVars,
-                    frame -> progressHub.emit(operationId, frame));
+                    deployment.isExposed(), frame -> progressHub.emit(operationId, frame));
             eventService.record(DeploymentEventType.PULL_FINISHED, DeploymentEventStatus.SUCCESS,
                     req.appName(), req, null, null, operationId);
             eventService.record(DeploymentEventType.CONTAINER_CREATING, DeploymentEventStatus.IN_PROGRESS,
@@ -129,7 +129,7 @@ public class DeploymentServiceImpl implements DeploymentService {
                     appName, ctx, null, null, operationId);
             dockerService.pullAndRun(deployment.getImageName(), appName,
                     deployment.getSubdomain(), deployment.getContainerPort(), envVars,
-                    frame -> progressHub.emit(operationId, frame));
+                    deployment.isExposed(), frame -> progressHub.emit(operationId, frame));
             eventService.record(DeploymentEventType.PULL_FINISHED, DeploymentEventStatus.SUCCESS,
                     appName, ctx, null, null, operationId);
             eventService.record(DeploymentEventType.CONTAINER_CREATING, DeploymentEventStatus.IN_PROGRESS,
@@ -214,7 +214,7 @@ public class DeploymentServiceImpl implements DeploymentService {
             dockerService.pullAndRun(target.getImageName(), appName,
                     d.getSubdomain(), d.getContainerPort(),
                     projectEnvService.effectiveEnv(appName, envVarService.getEnvVars(appName)),
-                    frame -> progressHub.emit(operationId, frame));
+                    d.isExposed(), frame -> progressHub.emit(operationId, frame));
             eventService.record(DeploymentEventType.PULL_FINISHED, DeploymentEventStatus.SUCCESS,
                     appName, ctx, null, null, operationId);
             eventService.record(DeploymentEventType.CONTAINER_CREATING, DeploymentEventStatus.IN_PROGRESS,

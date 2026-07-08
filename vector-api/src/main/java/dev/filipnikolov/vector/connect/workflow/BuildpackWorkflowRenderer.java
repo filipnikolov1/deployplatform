@@ -91,16 +91,24 @@ public class BuildpackWorkflowRenderer {
         sb.append("          filters: |\n");
         for (ModuleJob job : spec.jobs()) {
             sb.append("            ").append(job.appName()).append(":\n");
-            sb.append("              - '").append(job.modulePath()).append("/**'\n");
+            sb.append("              - '").append(pathsFilterGlob(job.modulePath())).append("'\n");
             sb.append("              - '.github/workflows/vector-deploy.yml'\n");
         }
         if (hasWorkspaceBuild(spec)) {
             sb.append("            shared:\n");
             for (ModuleJob job : spec.jobs()) {
+                if (job.modulePath().isEmpty()) {
+                    throw new IllegalStateException(
+                            "Root-path module cannot be part of a workspace build: " + job.appName());
+                }
                 sb.append("              - '!").append(job.modulePath()).append("/**'\n");
             }
         }
         return sb.toString();
+    }
+
+    private String pathsFilterGlob(String modulePath) {
+        return modulePath.isEmpty() ? "**" : modulePath + "/**";
     }
 
     private String buildJobBlock(ModuleJob job, boolean workspaceRepo) {
@@ -132,7 +140,8 @@ public class BuildpackWorkflowRenderer {
         sb.append("      - name: Log in to GHCR\n");
         sb.append("        run: echo \"${{ secrets.GITHUB_TOKEN }}\" | docker login ghcr.io -u \"${{ github.actor }}\" --password-stdin\n");
         sb.append("      - name: Build (docker)\n");
-        String context = job.workspaceBuild() ? "." : job.modulePath();
+        String context = job.workspaceBuild() || job.modulePath().isEmpty() ? "." : job.modulePath();
+        String dockerfilePath = job.modulePath().isEmpty() ? "Dockerfile" : job.modulePath() + "/Dockerfile";
         // buildx + registry cache: layers survive ephemeral runners; --push replaces a
         // separate push step (template v2).
         sb.append("        run: |\n");
@@ -141,7 +150,7 @@ public class BuildpackWorkflowRenderer {
         sb.append("            -t ").append(job.imageTarget()).append(":latest \\\n");
         sb.append("            --cache-from type=registry,ref=").append(job.imageTarget()).append(":buildcache \\\n");
         sb.append("            --cache-to type=registry,ref=").append(job.imageTarget()).append(":buildcache,mode=max \\\n");
-        sb.append("            -f ").append(job.modulePath()).append("/Dockerfile ").append(context).append("\n");
+        sb.append("            -f ").append(dockerfilePath).append(" ").append(context).append("\n");
     }
 
     private void appendBuildpackSteps(StringBuilder sb, ModuleJob job) {
@@ -156,7 +165,8 @@ public class BuildpackWorkflowRenderer {
         // selector; python/custom fall back to the module-scoped --path build.
         boolean selectorApplies = job.workspaceBuild() && SELECTOR_STACKS.contains(job.stack());
         boolean rootContext = selectorApplies
-                || (job.workspaceBuild() && job.stack() == StackKind.static_site);
+                || (job.workspaceBuild() && job.stack() == StackKind.static_site)
+                || job.modulePath().isEmpty();
         if (!rootContext) {
             sb.append("            --path ").append(job.modulePath()).append(" \\\n");
         }

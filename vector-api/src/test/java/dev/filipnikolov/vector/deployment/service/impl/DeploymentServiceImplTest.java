@@ -22,6 +22,7 @@ import java.util.Map;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -81,7 +82,31 @@ class DeploymentServiceImplTest {
         service.createDeployment(req);
 
         verify(dockerService).pullAndRun(eq("img"), eq("shop-web"), eq("shop"), eq(3000),
-                eq(Map.of("FOO", "bar", "PORT", "3000")), any());
+                eq(Map.of("FOO", "bar", "PORT", "3000")), eq(true), any());
+    }
+
+    @Test
+    void createDeployment_exposedFalse_passesExposedFalseToDockerService() throws InterruptedException {
+        Deployment deployment = new Deployment();
+        deployment.setAppName("worker");
+        deployment.setContainerPort(3000);
+        deployment.setExposed(false);
+        when(txHelper.preCreate(any())).thenReturn(
+                new DeploymentTransactionHelper.LifecycleStart(deployment, "op-3"));
+        when(envVarService.getEnvVars("worker")).thenReturn(Map.of());
+        when(projectEnvService.effectiveEnv("worker", Map.of())).thenReturn(Map.of());
+        when(deploymentRepository.findByAppNameAndDeletedAtIsNull("worker"))
+                .thenReturn(java.util.Optional.of(deployment));
+
+        dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest req =
+                new dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest(
+                        "worker", null, "img", 3000, null, null, null, null, null, null,
+                        dev.filipnikolov.vector.events.TriggerSource.MANUAL);
+
+        service.createDeployment(req);
+
+        verify(dockerService).pullAndRun(eq("img"), eq("worker"), eq((String) null), eq(3000),
+                eq(Map.of()), eq(false), any());
     }
 
     @Test
@@ -102,7 +127,61 @@ class DeploymentServiceImplTest {
         service.restartDeployment("shop-web");
 
         verify(dockerService).pullAndRun(eq("img"), eq("shop-web"), eq("shop"), eq(3000),
-                eq(Map.of("FOO", "bar", "PORT", "3000")), any());
+                eq(Map.of("FOO", "bar", "PORT", "3000")), eq(true), any());
+    }
+
+    @Test
+    void handleWebhookDeployAsync_pinnedSelfApp_recordsUpdateAvailableAndDoesNotTriggerUpdate() {
+        dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest req =
+                new dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest(
+                        "vector-analyzer", null, "img:sha", null, null, null, null, null, null, null,
+                        dev.filipnikolov.vector.events.TriggerSource.AUTOMATIC);
+        ActionLockService lockService = new ActionLockService();
+        ActionLockService.LockHandle lock = lockService.tryLock("app:vector-analyzer").orElseThrow();
+
+        when(txHelper.handlePinnedWebhook(req)).thenReturn(true);
+        when(txHelper.shouldAutoTriggerSelfUpdate("vector-analyzer")).thenReturn(false);
+
+        service.handleWebhookDeployAsync(req, lock);
+
+        verify(selfAppUpdateService, never()).triggerUpdate(any());
+        verify(txHelper, never()).preCreate(any());
+    }
+
+    @Test
+    void handleWebhookDeployAsync_vectorApi_sameCarveOutAsHookPath() {
+        dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest req =
+                new dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest(
+                        "vector-api", null, "img:sha", null, null, null, null, null, null, null,
+                        dev.filipnikolov.vector.events.TriggerSource.AUTOMATIC);
+        ActionLockService lockService = new ActionLockService();
+        ActionLockService.LockHandle lock = lockService.tryLock("app:vector-api").orElseThrow();
+
+        when(txHelper.handlePinnedWebhook(req)).thenReturn(true);
+        when(txHelper.shouldAutoTriggerSelfUpdate("vector-api")).thenReturn(false);
+
+        service.handleWebhookDeployAsync(req, lock);
+
+        verify(selfAppUpdateService, never()).triggerUpdate(any());
+        verify(txHelper, never()).preCreate(any());
+    }
+
+    @Test
+    void handleWebhookDeployAsync_unpinnedEligibleSelfApp_triggersUpdateNotNormalSwap() {
+        dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest req =
+                new dev.filipnikolov.vector.deployment.dto.CreateDeploymentRequest(
+                        "vector-analyzer", null, "img:sha", null, null, null, null, null, null, null,
+                        dev.filipnikolov.vector.events.TriggerSource.AUTOMATIC);
+        ActionLockService lockService = new ActionLockService();
+        ActionLockService.LockHandle lock = lockService.tryLock("app:vector-analyzer").orElseThrow();
+
+        when(txHelper.handlePinnedWebhook(req)).thenReturn(true);
+        when(txHelper.shouldAutoTriggerSelfUpdate("vector-analyzer")).thenReturn(true);
+
+        service.handleWebhookDeployAsync(req, lock);
+
+        verify(selfAppUpdateService).triggerUpdate("vector-analyzer");
+        verify(txHelper, never()).preCreate(any());
     }
 
     @Test
